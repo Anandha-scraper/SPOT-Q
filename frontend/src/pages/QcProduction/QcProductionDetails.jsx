@@ -1,11 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Save, Loader2, RefreshCw, FileText } from 'lucide-react';
+
 import api from '../../utils/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
   // Helper: today's date in YYYY-MM-DD
   const getTodayDate = () => {
+
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, '0');
@@ -15,10 +17,19 @@ const QcProductionDetails = () => {
 
   // Helper: display DD/MM/YYYY
   const formatDisplayDate = (iso) => {
+
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
     const [y, m, d] = iso.split('-');
     return `${d}/${m}/${y}`;
   };
+
+  const REQUIRED_FIELDS = ['partName', 'noOfMoulds', 'cPercent', 'siPercent', 'mnPercent',
+    'pPercent', 'sPercent', 'mgPercent', 'cuPercent', 'crPercent',
+    'nodularity',
+    'graphiteTypeFrom', 'graphiteTypeTo',
+    'pearliteFerriteFrom', 'pearliteFerriteTo',
+    'hardnessFrom', 'hardnessTo',
+    'tsFrom', 'tsTo', 'ysFrom', 'ysTo',  'elFrom', 'elTo'];
 
   const [formData, setFormData] = useState({
     date: getTodayDate(),
@@ -33,12 +44,18 @@ const QcProductionDetails = () => {
     cuPercent: '',
     crPercent: '',
     nodularity: '',
-    graphiteType: '',
-    pearliteFerrite: '',
-    hardnessBHN: '',
-    ts: '',
-    ys: '',
-    el: ''
+    graphiteTypeFrom: '',
+    graphiteTypeTo: '',
+    pearliteFerriteFrom: '',
+    pearliteFerriteTo: '',
+    hardnessFrom: '',
+    hardnessTo: '',
+    tsFrom: '',
+    tsTo: '',
+    ysFrom: '',
+    ysTo: '',
+    elFrom: '',
+    elTo: ''
   });
 
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -50,15 +67,134 @@ const QcProductionDetails = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     // Prevent programmatic/user changes to date
     if (name === 'date') return;
+
+    // Microstructure-like numeric handling for nodularity: 0–100, up to 3 digits
+    if (name === 'nodularity') {
+      const singleNumberLoose = /^\d{0,3}$/; // up to 3 digits
+
+      if (value === '') {
+        // allow clearing but mark as invalid (required)
+        setFormData(prev => ({
+          ...prev,
+          nodularity: ''
+        }));
+        setValidationErrors(prev => ({ ...prev, nodularity: true }));
+        return;
+      }
+
+      // Only allow digits up to 3 characters
+      if (!singleNumberLoose.test(value)) {
+        setValidationErrors(prev => ({ ...prev, nodularity: true }));
+        return;
+      }
+
+      const numVal = parseInt(value, 10);
+      if (!Number.isNaN(numVal) && (numVal < 0 || numVal > 100)) {
+        setValidationErrors(prev => ({ ...prev, nodularity: true }));
+        return;
+      }
+
+      // Valid value: update and clear error
+      setFormData(prev => ({
+        ...prev,
+        nodularity: value
+      }));
+
+      setValidationErrors(prev => {
+        const next = { ...prev };
+        delete next.nodularity;
+        return next;
+      });
+      return; // skip the generic logic below
+    }
+
+    // Numeric-only handling for Graphite Type From/To, Pearlite Ferrite From/To, and Hardness From/To
+    if (
+      name === 'graphiteTypeFrom' ||
+      name === 'graphiteTypeTo' ||
+      name === 'pearliteFerriteFrom' ||
+      name === 'pearliteFerriteTo' ||
+      name === 'hardnessFrom' ||
+      name === 'hardnessTo'
+    ) {
+      const singleNumberLoose = /^\d{0,3}$/; // up to 3 digits
+
+      if (value === '') {
+        // allow clearing but mark as invalid (required)
+        setFormData(prev => ({
+          ...prev,
+          [name]: ''
+        }));
+        setValidationErrors(prev => ({ ...prev, [name]: true }));
+        return;
+      }
+
+      // Only allow digits up to 3 characters
+      if (!singleNumberLoose.test(value)) {
+        setValidationErrors(prev => ({ ...prev, [name]: true }));
+        return;
+      }
+
+      const numVal = parseInt(value, 10);
+
+      // Pearlite ferrite is a percent 0–99; others are 0–999
+      const isPearliteField = name === 'pearliteFerriteFrom' || name === 'pearliteFerriteTo';
+      const maxValue = isPearliteField ? 99 : 999;
+
+      if (!Number.isNaN(numVal) && (numVal < 0 || numVal > maxValue)) {
+        setValidationErrors(prev => ({ ...prev, [name]: true }));
+        return;
+      }
+
+      // Valid value: update and clear error
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+
+      setValidationErrors(prev => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+      return; // skip the generic logic below
+    }
+
+    let nextValue = value;
+
+    // Restrict No. of Moulds to digits only and max 5 digits (e.g. 12345)
+    if (name === 'noOfMoulds') {
+      const digitsOnly = (value || '').replace(/\D/g, '');
+
+      // If user tried to type more than 5 digits, mark as invalid
+      if (digitsOnly.length > 5) {
+        setValidationErrors(prev => ({
+          ...prev,
+          noOfMoulds: true
+        }));
+      } else if (validationErrors.noOfMoulds) {
+        // Length is back within limit (<= 5) -> clear the error
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.noOfMoulds;
+          return newErrors;
+        });
+      }
+
+      // Stored value is always at most 5 digits
+      nextValue = digitsOnly.slice(0, 5);
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: nextValue
     }));
 
-    // Clear validation error when user starts typing
-    if (validationErrors[name]) {
+    // Clear validation error when user starts typing for other fields
+    if (name !== 'noOfMoulds' && validationErrors[name]) {
       setValidationErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[name];
@@ -81,8 +217,32 @@ const QcProductionDetails = () => {
   };
 
   const handleKeyDown = (e) => {
+    const { name } = e.target;
+
+    // Block scientific-notation characters (e/E/+) and '-' for specific numeric fields, like MicroStructure
+    if ((
+          name === 'nodularity' ||
+          name === 'graphiteTypeFrom' ||
+          name === 'graphiteTypeTo' ||
+          name === 'hardnessFrom' ||
+          name === 'hardnessTo'
+        ) && ['e', 'E', '+', '-'].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
+      const fieldName = e.target.name;
+
+      if (REQUIRED_FIELDS.includes(fieldName) && !formData[fieldName]) {
+        setValidationErrors(prev => ({
+          ...prev,
+          [fieldName]: true
+        }));
+        return;
+      }
+
       const form = e.target.form;
       const inputs = Array.from(form.querySelectorAll('input, textarea'));
       const currentIndex = inputs.indexOf(e.target);
@@ -107,24 +267,42 @@ const QcProductionDetails = () => {
   };
 
   const handleSubmit = async () => {
-    const required = ['partName', 'noOfMoulds', 'cPercent', 'siPercent', 'mnPercent',
-                     'pPercent', 'sPercent', 'mgPercent', 'cuPercent', 'crPercent',
-                     'nodularity', 'graphiteType', 'pearliteFerrite', 'hardnessBHN', 'ts', 'ys', 'el'];
-    const missing = required.filter(field => !formData[field]);
+    const missing = REQUIRED_FIELDS.filter(field => !formData[field]);
 
     // Set validation errors for missing fields
     const errors = {};
+
     missing.forEach(field => {
       errors[field] = true;
     });
-    setValidationErrors(errors);
 
-    if (missing.length > 0) {
-      return;
+    // Range validation for nodularity: must be 0–100
+    const nodVal = parseFloat(formData.nodularity);
+    if (isNaN(nodVal) || nodVal < 0 || nodVal > 100) {
+      errors.nodularity = true;
     }
 
-    // Clear validation errors if all fields are valid
-    setValidationErrors({});
+    // Range validation for graphiteType and hardnessBHN: must be 0–999
+    const graphVal = parseFloat(formData.graphiteType);
+    if (isNaN(graphVal) || graphVal < 0 || graphVal > 999) {
+      errors.graphiteType = true;
+    }
+
+    const hardnessVal = parseFloat(formData.hardnessBHN);
+    if (isNaN(hardnessVal) || hardnessVal < 0 || hardnessVal > 999) {
+      errors.hardnessBHN = true;
+    }
+
+    // If noOfMoulds currently has a length error, keep it marked
+    if (validationErrors.noOfMoulds) {
+      errors.noOfMoulds = true;
+    }
+
+    setValidationErrors(errors);
+    // Block submit if any errors exist (missing or length rule)
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
     try {
       setSubmitLoading(true);
@@ -179,7 +357,8 @@ const QcProductionDetails = () => {
       <form className="qcproduction-form-grid">
 
             <div className="qcproduction-form-group">
-              <label>Part Name *</label>
+              <label>Part Name <span className="required-asterisk">*</span></label>
+
               <input
                 ref={firstInputRef}
                 type="text"
@@ -193,7 +372,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>No. of Moulds *</label>
+              <label>No. of Moulds <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="noOfMoulds"
@@ -207,7 +387,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>C % *</label>
+              <label>C % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="cPercent"
@@ -222,7 +403,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Si % *</label>
+              <label>Si % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="siPercent"
@@ -237,7 +419,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Mn % *</label>
+              <label>Mn % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="mnPercent"
@@ -252,7 +435,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>P % *</label>
+              <label>P % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="pPercent"
@@ -267,7 +451,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>S % *</label>
+              <label>S % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="sPercent"
@@ -282,7 +467,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Mg % *</label>
+              <label>Mg % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="mgPercent"
@@ -297,7 +483,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Cu % *</label>
+              <label>Cu % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="cuPercent"
@@ -312,7 +499,8 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Cr % *</label>
+              <label>Cr % <span className="required-asterisk">*</span></label>
+
               <input
                 type="number"
                 name="crPercent"
@@ -327,97 +515,203 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Nodularity *</label>
+              <label>Nodularity % <span className="required-asterisk">*</span></label>
+
               <input
-                type="text"
+                type="number"
                 name="nodularity"
                 value={formData.nodularity}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 85%"
+                min="0"
+                max="100"
+                step="1"
+                placeholder="e.g: 85"
                 className={validationErrors.nodularity ? 'invalid-input' : ''}
               />
             </div>
 
             <div className="qcproduction-form-group">
-              <label>Graphite Type *</label>
-              <input
-                type="text"
-                name="graphiteType"
-                value={formData.graphiteType}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: Type VI"
-                className={validationErrors.graphiteType ? 'invalid-input' : ''}
-              />
-            </div>
+              <label>Graphite Type % <span className="required-asterisk">*</span></label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+             <input
+              type="number"
+              name="graphiteTypeFrom"
+              value={formData.graphiteTypeFrom}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              min="0"
+              max="999"
+              step="1"
+              placeholder="From"
+              className={validationErrors.graphiteTypeFrom ? 'invalid-input' : ''}
+               />
+             <input
+              type="number"
+              name="graphiteTypeTo"
+              value={formData.graphiteTypeTo}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              min="0"
+              max="999"
+              step="1"
+              placeholder="To"
+              className={validationErrors.graphiteTypeTo ? 'invalid-input' : ''}
+               />
+              </div>
+           </div>
 
             <div className="qcproduction-form-group">
-              <label>Pearlite Ferrite *</label>
-              <input
-                type="text"
-                name="pearliteFerrite"
-                value={formData.pearliteFerrite}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: 80/20"
-                className={validationErrors.pearliteFerrite ? 'invalid-input' : ''}
-              />
-            </div>
+  <label>Pearlite Ferrite % <span className="required-asterisk">*</span></label>
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <input
+      type="number"
+      name="pearliteFerriteFrom"
+      value={formData.pearliteFerriteFrom}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="999"
+      step="1"
+      placeholder="From"
+      className={validationErrors.pearliteFerriteFrom ? 'invalid-input' : ''}
+    />
+    <input
+      type="number"
+      name="pearliteFerriteTo"
+      value={formData.pearliteFerriteTo}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="999"
+      step="1"
+      placeholder="To"
+      className={validationErrors.pearliteFerriteTo ? 'invalid-input' : ''}
+    />
+  </div>
+</div>
 
             <div className="qcproduction-form-group">
-              <label>Hardness BHN *</label>
-              <input
-                type="number"
-                name="hardnessBHN"
-                value={formData.hardnessBHN}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: 220"
-                className={validationErrors.hardnessBHN ? 'invalid-input' : ''}
-              />
-            </div>
+  <label>Hardness BHN <span className="required-asterisk">*</span></label>
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <input
+      type="number"
+      name="hardnessFrom"
+      value={formData.hardnessFrom}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="999"
+      step="1"
+      placeholder="From"
+      className={validationErrors.hardnessFrom ? 'invalid-input' : ''}
+    />
+    <input
+      type="number"
+      name="hardnessTo"
+      value={formData.hardnessTo}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="999"
+      step="1"
+      placeholder="To"
+      className={validationErrors.hardnessTo ? 'invalid-input' : ''}
+    />
+  </div>
+</div>
 
             <div className="qcproduction-form-group">
-              <label>TS (Tensile Strength) *</label>
-              <input
-                type="text"
-                name="ts"
-                value={formData.ts}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: 550"
-                className={validationErrors.ts ? 'invalid-input' : ''}
-              />
-            </div>
+  <label>TS (Tensile Strength) <span className="required-asterisk">*</span></label>
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <input
+      type="number"
+      name="tsFrom"
+      value={formData.tsFrom}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="From"
+      className={validationErrors.tsFrom ? 'invalid-input' : ''}
+    />
+    <input
+      type="number"
+      name="tsTo"
+      value={formData.tsTo}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="To"
+      className={validationErrors.tsTo ? 'invalid-input' : ''}
+    />
+  </div>
+</div>
+           <div className="qcproduction-form-group">
+  <label>YS (Yield Strength) <span className="required-asterisk">*</span></label>
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <input
+      type="number"
+      name="ysFrom"
+      value={formData.ysFrom}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="From"
+      className={validationErrors.ysFrom ? 'invalid-input' : ''}
+    />
+    <input
+      type="number"
+      name="ysTo"
+      value={formData.ysTo}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="To"
+      className={validationErrors.ysTo ? 'invalid-input' : ''}
+    />
+  </div>
+</div>
 
-            <div className="qcproduction-form-group">
-              <label>YS (Yield Strength) *</label>
-              <input
-                type="text"
-                name="ys"
-                value={formData.ys}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: 460"
-                className={validationErrors.ys ? 'invalid-input' : ''}
-              />
-            </div>
-
-            <div className="qcproduction-form-group">
-              <label>EL (Elongation) *</label>
-              <input
-                type="text"
-                name="el"
-                value={formData.el}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g: 18"
-                className={validationErrors.el ? 'invalid-input' : ''}
-              />
-            </div>
-      </form>
+<div className="qcproduction-form-group">
+  <label>EL (Elongation) <span className="required-asterisk">*</span></label>
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <input
+      type="number"
+      name="elFrom"
+      value={formData.elFrom}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="99"
+      step="1"
+      placeholder="From"
+      className={validationErrors.elFrom ? 'invalid-input' : ''}
+    />
+    <input
+      type="number"
+      name="elTo"
+      value={formData.elTo}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      min="0"
+      max="99"
+      step="1"
+      placeholder="To"
+      className={validationErrors.elTo ? 'invalid-input' : ''}
+    />
+  </div>
+</div>
+            
 
       <div className="qcproduction-submit-container" style={{ justifyContent: 'flex-end' }}>
         <button 
@@ -432,6 +726,7 @@ const QcProductionDetails = () => {
           {submitLoading ? 'Saving...' : 'Submit All'}
         </button>
       </div>
+      </form>
     </>
   );
 };

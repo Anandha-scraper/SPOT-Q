@@ -111,9 +111,99 @@ const SandTestingRecordReport = () => {
     ShiftI: { mixnoStart: '', mixnoEnd: '', mixnoTotal: '', numberOfMixRejected: '', returnSandHopperLevel: '' },
     ShiftII: { mixnoStart: '', mixnoEnd: '', mixnoTotal: '', numberOfMixRejected: '', returnSandHopperLevel: '' },
     ShiftIII: { mixnoStart: '', mixnoEnd: '', mixnoTotal: '', numberOfMixRejected: '', returnSandHopperLevel: '' },
-    total: { mixnoStart: '', mixnoEnd: '', mixnoTotal: '', numberOfMixRejected: '' }
+    total: { mixnoStart: '', mixnoEnd: '', mixnoTotal: '', numberOfMixRejected: '', returnSandHopperLevel: '' }
   });
   const [t3EditMeta, setT3EditMeta] = useState({ id: null, date: null });
+
+  // Auto-calculate totals when shift values change
+  useEffect(() => {
+    if (!t3EditModalOpen) return;
+    
+    const calculateTotal = (field) => {
+      const s1 = parseFloat(t3EditForm.ShiftI[field] || 0) || 0;
+      const s2 = parseFloat(t3EditForm.ShiftII[field] || 0) || 0;
+      const s3 = parseFloat(t3EditForm.ShiftIII[field] || 0) || 0;
+      const total = s1 + s2 + s3;
+      console.log(`Calculating ${field}:`, { s1, s2, s3, total });
+      return total > 0 ? total.toString() : '';
+    };
+
+    // Calculate mixnoTotal for each shift (end - start)
+    const calculateMixnoTotal = (shift) => {
+      if (!shift) return '';
+      const start = parseFloat(shift.mixnoStart || 0) || 0;
+      const end = parseFloat(shift.mixnoEnd || 0) || 0;
+      const total = end - start;
+      return total > 0 ? total.toString() : '';
+    };
+
+    // Update individual shift totals
+    const updatedShifts = {
+      ShiftI: {
+        ...t3EditForm.ShiftI,
+        mixnoTotal: calculateMixnoTotal(t3EditForm.ShiftI)
+      },
+      ShiftII: {
+        ...t3EditForm.ShiftII,
+        mixnoTotal: calculateMixnoTotal(t3EditForm.ShiftII)
+      },
+      ShiftIII: {
+        ...t3EditForm.ShiftIII,
+        mixnoTotal: calculateMixnoTotal(t3EditForm.ShiftIII)
+      }
+    };
+
+    // Calculate total row
+    const newTotal = {
+      ...t3EditForm.total,
+      mixnoStart: calculateTotal('mixnoStart'),
+      mixnoEnd: calculateTotal('mixnoEnd'),
+      mixnoTotal: (() => {
+        const s1 = parseFloat(updatedShifts.ShiftI.mixnoTotal || 0) || 0;
+        const s2 = parseFloat(updatedShifts.ShiftII.mixnoTotal || 0) || 0;
+        const s3 = parseFloat(updatedShifts.ShiftIII.mixnoTotal || 0) || 0;
+        const total = s1 + s2 + s3;
+        return total > 0 ? total.toString() : '';
+      })(),
+      returnSandHopperLevel: calculateTotal('returnSandHopperLevel')
+    };
+
+    // Only update if there are actual changes to prevent infinite loops
+    const shouldUpdate = 
+      JSON.stringify(newTotal) !== JSON.stringify(t3EditForm.total) ||
+      JSON.stringify(updatedShifts) !== JSON.stringify({
+        ShiftI: { mixnoTotal: t3EditForm.ShiftI.mixnoTotal },
+        ShiftII: { mixnoTotal: t3EditForm.ShiftII.mixnoTotal },
+        ShiftIII: { mixnoTotal: t3EditForm.ShiftIII.mixnoTotal }
+      });
+
+    if (shouldUpdate) {
+      console.log('Updating form state:', {
+        shifts: updatedShifts,
+        newTotal
+      });
+      setT3EditForm(prev => ({
+        ...prev,
+        ...updatedShifts,
+        total: newTotal
+      }));
+    }
+  }, [
+    t3EditForm.ShiftI.mixnoStart,
+    t3EditForm.ShiftII.mixnoStart,
+    t3EditForm.ShiftIII.mixnoStart,
+    t3EditForm.ShiftI.mixnoEnd,
+    t3EditForm.ShiftII.mixnoEnd,
+    t3EditForm.ShiftIII.mixnoEnd,
+    t3EditForm.ShiftI.returnSandHopperLevel,
+    t3EditForm.ShiftII.returnSandHopperLevel,
+    t3EditForm.ShiftIII.returnSandHopperLevel,
+    t3EditModalOpen,
+    t3EditForm.total.mixnoStart,
+    t3EditForm.total.mixnoEnd,
+    t3EditForm.total.mixnoTotal,
+    t3EditForm.total.returnSandHopperLevel
+  ]);
 
   const [t4EditModalOpen, setT4EditModalOpen] = useState(false);
   const [t4EditForm, setT4EditForm] = useState({ sandLump: '', newSandWt: '', sandFriability: { shiftI: '', shiftII: '', shiftIII: '' } });
@@ -276,7 +366,7 @@ const SandTestingRecordReport = () => {
       ShiftI: { mixnoStart: s1?.mixno?.start || '', mixnoEnd: s1?.mixno?.end || '', mixnoTotal: s1?.mixno?.total || '', numberOfMixRejected: s1.numberOfMixRejected || '', returnSandHopperLevel: s1.returnSandHopperLevel || '' },
       ShiftII: { mixnoStart: s2?.mixno?.start || '', mixnoEnd: s2?.mixno?.end || '', mixnoTotal: s2?.mixno?.total || '', numberOfMixRejected: s2.numberOfMixRejected || '', returnSandHopperLevel: s2.returnSandHopperLevel || '' },
       ShiftIII: { mixnoStart: s3?.mixno?.start || '', mixnoEnd: s3?.mixno?.end || '', mixnoTotal: s3?.mixno?.total || '', numberOfMixRejected: s3.numberOfMixRejected || '', returnSandHopperLevel: s3.returnSandHopperLevel || '' },
-      total: { mixnoStart: total?.mixno?.start || '', mixnoEnd: total?.mixno?.end || '', mixnoTotal: total?.mixno?.total || '', numberOfMixRejected: total?.numberOfMixRejected || '' }
+      total: { mixnoStart: total?.mixno?.start || '', mixnoEnd: total?.mixno?.end || '', mixnoTotal: total?.mixno?.total || '', numberOfMixRejected: total?.numberOfMixRejected || '', returnSandHopperLevel: total?.returnSandHopperLevel || '' }
     });
     setT3EditMeta({ id: rec?._id || rec?.id || null, date: rec?.date || null });
     setT3EditModalOpen(true);
@@ -304,7 +394,7 @@ const SandTestingRecordReport = () => {
           returnSandHopperLevel: toNum(t3EditForm.ShiftIII.returnSandHopperLevel)
         },
         // Include totals so they can be stored if backend supports it
-        total: { mixno: { start: t3EditForm.total.mixnoStart, end: t3EditForm.total.mixnoEnd, total: t3EditForm.total.mixnoTotal }, numberOfMixRejected: toNum(t3EditForm.total.numberOfMixRejected) }
+        total: { mixno: { start: t3EditForm.total.mixnoStart, end: t3EditForm.total.mixnoEnd, total: t3EditForm.total.mixnoTotal }, numberOfMixRejected: toNum(t3EditForm.total.numberOfMixRejected), returnSandHopperLevel: toNum(t3EditForm.total.returnSandHopperLevel) }
       };
       const payload = { tableNum: 3, data };
       const res = await api.post('/v1/sand-testing-records/table3', payload);
@@ -554,10 +644,17 @@ const SandTestingRecordReport = () => {
       // GCS: clear both by default to 0 so backend $set overwrites previous values
       data.gcsFdyA = 0;
       data.gcsFdyB = 0;
-      if (td.gcsCheckpoint === 'fdyA' && td.gcsValue !== '' && !Number.isNaN(Number(td.gcsValue))) {
-        data.gcsFdyA = Number(td.gcsValue);
-      } else if (td.gcsCheckpoint === 'fdyB' && td.gcsValue !== '' && !Number.isNaN(Number(td.gcsValue))) {
-        data.gcsFdyB = Number(td.gcsValue);
+      
+      // Only set the selected checkpoint's value if gcsValue is a valid number
+      if (td.gcsCheckpoint && td.gcsValue !== '' && !isNaN(td.gcsValue)) {
+        const numValue = parseFloat(td.gcsValue);
+        if (td.gcsCheckpoint === 'fdyA') {
+          data.gcsFdyA = numValue;
+          data.gcsFdyB = 0; // Explicitly set the other to 0
+        } else if (td.gcsCheckpoint === 'fdyB') {
+          data.gcsFdyB = numValue;
+          data.gcsFdyA = 0; // Explicitly set the other to 0
+        }
       }
 
       data.wts = num(td.wts);
@@ -1518,47 +1615,166 @@ const SandTestingRecordReport = () => {
                       const rid = rec?._id || rec?.id;
                       const isEditing = t3EditModalOpen && t3EditMeta?.id === rid;
                       const inputStyle = { width: '100%', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: 6 };
-                      const renderCell = (val, onChange) => !isEditing ? String(val ?? '') : (
-                        <input value={val ?? ''} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
-                      );
+                      const renderCell = (val, onChange, readOnly = false) => {
+                        if (!isEditing) return String(val ?? '');
+                        
+                        return (
+                          <input 
+                            value={val ?? ''} 
+                            onChange={(e) => {
+                              console.log('Input changed:', e.target.value);
+                              onChange(e.target.value);
+                            }} 
+                            style={inputStyle} 
+                            readOnly={readOnly}
+                            type="number"
+                            step="any"
+                          />
+                        );
+                      };
                       const rows = ['ShiftI','ShiftII','ShiftIII'];
+                      // Helper function to get computed total from shift data
+                      const getComputedTotal = (field) => {
+                        console.log('getComputedTotal called with field:', field, 'isEditing:', isEditing);
+                        // In edit mode, use the form state values
+                        if (isEditing) {
+                          const value = field === 'mixno.start' 
+                            ? t3EditForm.total.mixnoStart 
+                            : field === 'returnSandHopperLevel' 
+                              ? t3EditForm.total.returnSandHopperLevel 
+                              : '';
+                          console.log('Returning from edit mode:', value);
+                          return value || '';
+                        }
+                        
+                        // In view mode, calculate from the record data
+                        if (field === 'mixno.start') {
+                          const s1 = Number(getAt(rec, 'mixshifts.ShiftI.mixno.start') || 0) || 0;
+                          const s2 = Number(getAt(rec, 'mixshifts.ShiftII.mixno.start') || 0) || 0;
+                          const s3 = Number(getAt(rec, 'mixshifts.ShiftIII.mixno.start') || 0) || 0;
+                          const total = s1 + s2 + s3;
+                          return total > 0 ? String(total) : '';
+                        }
+                        if (field === 'returnSandHopperLevel') {
+                          const s1 = Number(getAt(rec, 'mixshifts.ShiftI.returnSandHopperLevel') || 0) || 0;
+                          const s2 = Number(getAt(rec, 'mixshifts.ShiftII.returnSandHopperLevel') || 0) || 0;
+                          const s3 = Number(getAt(rec, 'mixshifts.ShiftIII.returnSandHopperLevel') || 0) || 0;
+                          const total = s1 + s2 + s3;
+                          return total > 0 ? String(total) : '';
+                        }
+                        return '';
+                      };
                       return (
                         <>
                           {rows.map((k, i) => (
                             <tr key={k}>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', whiteSpace: 'nowrap' }}>{i === 0 ? 'I' : i === 1 ? 'II' : 'III'}</td>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
-                                {renderCell(getAt(rec, `mixshifts.${k}.mixno.start`) || '', v => setT3EditForm(p => ({ ...p, [k]: { ...p[k], mixnoStart: v } })))}
+                                {renderCell(
+                                  isEditing ? t3EditForm[k]?.mixnoStart || '' : getAt(rec, `mixshifts.${k}.mixno.start`) || '', 
+                                  v => {
+                                    console.log('Updating mixnoStart for', k, 'to', v);
+                                    setT3EditForm(p => ({
+                                      ...p,
+                                      [k]: {
+                                        ...p[k],
+                                        mixnoStart: v
+                                      }
+                                    }));
+                                  }
+                                )}
                               </td>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
-                                {renderCell(getAt(rec, `mixshifts.${k}.mixno.end`) || '', v => setT3EditForm(p => ({ ...p, [k]: { ...p[k], mixnoEnd: v } })))}
+                                {renderCell(
+                                  isEditing ? t3EditForm[k]?.mixnoEnd || '' : getAt(rec, `mixshifts.${k}.mixno.end`) || '', 
+                                  v => {
+                                    console.log('Updating mixnoEnd for', k, 'to', v);
+                                    setT3EditForm(p => ({
+                                      ...p,
+                                      [k]: {
+                                        ...p[k],
+                                        mixnoEnd: v
+                                      }
+                                    }));
+                                  }
+                                )}
                               </td>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
-                                {renderCell(getAt(rec, `mixshifts.${k}.mixno.total`) || '', v => setT3EditForm(p => ({ ...p, [k]: { ...p[k], mixnoTotal: v } })))}
+                                {isEditing ? (
+                                  <div style={{ padding: '6px 8px' }}>{t3EditForm[k]?.mixnoTotal || ''}</div>
+                                ) : (
+                                  getAt(rec, `mixshifts.${k}.mixno.total`) || ''
+                                )}
                               </td>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
-                                {renderCell(getAt(rec, `mixshifts.${k}.numberOfMixRejected`) || '', v => setT3EditForm(p => ({ ...p, [k]: { ...p[k], numberOfMixRejected: v } })))}
+                                {renderCell(
+                                  isEditing ? t3EditForm[k]?.numberOfMixRejected || '' : getAt(rec, `mixshifts.${k}.numberOfMixRejected`) || '', 
+                                  v => {
+                                    console.log('Updating numberOfMixRejected for', k, 'to', v);
+                                    setT3EditForm(p => ({
+                                      ...p,
+                                      [k]: {
+                                        ...p[k],
+                                        numberOfMixRejected: v
+                                      }
+                                    }));
+                                  }
+                                )}
                               </td>
                               <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
-                                {renderCell(getAt(rec, `mixshifts.${k}.returnSandHopperLevel`) || '', v => setT3EditForm(p => ({ ...p, [k]: { ...p[k], returnSandHopperLevel: v } })))}
+                                {renderCell(
+                                  isEditing ? t3EditForm[k]?.returnSandHopperLevel || '' : getAt(rec, `mixshifts.${k}.returnSandHopperLevel`) || '', 
+                                  v => {
+                                    console.log('Updating returnSandHopperLevel for', k, 'to', v);
+                                    setT3EditForm(p => ({
+                                      ...p,
+                                      [k]: {
+                                        ...p[k],
+                                        returnSandHopperLevel: v
+                                      }
+                                    }));
+                                  }
+                                )}
                               </td>
                             </tr>
                           ))}
                           <tr>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb', fontWeight: 600 }}>Total</td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}>
-                              {renderCell(getAt(rec, 'mixshifts.total.mixno.start') || '', v => setT3EditForm(p => ({ ...p, total: { ...p.total, mixnoStart: v } })))}
+                              {isEditing ? (
+                                <div>{t3EditForm.total.mixnoStart || '0'}</div>
+                              ) : (
+                                getComputedTotal('mixno.start') || '0'
+                              )}
                             </td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}>
-                              {renderCell(getAt(rec, 'mixshifts.total.mixno.end') || '', v => setT3EditForm(p => ({ ...p, total: { ...p.total, mixnoEnd: v } })))}
+                              {isEditing ? (
+                                <div>{t3EditForm.total.mixnoEnd || '0'}</div>
+                              ) : (
+                                getComputedTotal('mixno.end') || '0'
+                              )}
                             </td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}>
-                              {renderCell(getAt(rec, 'mixshifts.total.mixno.total') || '', v => setT3EditForm(p => ({ ...p, total: { ...p.total, mixnoTotal: v } })))}
+                              {isEditing ? (
+                                <div>{t3EditForm.total.mixnoTotal || '0'}</div>
+                              ) : (
+                                getComputedTotal('mixno.total') || '0'
+                              )}
                             </td>
                             <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}>
-                              {renderCell(getAt(rec, 'mixshifts.total.numberOfMixRejected') || '', v => setT3EditForm(p => ({ ...p, total: { ...p.total, numberOfMixRejected: v } })))}
+                              {isEditing ? (
+                                <div>{t3EditForm.total.numberOfMixRejected || '0'}</div>
+                              ) : (
+                                getComputedTotal('numberOfMixRejected') || '0'
+                              )}
                             </td>
-                            <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}></td>
+                            <td style={{ padding: '8px 10px', borderTop: '1px solid #e5e7eb' }}>
+                              {isEditing ? (
+                                <div>{t3EditForm.total.returnSandHopperLevel || '0'}</div>
+                              ) : (
+                                getComputedTotal('returnSandHopperLevel') || '0'
+                              )}
+                            </td>
                           </tr>
                         </>
                       );
@@ -1649,58 +1865,66 @@ const SandTestingRecordReport = () => {
                   </div>
                 </div>
 
-                {/* Top: Sand Lump & New Sand Wt */}
-                <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+                <div style={{ display: 'flex', padding: '12px', gap: '16px' }}>
+                  {/* Left Side: Sand Lump & New Sand Wt */}
+                  <div style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div>
-                      <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>Sand Lump</div>
+                      <div style={{ fontSize: 13, color: '#334155', marginBottom: 4, fontWeight: 500 }}>Sand Lump</div>
                       {!isEditing ? (
-                        <div>{String(val('sandLump', ''))}</div>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: 4, minHeight: '32px', display: 'flex', alignItems: 'center' }}>
+                          {String(val('sandLump', '-'))}
+                        </div>
                       ) : (
-                        <input value={t4EditForm.sandLump ?? ''} onChange={(e) => setT4EditForm(p => ({ ...p, sandLump: e.target.value }))} style={inputStyle} />
+                        <input 
+                          value={t4EditForm.sandLump ?? ''} 
+                          onChange={(e) => setT4EditForm(p => ({ ...p, sandLump: e.target.value }))} 
+                          style={{ ...inputStyle, width: '100%' }} 
+                        />
                       )}
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>New Sand Wt</div>
+                      <div style={{ fontSize: 13, color: '#334155', marginBottom: 4, fontWeight: 500 }}>New Sand Wt</div>
                       {!isEditing ? (
-                        <div>{String(val('newSandWt', ''))}</div>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: 4, minHeight: '32px', display: 'flex', alignItems: 'center' }}>
+                          {String(val('newSandWt', '-'))}
+                        </div>
                       ) : (
-                        <input value={t4EditForm.newSandWt ?? ''} onChange={(e) => setT4EditForm(p => ({ ...p, newSandWt: e.target.value }))} style={inputStyle} />
+                        <input 
+                          value={t4EditForm.newSandWt ?? ''} 
+                          onChange={(e) => setT4EditForm(p => ({ ...p, newSandWt: e.target.value }))} 
+                          style={{ ...inputStyle, width: '100%' }}
+                        />
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Bottom: Friability by Shift */}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>Shift</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>I</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>II</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', background: '#f1f5f9', borderBottom: '1px solid #e5e7eb' }}>III</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', whiteSpace: 'nowrap' }}>Prepared Sand Friability (8.0 - 13.0 %)</td>
-                        {['shiftI','shiftII','shiftIII'].map(sk => (
-                          <td key={sk} style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7' }}>
+                  {/* Right Side: Friability by Shift */}
+                  <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, textAlign: 'center' }}>Prepared Sand Friability (8.0 - 13.0 %)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {['shiftI', 'shiftII', 'shiftIII'].map((sk, idx) => (
+                        <div key={sk} style={{ border: '1px solid #e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ background: '#f1f5f9', padding: '6px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 500, textAlign: 'center', fontSize: 13 }}>
+                            {['Shift I', 'Shift II', 'Shift III'][idx]}
+                          </div>
+                          <div style={{ padding: '8px', textAlign: 'center', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {!isEditing ? (
-                              String(getAt(rec, `sandFriability.${sk}`) || '')
+                              <div>{String(getAt(rec, `sandFriability.${sk}`) || '-')}</div>
                             ) : (
                               <input
                                 value={t4EditForm.sandFriability?.[sk] ?? ''}
-                                onChange={(e) => setT4EditForm(p => ({ ...p, sandFriability: { ...(p.sandFriability || {}), [sk]: e.target.value } }))}
-                                style={inputStyle}
+                                onChange={(e) => setT4EditForm(p => ({
+                                  ...p,
+                                  sandFriability: { ...(p.sandFriability || {}), [sk]: e.target.value }
+                                }))}
+                                style={{ ...inputStyle, textAlign: 'center', width: '100%', padding: '4px 6px' }}
                               />
                             )}
-                          </td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -1711,7 +1935,9 @@ const SandTestingRecordReport = () => {
   };
 
   const getTable5Data = () => {
-    const src = (() => { const s = getRecordsForModalBySingleDate(); return s.length ? s : displayRecords; })();
+    const src = getRecordsForModalBySingleDate();
+    if (!src.length) return [];
+    
     const mapRecord = (rec) => {
       const obj = { __rec: rec };
       const tp = rec.testParameter || {};
@@ -1940,7 +2166,35 @@ const SandTestingRecordReport = () => {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 13, color: '#334155', marginBottom: 4 }}>GCS Value</label>
-                  <input type="number" value={editForm.gcsValue} onChange={(e) => setEditForm(p => ({ ...p, gcsValue: e.target.value }))} className="sand-table5-input" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.gcsValue ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty string or valid number
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setEditForm(p => ({ ...p, gcsValue: value }));
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Format the value on blur
+                      const value = e.target.value;
+                      if (value !== '') {
+                        const min = editForm.gcsCheckpoint === 'fdyA' ? 1800 : 
+                                  editForm.gcsCheckpoint === 'fdyB' ? 1900 : 0;
+                        if (Number(value) < min) {
+                          alert(`Value must be at least ${min} for ${editForm.gcsCheckpoint}`);
+                          setEditForm(p => ({ ...p, gcsValue: '' }));
+                        }
+                      }
+                    }}
+                    placeholder={editForm.gcsCheckpoint === 'fdyA' ? 'FDY-A value (Min 1800)' : 
+                               editForm.gcsCheckpoint === 'fdyB' ? 'FDY-B value (Min 1900)' : 
+                               'Select checkpoint first'}
+                    className="sand-table5-input"
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 13, color: '#334155', marginBottom: 4 }}>Bentonite Checkpoint</label>
@@ -2022,7 +2276,7 @@ const SandTestingRecordReport = () => {
         </div>
 
         {/* Row 1: Table 1 and Table 2 side-by-side */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 16, marginTop: 16 }}>
+        <div className="sand-tables-equal-height">
           <div>{renderTable1Inline()}</div>
           <div>{renderTable2Inline()}</div>
         </div>

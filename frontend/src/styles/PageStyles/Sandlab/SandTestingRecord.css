@@ -810,9 +810,40 @@
   min-width: 0;
 }
 
-/* Avoid select text being hidden under the native arrow */
-select.sand-table5-input {
-  padding-right: 2rem;
+/* Style for select dropdowns - increased specificity */
+.sand-table5-form-group select.sand-table5-input,
+.sand-input-combo select.sand-table5-input,
+.sand-input-combo-3 select.sand-table5-input {
+  padding-right: 2rem !important;
+  font-size: 0.75rem !important; /* Further reduced from 0.85rem */
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  min-height: 2.5rem !important;
+  line-height: 1.1 !important; /* Slightly reduced line height */
+  -webkit-appearance: menulist !important;
+  -moz-appearance: menulist !important;
+  appearance: menulist !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+/* Style for dropdown options */
+.sand-table5-form-group select.sand-table5-input option,
+.sand-input-combo select.sand-table5-input option,
+.sand-input-combo-3 select.sand-table5-input option {
+  font-size: 0.85rem !important;
+  white-space: normal !important;
+  padding: 0.5rem !important;
+  display: block;
+  min-height: 1.5rem;
+  line-height: 1.5;
+}
+
+/* Ensure the dropdown button text is also styled */
+.sand-table5-form-group select.sand-table5-input:not(:focus) {
+  color: inherit !important;
 }
 
 @media (max-width: 768px) {
@@ -914,4 +945,37 @@ select.sand-table5-input {
   .sand-table5-flex-container {
     flex-direction: column;
   }
+}
+
+/* Input with unit styling */
+.sand-input-with-unit {
+  position: relative;
+  width: 100%;
+}
+
+.sand-input-unit {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 0.8rem;
+  pointer-events: none;
+  background: #f8fafc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Adjust input padding to prevent text under the unit */
+.sand-input-with-unit .sand-table5-input {
+  padding-right: 4rem !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Make sure the input combo handles the unit correctly */
+.sand-input-combo .sand-input-with-unit {
+  flex: 1;
+  min-width: 0;
 }

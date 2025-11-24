@@ -139,6 +139,119 @@
   height: 16px;
 }
 
+/* Equal height alignment for Table 1 and Table 2 - Smart: Natural for empty, Equal for data */
+.sand-tables-equal-height {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  align-items: stretch; /* Equal height for data-filled tables */
+}
+
+.sand-tables-equal-height > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Equal height for data */
+}
+
+.sand-tables-equal-height > div > div {
+  flex: 1; /* Equal height for data */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Equal height for data */
+}
+
+.sand-tables-equal-height > div > div > div {
+  flex: 1; /* Equal height for data */
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Equal height for data */
+}
+
+.sand-tables-equal-height table {
+  width: 100%;
+  border-collapse: collapse;
+  height: 100%; /* Equal height for data */
+  border: 1px solid #e5e7eb; /* Light outer border */
+}
+
+/* Light grid lines for all tables - More specific with !important */
+.sand-tables-equal-height table th,
+.sand-tables-equal-height table td {
+  border: 1px solid #e5e7eb !important; /* Darker grid lines */
+  padding: 12px 14px !important;
+  text-align: left !important;
+}
+
+/* Additional universal table styles to catch any tables */
+.sand-testing-report-container table,
+.sand-testing-report-container table th,
+.sand-testing-report-container table td {
+  border: 1px solid #e5e7eb !important; /* Darker grid lines */
+  border-collapse: collapse !important;
+}
+
+.sand-testing-report-container table {
+  border: 1px solid #d1d5db !important; /* Darker outer border */
+}
+
+/* Header styling with slightly darker top border */
+.sand-tables-equal-height table th {
+  background-color: #f9fafb !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  border-top: 1px solid #e5e7eb !important; /* Darker top border for header */
+}
+
+/* Alternating row colors for better readability */
+.sand-tables-equal-height table tbody tr:nth-child(even) {
+  background-color: #fafbfc !important;
+}
+
+.sand-tables-equal-height table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Ensure consistent header height */
+.sand-tables-equal-height table thead {
+  display: table-header-group;
+}
+
+.sand-tables-equal-height table thead tr {
+  display: table-row;
+}
+
+.sand-tables-equal-height table thead th {
+  display: table-cell;
+  vertical-align: middle;
+  height: auto; /* Let header be natural height */
+}
+
+/* Ensure body fills remaining space for data, but natural for empty */
+.sand-tables-equal-height table tbody {
+  display: table-row-group;
+  flex: 1; /* Equal height for data */
+  height: 100%; /* Equal height for data */
+}
+
+.sand-tables-equal-height table tr {
+  display: table-row;
+}
+
+.sand-tables-equal-height table td,
+.sand-tables-equal-height table th {
+  display: table-cell;
+  vertical-align: top;
+}
+
+/* Ensure "No record found" message matches Table 3 style */
+.sand-tables-equal-height table tbody tr:only-child td {
+  vertical-align: top;
+  text-align: left;
+  color: #64748b;
+  border: 1px solid #f3f4f6; /* Consistent with grid lines */
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .sand-testing-filter-grid {
@@ -153,4 +266,32 @@
   .sand-testing-filter-btn {
     width: 100%;
   }
+}
+
+/* Universal table styles - Apply to ALL tables in the report page */
+table {
+  border-collapse: collapse !important;
+  border: 1px solid #d1d5db !important; /* Darker outer border */
+}
+
+table th,
+table td {
+  border: 1px solid #e5e7eb !important; /* Darker grid lines */
+  padding: 12px 14px !important;
+  text-align: left !important;
+}
+
+table th {
+  background-color: #f9fafb !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  border-top: 1px solid #d1d5db !important; /* Darker top border */
+}
+
+table tbody tr:nth-child(even) {
+  background-color: #fafbfc !important;
+}
+
+table tbody tr:hover {
+  background-color: #f8fafc !important;
 }

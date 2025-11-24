@@ -182,13 +182,22 @@ const SandTestingRecord = () => {
     
     if ((tableNum === 1 || tableNum === 2 || tableNum === 3) && nestedField) {
       // For table 1, 2, and 3, handle nested shift structure
-      setters[tableNum](prev => ({
+      setters[tableNum](prev => {
+        const updated = {
           ...prev,
-            [field]: {
-          ...prev[field],
-              [nestedField]: value
-            }
-      }));
+          [field]: {
+            ...prev[field],
+            [nestedField]: value
+          }
+        };
+        
+        // Auto-calculate totals for Table 3 when shift data changes
+        if (tableNum === 3 && (field === 'shiftI' || field === 'shiftII' || field === 'shiftIII')) {
+          updated.total = calculateTable3Totals(updated);
+        }
+        
+        return updated;
+      });
     } else if (tableNum === 4 && field === 'friability' && nestedField) {
       // For table 4 friability, handle nested shift structure
       setters[tableNum](prev => ({
@@ -199,11 +208,54 @@ const SandTestingRecord = () => {
         }
       }));
     } else {
-      setters[tableNum](prev => ({
+      setters[tableNum](prev => {
+        const updated = {
           ...prev,
-            [field]: tableNum === 5 && ['permeability', 'gcsValue', 'wts', 'moisture', 'compactability', 'compressability', 'waterLitrePerKgMix', 'sandTempBC', 'sandTempWU', 'sandTempSSU', 'newSandKgsPerMould', 'bentoniteWithPremix', 'bentoniteOnly', 'premixKgsMix', 'coalDustKgsMix', 'CompactabilitySettings', 'lcScmCompactabilityValue', 'shearStrengthSetting', 'mouldStrength', 'mouldStrengthShearValue', 'preparedSandLumpsPerKg'].includes(field) ? (value === '' ? '' : Number(value)) : value
-      }));
+          [field]: value
+        };
+        
+        // Auto-calculate totals for Table 3 when total data changes
+        if (tableNum === 3 && field === 'total') {
+          updated.total = calculateTable3Totals(updated);
+        }
+        
+        return updated;
+      });
     }
+  };
+
+  // Function to calculate Table 3 totals
+  const calculateTable3Totals = (table3Data) => {
+    const totals = { ...table3Data.total };
+    
+    // Calculate mixNoEnd total (sum of all shift mixNoEnd values)
+    const mixNoEndSum = [
+      parseFloat(table3Data.shiftI?.mixNoEnd) || 0,
+      parseFloat(table3Data.shiftII?.mixNoEnd) || 0,
+      parseFloat(table3Data.shiftIII?.mixNoEnd) || 0
+    ].reduce((sum, val) => sum + val, 0);
+    
+    // Calculate mixNoTotal total (sum of all shift mixNoTotal values)
+    const mixNoTotalSum = [
+      parseFloat(table3Data.shiftI?.mixNoTotal) || 0,
+      parseFloat(table3Data.shiftII?.mixNoTotal) || 0,
+      parseFloat(table3Data.shiftIII?.mixNoTotal) || 0
+    ].reduce((sum, val) => sum + val, 0);
+    
+    // Calculate noOfMixRejected total (sum of all shift noOfMixRejected values)
+    const noOfMixRejectedSum = [
+      parseFloat(table3Data.shiftI?.noOfMixRejected) || 0,
+      parseFloat(table3Data.shiftII?.noOfMixRejected) || 0,
+      parseFloat(table3Data.shiftIII?.noOfMixRejected) || 0
+    ].reduce((sum, val) => sum + val, 0);
+    
+    // Update totals only if user hasn't manually entered values
+    // Keep manual values if they exist and are different from calculated values
+    totals.mixNoEnd = totals.mixNoEnd && totals.mixNoEnd !== mixNoEndSum.toString() ? totals.mixNoEnd : mixNoEndSum.toString();
+    totals.mixNoTotal = totals.mixNoTotal && totals.mixNoTotal !== mixNoTotalSum.toString() ? totals.mixNoTotal : mixNoTotalSum.toString();
+    totals.noOfMixRejected = totals.noOfMixRejected && totals.noOfMixRejected !== noOfMixRejectedSum.toString() ? totals.noOfMixRejected : noOfMixRejectedSum.toString();
+    
+    return totals;
   };
 
   const handleTableSubmit = async (tableNum, silent = false) => {
@@ -1511,20 +1563,20 @@ const SandTestingRecord = () => {
         <thead>
           <tr>
             <th rowSpan={2} style={{ width: '60px', minWidth: '60px' }}>Shift</th>
-            <th colSpan={3} style={{ textAlign: 'center', width: '35%' }}>Mix No.</th>
-            <th rowSpan={2} style={{ width: '20%' }}>No. Of Mix Rejected</th>
-            <th rowSpan={2} style={{ width: '25%' }}>Return Sand Hopper Level</th>
+            <th colSpan={3} style={{ textAlign: 'center', width: '45%' }}>Mix No.</th>
+            <th rowSpan={2} style={{ width: '15%' }}>No. Of Mix Rejected</th>
+            <th rowSpan={2} style={{ width: '20%' }}>Return Sand Hopper Level</th>
           </tr>
           <tr>
-            <th style={{ borderRight: '1px solid #e2e8f0', width: '11.67%' }}>Start</th>
-            <th style={{ borderRight: '1px solid #e2e8f0', width: '11.67%' }}>End</th>
-            <th style={{ width: '11.67%' }}>Total</th>
+            <th style={{ borderRight: '1px solid #e2e8f0', width: '15%' }}>Start</th>
+            <th style={{ borderRight: '1px solid #e2e8f0', width: '15%' }}>End</th>
+            <th style={{ width: '15%' }}>Total</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>I</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftI.mixNoStart || ''}
@@ -1536,7 +1588,7 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftI.mixNoStart')}
               />
             </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftI.mixNoEnd || ''}
@@ -1548,7 +1600,7 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftI.mixNoEnd')}
               />
             </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
+            <td style={{ width: '15%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
               <input
                 type="number"
                 value={table3.shiftI.mixNoTotal || ''}
@@ -1560,7 +1612,7 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftI.mixNoTotal')}
               />
             </td>
-            <td>
+            <td style={{ width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftI.noOfMixRejected || ''}
@@ -1571,11 +1623,15 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftI.noOfMixRejected')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftI.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftI.noOfMixRejected')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftI.noOfMixRejected')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
-            <td>
+            <td style={{ width: '20%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftI.returnSandHopperLevel || ''}
@@ -1586,14 +1642,18 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftI.returnSandHopperLevel')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftI.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftI.returnSandHopperLevel')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftI.returnSandHopperLevel')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
           </tr>
           <tr>
             <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>II</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftII.mixNoStart || ''}
@@ -1605,31 +1665,41 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftII.mixNoStart')}
               />
             </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftII.mixNoEnd || ''}
                 onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'mixNoEnd')}
                 placeholder="Enter value"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
+                style={{ 
+                  padding: '0.3rem 0.4rem', 
+                  fontSize: '0.8125rem', 
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
                 disabled={isFieldLocked(3, 'shiftII.mixNoEnd')}
                 readOnly={isFieldLocked(3, 'shiftII.mixNoEnd')}
               />
             </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
+            <td style={{ width: '15%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
               <input
                 type="number"
                 value={table3.shiftII.mixNoTotal || ''}
                 onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'mixNoTotal')}
                 placeholder="Enter value"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
+                style={{ 
+                  padding: '0.3rem 0.4rem', 
+                  fontSize: '0.8125rem', 
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
                 disabled={isFieldLocked(3, 'shiftII.mixNoTotal')}
                 readOnly={isFieldLocked(3, 'shiftII.mixNoTotal')}
               />
             </td>
-            <td>
+            <td style={{ width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftII.noOfMixRejected || ''}
@@ -1640,11 +1710,15 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftII.noOfMixRejected')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftII.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftII.noOfMixRejected')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftII.noOfMixRejected')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
-            <td>
+            <td style={{ width: '20%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftII.returnSandHopperLevel || ''}
@@ -1655,14 +1729,18 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftII.returnSandHopperLevel')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftII.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftII.returnSandHopperLevel')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftII.returnSandHopperLevel')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
           </tr>
           <tr>
             <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>III</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftIII.mixNoStart || ''}
@@ -1674,31 +1752,41 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftIII.mixNoStart')}
               />
             </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftIII.mixNoEnd || ''}
                 onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'mixNoEnd')}
                 placeholder="Enter value"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
+                style={{ 
+                  padding: '0.3rem 0.4rem', 
+                  fontSize: '0.8125rem', 
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
                 disabled={isFieldLocked(3, 'shiftIII.mixNoEnd')}
                 readOnly={isFieldLocked(3, 'shiftIII.mixNoEnd')}
               />
             </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
+            <td style={{ width: '15%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
               <input
                 type="number"
                 value={table3.shiftIII.mixNoTotal || ''}
                 onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'mixNoTotal')}
                 placeholder="Enter value"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
+                style={{ 
+                  padding: '0.3rem 0.4rem', 
+                  fontSize: '0.8125rem', 
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
                 disabled={isFieldLocked(3, 'shiftIII.mixNoTotal')}
                 readOnly={isFieldLocked(3, 'shiftIII.mixNoTotal')}
               />
             </td>
-            <td>
+            <td style={{ width: '15%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftIII.noOfMixRejected || ''}
@@ -1709,11 +1797,15 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftIII.noOfMixRejected')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftIII.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftIII.noOfMixRejected')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftIII.noOfMixRejected')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
-            <td>
+            <td style={{ width: '20%', padding: '0.4rem' }}>
               <input
                 type="number"
                 value={table3.shiftIII.returnSandHopperLevel || ''}
@@ -1724,53 +1816,48 @@ const SandTestingRecord = () => {
                 readOnly={isFieldLocked(3, 'shiftIII.returnSandHopperLevel')}
                 style={{
                   backgroundColor: (isFieldLocked(3, 'shiftIII.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftIII.returnSandHopperLevel')) ? 'not-allowed' : 'text'
+                  cursor: (isFieldLocked(3, 'shiftIII.returnSandHopperLevel')) ? 'not-allowed' : 'text',
+                  padding: '0.3rem 0.4rem',
+                  fontSize: '0.8125rem',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
             </td>
           </tr>
           <tr>
-            <td colSpan={2} style={{ fontWeight: 600, textAlign: 'center' }}>Total</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
+            <td colSpan={2} style={{ fontWeight: 600, textAlign: 'center', backgroundColor: '#f8fafc' }}>Total</td>
+            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem', backgroundColor: '#f8fafc' }}>
               <input
                 type="number"
                 value={table3.total.mixNoEnd || ''}
                 onChange={(e) => handleTableChange(3, 'total', e.target.value, 'mixNoEnd')}
-                placeholder="Enter value"
+                placeholder="0"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'total.mixNoEnd')}
-                readOnly={isFieldLocked(3, 'total.mixNoEnd')}
+                style={{ width: '100%', padding: '0.3rem 0.4rem', fontSize: '0.8125rem', textAlign: 'center', fontWeight: 500, color: '#374151', border: '1px solid #cbd5e1', borderRadius: '4px' }}
               />
             </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
+            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
               <input
                 type="number"
                 value={table3.total.mixNoTotal || ''}
                 onChange={(e) => handleTableChange(3, 'total', e.target.value, 'mixNoTotal')}
-                placeholder="Enter value"
+                placeholder="0"
                 className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'total.mixNoTotal')}
-                readOnly={isFieldLocked(3, 'total.mixNoTotal')}
+                style={{ width: '100%', padding: '0.3rem 0.4rem', fontSize: '0.8125rem', textAlign: 'center', fontWeight: 500, color: '#374151', border: '1px solid #cbd5e1', borderRadius: '4px' }}
               />
             </td>
-            <td>
+            <td style={{ backgroundColor: '#f8fafc' }}>
               <input
                 type="number"
                 value={table3.total.noOfMixRejected || ''}
                 onChange={(e) => handleTableChange(3, 'total', e.target.value, 'noOfMixRejected')}
-                placeholder="Enter value"
+                placeholder="0"
                 className="sand-table-input"
-                disabled={isFieldLocked(3, 'total.noOfMixRejected')}
-                readOnly={isFieldLocked(3, 'total.noOfMixRejected')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'total.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'total.noOfMixRejected')) ? 'not-allowed' : 'text'
-                }}
+                style={{ width: '100%', padding: '0.3rem 0.4rem', fontSize: '0.8125rem', textAlign: 'center', fontWeight: 500, color: '#374151', border: '1px solid #cbd5e1', borderRadius: '4px' }}
               />
             </td>
-            <td></td>
+            <td style={{ backgroundColor: '#f8fafc' }}></td>
           </tr>
         </tbody>
       </table>
@@ -1942,12 +2029,20 @@ const SandTestingRecord = () => {
           <div className="sand-table5-form-group">
             <label>Permeability (90-160)</label>
             <input 
-              type="number" 
+              type="text" 
               name="permeability" 
               value={table5.permeability || ''} 
-              onChange={(e) => handleTableChange(5, 'permeability', e.target.value)} 
-              placeholder="Enter value"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty input, partial input, or valid range (90-160)
+                if (value === '' || 
+                    value === '.' || 
+                    value.match(/^\d+\.?\d*$/) || // Partial numbers like "9", "95", "95."
+                    (!isNaN(Number(value)) && Number(value) >= 90 && Number(value) <= 160)) {
+                  handleTableChange(5, 'permeability', value);
+                }
+              }}
+              placeholder="Enter value (90-160)"
               className="sand-table5-input"
             />
           </div>
@@ -1965,12 +2060,19 @@ const SandTestingRecord = () => {
                 <option value="fdyB">FDY-B (Min 1900)</option>
               </select>
               <input 
-                type="number" 
+                type="text" 
                 name="gcsValue" 
                 value={table5.gcsValue || ''} 
-                onChange={(e) => handleTableChange(5, 'gcsValue', e.target.value)} 
-                placeholder={table5.gcsCheckpoint === 'fdyA' ? 'FDY-A value' : table5.gcsCheckpoint === 'fdyB' ? 'FDY-B value' : 'Enter value'}
-                step="0.01"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const min = table5.gcsCheckpoint === 'fdyA' ? 1800 : table5.gcsCheckpoint === 'fdyB' ? 1900 : 0;
+                  // Allow empty, partial input, or valid range
+                  if (value === '' || value === '.' || value === '0.' || value === '1.' || value === '2.' || value === '3.' || value === '4.' || value === '5.' || value === '6.' || value === '7.' || value === '8.' || value === '9.' ||
+                      (!isNaN(Number(value)) && Number(value) >= min)) {
+                    handleTableChange(5, 'gcsValue', value);
+                  }
+                }}
+                placeholder={table5.gcsCheckpoint === 'fdyA' ? 'FDY-A value (Min 1800)' : table5.gcsCheckpoint === 'fdyB' ? 'FDY-B value (Min 1900)' : 'Enter value'}
                 className="sand-table5-input"
               />
             </div>
@@ -1978,60 +2080,89 @@ const SandTestingRecord = () => {
           <div className="sand-table5-form-group">
             <label>W.T.S (N/cm² Min 0.15)</label>
             <input 
-              type="number" 
+              type="text" 
               name="wts" 
               value={table5.wts || ''} 
-              onChange={(e) => handleTableChange(5, 'wts', e.target.value)} 
-              placeholder="Enter value"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty, partial input, or valid range
+                if (value === '' || value === '.' || value === '0.' || value === '1.' || value === '2.' || value === '3.' || value === '4.' || value === '5.' || value === '6.' || value === '7.' || value === '8.' || value === '9.' ||
+                    (!isNaN(Number(value)) && Number(value) >= 0.15)) {
+                  handleTableChange(5, 'wts', value);
+                }
+              }}
+              placeholder="Enter value (Min 0.15)"
               className="sand-table5-input"
             />
           </div>
           <div className="sand-table5-form-group">
             <label>Moisture% (3.0-4.0%)</label>
             <input 
-              type="number" 
+              type="text" 
               name="moisture" 
               value={table5.moisture || ''} 
-              onChange={(e) => handleTableChange(5, 'moisture', e.target.value)} 
-              placeholder="Enter %"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty input, partial input, or valid range (3.0-4.0)
+                if (value === '' || 
+                    value === '.' || 
+                    value.match(/^\d+\.?\d*$/) || // Partial numbers like "3", "3.5", "3."
+                    (!isNaN(Number(value)) && Number(value) >= 3.0 && Number(value) <= 4.0)) {
+                  handleTableChange(5, 'moisture', value);
+                }
+              }}
+              placeholder="Enter % (3.0-4.0%)"
               className="sand-table5-input"
             />
           </div>
           <div className="sand-table5-form-group">
             <label>Compactability% (At DMM 33-40%)</label>
             <input 
-              type="number" 
+              type="text" 
               name="compactability" 
               value={table5.compactability || ''} 
-              onChange={(e) => handleTableChange(5, 'compactability', e.target.value)} 
-              placeholder="Enter %"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty input, partial input, or valid range (33-40)
+                if (value === '' || 
+                    value === '.' || 
+                    value.match(/^\d+\.?$/) || // Partial numbers like "3", "35", "35."
+                    (!isNaN(Number(value)) && Number(value) >= 33 && Number(value) <= 40)) {
+                  handleTableChange(5, 'compactability', value);
+                }
+              }}
+              placeholder="Enter % (33-40% at DMM)"
               className="sand-table5-input"
             />
           </div>
           <div className="sand-table5-form-group">
             <label>Compressability% (At DMM 20-28%)</label>
             <input 
-              type="number" 
+              type="text" 
               name="compressability" 
               value={table5.compressability || ''} 
-              onChange={(e) => handleTableChange(5, 'compressability', e.target.value)} 
-              placeholder="Enter %"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty input, partial input, or valid range (20-28)
+                if (value === '' || 
+                    value === '.' || 
+                    value.match(/^\d+\.?$/) || // Partial numbers like "2", "25", "25."
+                    (!isNaN(Number(value)) && Number(value) >= 20 && Number(value) <= 28)) {
+                  handleTableChange(5, 'compressability', value);
+                }
+              }}
+              placeholder="Enter % (20-28% at DMM)"
               className="sand-table5-input"
             />
           </div>
           <div className="sand-table5-form-group">
             <label>Water (Litre /Kg Mix)</label>
             <input 
-              type="number" 
+              type="text" 
               name="waterLitrePerKgMix" 
               value={table5.waterLitrePerKgMix || ''} 
               onChange={(e) => handleTableChange(5, 'waterLitrePerKgMix', e.target.value)} 
               placeholder="Enter value"
-              step="0.01"
               className="sand-table5-input"
             />
           </div>
@@ -2039,30 +2170,27 @@ const SandTestingRecord = () => {
             <label>Sand Temp C (°C)</label>
             <div className="sand-input-combo-3">
               <input 
-                type="number" 
+                type="text" 
                 name="sandTempBC" 
                 value={table5.sandTempBC || ''} 
                 onChange={(e) => handleTableChange(5, 'sandTempBC', e.target.value)} 
                 placeholder="BC"
-                step="0.01"
                 className="sand-table5-input"
               />
               <input 
-                type="number" 
+                type="text" 
                 name="sandTempWU" 
                 value={table5.sandTempWU || ''} 
                 onChange={(e) => handleTableChange(5, 'sandTempWU', e.target.value)} 
                 placeholder="WU"
-                step="0.01"
                 className="sand-table5-input"
               />
               <input 
-                type="number" 
+                type="text" 
                 name="sandTempSSU" 
                 value={table5.sandTempSSU || ''} 
                 onChange={(e) => handleTableChange(5, 'sandTempSSU', e.target.value)} 
                 placeholder="SSU"
-                step="0.01"
                 className="sand-table5-input"
               />
             </div>
@@ -2070,12 +2198,20 @@ const SandTestingRecord = () => {
           <div className="sand-table5-form-group">
             <label>New Sand (kgs/Mould 0.0-5.0)</label>
             <input 
-              type="number" 
+              type="text" 
               name="newSandKgsPerMould" 
               value={table5.newSandKgsPerMould || ''} 
-              onChange={(e) => handleTableChange(5, 'newSandKgsPerMould', e.target.value)} 
-              placeholder="Enter value"
-              step="0.01"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty input, partial input, or valid range (0.0-5.0)
+                if (value === '' || 
+                    value === '.' || 
+                    value.match(/^\d+\.?\d*$/) || // Partial numbers like "0", "2", "2.5"
+                    (!isNaN(Number(value)) && Number(value) >= 0.0 && Number(value) <= 5.0)) {
+                  handleTableChange(5, 'newSandKgsPerMould', value);
+                }
+              }}
+              placeholder="Enter value (0.0-5.0)"
               className="sand-table5-input"
             />
           </div>
@@ -2093,21 +2229,37 @@ const SandTestingRecord = () => {
                 <option value="only">Only (0.80-2.20%)</option>
               </select>
               <input 
-                type="number" 
+                type="text" 
                 name="bentoniteWithPremix" 
                 value={table5.bentoniteWithPremix || ''} 
-                onChange={(e) => handleTableChange(5, 'bentoniteWithPremix', e.target.value)} 
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty input, partial input, or valid range (0.60-1.20)
+                  if (value === '' || 
+                      value === '.' || 
+                      value.match(/^\d+\.?\d*$/) || // Partial numbers like "0", "0.8", "1."
+                      (!isNaN(Number(value)) && Number(value) >= 0.60 && Number(value) <= 1.20)) {
+                    handleTableChange(5, 'bentoniteWithPremix', value);
+                  }
+                }}
                 placeholder="Kgs"
-                step="0.01"
                 className="sand-table5-input"
               />
               <input 
-                type="number" 
+                type="text" 
                 name="bentoniteOnly" 
                 value={table5.bentoniteOnly || ''} 
-                onChange={(e) => handleTableChange(5, 'bentoniteOnly', e.target.value)} 
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty input, partial input, or valid range (0.80-2.20)
+                  if (value === '' || 
+                      value === '.' || 
+                      value.match(/^\d+\.?\d*$/) || // Partial numbers like "0", "1.5", "2."
+                      (!isNaN(Number(value)) && Number(value) >= 0.80 && Number(value) <= 2.20)) {
+                    handleTableChange(5, 'bentoniteOnly', value);
+                  }
+                }}
                 placeholder="%"
-                step="0.01"
                 className="sand-table5-input"
               />
             </div>
@@ -2121,7 +2273,7 @@ const SandTestingRecord = () => {
                 onChange={(e) => handleTableChange(5, 'premixCoalDustCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
-                <option value="" disabled>Select material</option>
+                <option value="" disabled>Select type</option>
                 <option value="premix">Premix (0.60-1.20%)</option>
                 <option value="coalDust">Coal Dust (0.20-0.70%)</option>
               </select>
@@ -2130,7 +2282,7 @@ const SandTestingRecord = () => {
                 name="premixKgsMix" 
                 value={table5.premixKgsMix || ''} 
                 onChange={(e) => handleTableChange(5, 'premixKgsMix', e.target.value)} 
-                placeholder="Kgs"
+                placeholder="kgs"
                 step="0.01"
                 className="sand-table5-input"
               />
@@ -2155,7 +2307,8 @@ const SandTestingRecord = () => {
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select option</option>
-                <option value="lcScm">LC SCM (42 ± 3)</option>
+                <option value="LC">LC</option>
+                <option value="lcScm">SCM (42 ± 3)</option>
                 <option value="compactabilitySetting">Compactability At1 (40±3)</option>
               </select>
               <input 

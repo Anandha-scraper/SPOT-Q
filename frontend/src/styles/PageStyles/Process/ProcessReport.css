@@ -1,150 +1,178 @@
-/* Process - Report Page Styles */
-
-.process-report-header {
+/* Process Report Table Styles */
+.process-report-container {
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin: 0 0 1.5rem 0;
-  padding: 0 0 1rem 0;
-  border-bottom: 2px solid #e2e8f0;
+  margin: 20px 0;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
 }
 
-.process-report-header-text {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  margin: 0;
-  padding: 0;
+.process-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 1200px;
+  border: 1px solid #e2e8f0;
+  border-spacing: 0;
+  table-layout: auto;
 }
 
-.process-report-header-text h2 {
-  font-size: 1.625rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  line-height: 1;
-  width: 100%;
+.process-report-table th,
+.process-report-table td {
+  padding: 6px 8px;
+  text-align: center !important;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
   position: relative;
+  height: 30px;
+  vertical-align: middle;
+  display: table-cell;
 }
 
-.process-report-entry-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  margin-left: 1rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9375rem;
+/* Ensure all table cells have borders */
+.process-report-table thead th,
+.process-report-table tbody td {
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Make sure the no records cell spans all columns */
+.process-report-table tbody td[colspan] {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+  font-style: italic;
+  background-color: #fff;
+  border: 1px solid #e2e8f0 !important;
+  vertical-align: middle;
+  height: 100px; /* Adjust height as needed */
+  line-height: 1.5;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.process-report-table th {
+  background-color: #f8fafc;
   font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  color: #334155;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  text-align: center !important;
+  vertical-align: middle;
+  height: 30px !important;
+  line-height: 1.2;
+  padding: 4px 8px;
 }
 
-.process-report-entry-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+.process-report-table tbody tr {
+  transition: background-color 0.2s ease;
 }
 
-.process-report-entry-btn svg {
-  width: 16px;
-  height: 16px;
+.process-report-table tbody tr:hover {
+  background-color: #f8fafc;
 }
 
-/* Filter Section */
-.process-filter-container {
+.process-report-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.process-report-table tbody tr:nth-child(even):hover {
+  background-color: #f1f5f9;
+}
+
+/* Action buttons */
+.process-actions-container {
   display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
 }
 
-.process-filter-group {
+/* Metal Composition Form Styles */
+.process-form-group {
+  margin-bottom: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .process-report-container {
+    margin: 15px -15px;
+    width: calc(100% + 30px);
+    border-radius: 0;
+  }
+
+  .process-report-table {
+    font-size: 0.85rem;
+  }
+
+  .process-report-table th,
+  .process-report-table td {
+    padding: 8px 10px;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Filter section */
+.process-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  align-items: flex-end;
+}
+
+.filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-width: 200px;
 }
 
-.process-filter-group label {
-  display: block;
-  font-size: 0.75rem;
+.filter-group label {
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: #475569;
   font-weight: 500;
-  color: #334155;
-  margin-bottom: 0.25rem;
 }
 
-.process-filter-group input {
-  width: 160px;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
-}
-
-.process-filter-container > div:has(button) {
-  display: inline-block;
-}
-
-.process-filter-container button {
-  margin-bottom: 0;
-  min-height: 38px;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  width: auto !important;
-}
-
-.process-filter-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.5rem;
-  background: linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%);
-  color: white;
-  border: none;
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #64748b;
+  background: #f8fafc;
   border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(255, 127, 80, 0.3);
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  min-height: 42px;
+  margin-top: 20px;
 }
 
-.process-filter-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(255, 127, 80, 0.4);
-  background: linear-gradient(135deg, #FF6A3D 0%, #FF5722 100%);
-}
-
-.process-filter-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .process-filter-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .process-filter-btn-container {
-    align-items: stretch;
-  }
-
-  .process-filter-btn {
-    width: 100%;
-  }
+.empty-state p {
+  margin-top: 10px;
+  color: #94a3b8;
 }

@@ -1,0 +1,408 @@
+/* --- Root Layout --- */
+.admin-dash {
+  max-width: 12000px;
+  padding-right: 40px;
+  margin: 0 auto;
+  font-family: 'Inter', sans-serif;
+  color: #333;
+}
+
+/* --- Header & Navigation --- */
+.admin-dash-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.admin-dash-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 10px;
+}
+
+.toggle-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.tog-btn {
+  padding: 12px 24px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.tog-btn:hover {
+  border-color: #5B9AA9;
+  background-color: #f7fafc;
+}
+
+/* The magic "Active" class we toggled in React */
+.tog-btn.active {
+  background: #5B9AA9;
+  color: white;
+  border-color: #5B9AA9;
+  box-shadow: 0 4px 12px rgba(91, 154, 169, 0.3);
+}
+
+/* --- Content Cards --- */
+.emp-card {
+  background: white;
+  max-width: 1400px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  padding: 30px 40px;
+  border: 1px solid #edf2f7;
+  margin: 20px auto;
+}
+
+/* --- Tables --- */
+.emp-table-container {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.emp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  table-layout: fixed;
+}
+
+.emp-table th {
+  padding: 16px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.emp-table th:nth-child(1) { width: 130px; } /* Employee ID */
+.emp-table th:nth-child(2) { width: 250px; } /* Department */
+.emp-table th:nth-child(3) { width: 250px; } /* Last Login */
+.emp-table th:nth-child(4) { width: 120px; text-align: center; } /* Actions */
+
+.emp-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 0.95rem;
+  color: #2d3748;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.emp-table td.emp-id {
+  font-family: 'bold', sans-serif;
+  font-weight: 400;
+  font-size: 18px!important;
+  color: #000000;
+  letter-spacing: 0.5px;
+}
+
+.emp-id {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #000000;
+  letter-spacing: 0.5px;
+}
+
+.emp-table td.actions {
+  text-align: center;
+}
+
+.emp-table .actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.emp-table .actions button {
+  width: 70px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.emp-table .actions button:first-child {
+  background-color: #4a5568;
+  color: white; 
+}
+
+.emp-table .actions button:last-child {
+  background-color: #fc8181;
+  color: white;
+}
+
+/* Action buttons for table */
+.action-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.action-btn.edit-btn {
+  background-color: #5B9AA9;
+  color: white;
+}
+
+.action-btn.edit-btn:hover {
+  background-color: #4a8896;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(91, 154, 169, 0.3);
+}
+
+/* --- Forms --- */
+.emp-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.input-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+}
+
+.input-block label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.input-block input, 
+.input-block select {
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.input-block input:focus {
+  border-color: #5B9AA9;
+  outline: none;
+}
+
+.submit-btn-main {
+  background: #5B9AA9;
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.submit-btn-main:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Status Messages --- */
+.status-msg {
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.error-bg { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+.success-bg { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
+
+/* --- Modal & Overlay --- */
+.overlay-blur {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content-box {
+  background: white;
+  width: 90%;
+  max-width: 500px;
+  padding: 30px 30px;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.modal-subtitle {
+  color: #718096;
+  font-size: 0.95rem;
+  margin: 10px 0 10px;
+}
+
+.modal-subtitle strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-form .input-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-form .input-block label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px;
+  padding-right: 45px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #5B9AA9;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+
+.password-toggle:hover {
+  color: #4a5568;
+}
+
+.modal-error {
+  background: #fff5f5;
+  color: #c53030;
+  border: 1px solid #feb2b2;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.modal-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.btn-save {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-save {
+  background: #5B9AA9;
+  color: white;
+}
+
+.btn-save:hover {
+  background: #4a8999;
+}
+
+/* Delete Modal Buttons */
+
+.btn-delete {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: #fc8181;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #e53e3e;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #4a8896;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(91, 154, 169, 0.3);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .form-row { flex-direction: column; }
+  .toggle-buttons { flex-direction: column; }
+}

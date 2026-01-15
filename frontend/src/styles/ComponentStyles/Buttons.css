@@ -1,0 +1,476 @@
+/* Button.css
+	 Generic button styles used by the shared Button component.
+	 Pages keep their page-specific class names (e.g. impact-submit-btn).
+	 The Button component forwards className so page CSS stays effective.
+*/
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.6rem 1rem;
+	border-radius: 8px;
+	border: none;
+	cursor: pointer;
+	font-size: 0.9rem;
+	font-weight: 600;
+	transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.65;
+	transform: none;
+}
+
+.btn--primary {
+	background-color: #5B9AA9;
+	color: white;
+}
+.btn--secondary {
+	background-color: #163442;
+	color: white;
+}
+.btn--danger {
+	background-color: #ff4d4f;
+	color: white;
+}
+.btn--ghost {
+	background: transparent;
+	color: inherit;
+	box-shadow: none;
+}
+
+/* Icon-only small circular button */
+.btn--circle {
+	border-radius: 9999px;
+	padding: 0.35rem;
+	width: 34px;
+	height: 34px;
+}
+
+/* If a page provides its own class (e.g. .impact-submit-btn) those rules will apply
+	 together with the base .btn class above. This keeps page-specific hover/box-shadow
+	 behavior unchanged while providing consistent base spacing and disabled handling. */
+
+/* Clear Button Styling */
+.clear-btn {
+	background-color: #ef4444 !important;
+	color: white !important;
+}
+
+.clear-btn:hover:not(:disabled) {
+	background-color: #dc2626 !important;
+	transform: translateY(-1px);
+}
+
+.clear-btn:disabled {
+	background-color: #fca5a5 !important;
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+/* ==================== DISA Dropdown Styles ==================== */
+.disa-dropdown-wrapper {
+	display: block;
+	width: 100%;
+}
+
+.disa-dropdown-wrapper select {
+	width: 100%;
+	padding: 0.8rem 0.95rem;
+	border: 2px solid #cbd5e1;
+	border-radius: 8px;
+	font-size: 0.95rem;
+	font-family: 'Poppins', sans-serif;
+	font-weight: 500;
+	color: #334155;
+	background: white;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	outline: none;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23334155' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 1rem center;
+	background-size: 12px;
+	padding-right: 2.5rem;
+	box-sizing: border-box;
+}
+
+.disa-dropdown-wrapper select:hover {
+	border-color: #94a3b8;
+}
+
+.disa-dropdown-wrapper select:focus {
+	border-color: #5B9AA9;
+	box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+.disa-dropdown-wrapper select:disabled {
+	background-color: #f1f5f9;
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.disa-dropdown-wrapper select option {
+	padding: 0.5rem;
+	font-family: 'Poppins', sans-serif;
+}
+
+.disa-dropdown-wrapper.valid-input select {
+	border-color: #22c55e;
+	box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.disa-dropdown-wrapper.invalid-input select {
+	border-color: #ef4444;
+	box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Match responsive behavior of MicroStructure inputs */
+@media (max-width: 1024px) {
+	.disa-dropdown-wrapper select {
+		width: 100%;
+		min-width: 200px;
+	}
+}
+
+@media (max-width: 768px) {
+	.disa-dropdown-wrapper select {
+		width: 100%;
+	}
+}
+
+/* ==================== Logout Button Styles ==================== */
+.logout-wrapper {
+	position: absolute;
+	top: 20px;
+	right: 15px;
+	z-index: 100;
+}
+
+.logout-wrapper button {
+	color: white;
+	font-size: 14px;
+	border: none;
+	background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	padding: 8px 16px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	border-radius: 8px;
+	box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+	white-space: nowrap;
+}
+
+.logout-wrapper button:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.logout-wrapper button:active {
+	transform: translateY(0);
+}
+
+@media (max-width: 1024px) {
+	.logout-wrapper {
+		top: 18px;
+		right: 12px;
+	}
+	.logout-wrapper button {
+		font-size: 13px;
+		padding: 7px 14px;
+	}
+}
+
+@media (max-width: 900px) {
+	.logout-wrapper {
+		top: 16px;
+		right: 10px;
+	}
+	.logout-wrapper button {
+		font-size: 12px;
+		padding: 6px 12px;
+	}
+}
+
+@media (max-width: 768px) {
+	.logout-wrapper {
+		position: relative;
+		top: auto;
+		right: auto;
+		margin-top: 10px;
+		width: 100%;
+		display: flex;
+		justify-content: center;
+	}
+	.logout-wrapper button {
+		font-size: 13px;
+		padding: 8px 20px;
+	}
+}
+
+@media (max-width: 480px) {
+	.logout-wrapper button {
+		font-size: 12px;
+		padding: 7px 18px;
+		width: 100%;
+		max-width: 200px;
+	}
+}
+
+/* ==================== Admin Button Styles ==================== */
+.admin-button-wrapper button {
+	color: white;
+	font-size: 14px;
+	border: none;
+	background: none;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	padding: 10px 20px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	border-radius: 8px;
+	white-space: nowrap;
+}
+
+.admin-button-wrapper button.admin-logout {
+	background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+	box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.admin-button-wrapper button.admin-logout:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.admin-button-wrapper button.admin-logout:active {
+	transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+	.admin-button-wrapper button {
+		font-size: 12px;
+		padding: 8px 16px;
+	}
+}
+
+@media (max-width: 480px) {
+	.admin-button-wrapper button {
+		font-size: 11px;
+		padding: 7px 14px;
+	}
+}
+
+/* ==================== Action Button Styles ==================== */
+.action-button {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	border: 1px solid;
+	transition: all 0.2s ease;
+}
+
+.action-button.edit {
+	border-color: #cbd5e1;
+	background: #f8fafc;
+	color: #374151;
+}
+
+.action-button.edit:hover {
+	background: #e2e8f0;
+	border-color: #94a3b8;
+}
+
+.action-button.delete {
+	border-color: #fecaca;
+	background: #fee2e2;
+	color: #b91c1c;
+}
+
+.action-button.delete:hover {
+	background: #fca5a5;
+	border-color: #f87171;
+}
+
+/* ==================== Delete User Button Styles ==================== */
+.delete-button-wrapper {
+	display: inline-block;
+	margin: 0 5px;
+}
+
+.delete-button-wrapper button {
+	width: auto;
+	min-width: 120px;
+	height: 38px;
+	padding: 0 18px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-family: 'Poppins', sans-serif;
+	font-weight: 700;
+	border: none;
+	position: relative;
+	overflow: hidden;
+	z-index: 1;
+	color: #c0392b;
+	background: #ffffff;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.delete-button-wrapper button::before {
+	content: '';
+	width: 0;
+	height: 100%;
+	border-radius: 6px;
+	position: absolute;
+	top: 0;
+	left: 0;
+	background-image: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+	transition: 0.4s ease;
+	display: block;
+	z-index: -1;
+}
+
+.delete-button-wrapper button:hover {
+	color: #ffffff;
+	box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+	transform: translateY(-1px);
+}
+
+.delete-button-wrapper button:hover::before {
+	width: 100%;
+}
+
+.delete-button-wrapper button:active {
+	transform: translateY(0);
+}
+
+/* ==================== Eye Button Styles ==================== */
+.eye-button-wrapper {
+	display: inline-block;
+}
+
+.eye-button-wrapper button {
+	width: 40px;
+	height: 40px;
+	padding: 8px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #666;
+}
+
+.eye-button-wrapper button:hover {
+	background: rgba(0, 0, 0, 0.05);
+	color: #333;
+}
+
+.eye-button-wrapper button:active {
+	transform: scale(0.95);
+}
+
+.eye-button-wrapper button svg {
+	width: 20px;
+	height: 20px;
+	stroke-width: 2.5;
+}
+
+/* ==================== Settings Button Styles ==================== */
+.settings-button-wrapper {
+	display: inline-block;
+	margin: 0 5px;
+}
+
+.settings-button-wrapper button {
+	width: auto;
+	min-width: 38px;
+	height: 38px;
+	padding: 8px;
+	border-radius: 6px;
+	border: none;
+	background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+	cursor: pointer;
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	box-shadow: 0 2px 4px rgba(107, 114, 128, 0.3);
+}
+
+.settings-button-wrapper button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(107, 114, 128, 0.4);
+}
+
+.settings-button-wrapper button:active {
+	transform: translateY(0);
+}
+
+.settings-button-wrapper button svg {
+	width: 18px;
+	height: 18px;
+	stroke-width: 2;
+}
+
+/* ==================== Filter Button Styles ==================== */
+.filter-button-wrapper {
+	display: inline-block;
+}
+
+.filter-button-wrapper button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1.5rem;
+	background: linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	box-shadow: 0 2px 6px rgba(255, 127, 80, 0.3);
+	transition: all 0.3s ease;
+	white-space: nowrap;
+	min-height: 42px;
+	width: 100%;
+}
+
+.filter-button-wrapper button:hover:not(:disabled) {
+	background: linear-gradient(135deg, #FF6A3D 0%, #FF5722 100%);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(255, 127, 80, 0.5);
+}
+
+.filter-button-wrapper button:active:not(:disabled) {
+	transform: translateY(0);
+}
+
+.filter-button-wrapper button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.filter-button-wrapper button svg {
+	width: 18px;
+	height: 18px;
+	stroke-width: 2;
+}

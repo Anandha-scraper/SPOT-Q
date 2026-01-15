@@ -1,0 +1,532 @@
+/* Impact Test - Report Page Styles */
+
+.impact-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.impact-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.impact-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* Filter Section */
+.impact-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.impact-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.impact-filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.impact-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.impact-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.impact-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  width: auto !important;
+}
+
+/* Loader Container */
+.impact-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+}
+
+/* Table Container */
+.impact-table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.impact-table th,
+.impact-table td {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.impact-table thead tr {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.impact-table th {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: transparent;
+  border-bottom: 2px solid #cbd5e1;
+  border-left: none;
+  border-right: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  vertical-align: middle;
+}
+
+.impact-table th:first-child {
+  border-top-left-radius: 8px;
+  padding-left: 1.5rem;
+}
+
+.impact-table th:last-child {
+  border-top-right-radius: 8px;
+  padding-right: 1.5rem;
+}
+
+/* Date column */
+.impact-table th:nth-child(1) {
+  min-width: 100px;
+  width: 10%;
+  text-align: center;
+}
+
+/* Part Name column - holds up to 15 characters */
+.impact-table th:nth-child(2) {
+  min-width: 180px;
+  width: 20%;
+  text-align: center;
+}
+
+/* Date Code column - 4 characters */
+.impact-table th:nth-child(3) {
+  min-width: 80px;
+  width: 8%;
+  text-align: center;
+}
+
+/* Specification column - larger */
+.impact-table th:nth-child(4) {
+  min-width: 200px;
+  width: 25%;
+  text-align: center;
+}
+
+/* Observed Value column - up to 5 digits */
+.impact-table th:nth-child(5) {
+  min-width: 100px;
+  width: 10%;
+  text-align: center;
+}
+
+/* Remarks column */
+.impact-table th:nth-child(6) {
+  min-width: 150px;
+  width: 17%;
+  text-align: center;
+}
+
+/* Actions column */
+.impact-table th:nth-child(7) {
+  min-width: 20px;
+  width: 8%;
+  text-align: right;
+  padding-right: 2.2rem;
+}
+
+.impact-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.impact-table tbody tr:hover {
+  background-color: #f8fafc;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.impact-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.impact-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+.impact-table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.impact-table tbody tr:nth-child(even):hover {
+  background-color: #f1f5f9;
+}
+
+.impact-table td {
+  padding: 1.125rem 1.25rem;
+  color: #475569;
+  white-space: normal;
+  vertical-align: middle;
+  text-align: center;
+  word-wrap: break-word;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-left: none;
+  border-right: none;
+}
+
+.impact-table td:first-child {
+  padding-left: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+.impact-table td:last-child {
+  padding-right: 1.5rem;
+}
+
+/* Date column */
+.impact-table td:nth-child(1) {
+  text-align: center;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Part Name column */
+.impact-table td:nth-child(2) {
+  text-align: center;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* Date Code column */
+.impact-table td:nth-child(3) {
+  text-align: center;
+  font-weight: 600;
+  font-family: monospace;
+  color: #1e293b;
+}
+
+/* Specification column */
+.impact-table td:nth-child(4) {
+  text-align: center;
+  color: #5B9AA9;
+  font-weight: 500;
+}
+
+/* Observed Value column */
+.impact-table td:nth-child(5) {
+  text-align: center;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: monospace;
+}
+
+/* Remarks column */
+.impact-table td:nth-child(6) {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+/* Actions column */
+.impact-table td:nth-child(7) {
+  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding-right: 0.2rem;
+}
+
+/* Ensure action buttons are visually aligned and same size */
+.impact-table td:nth-child(7) .edit,
+.impact-table td:nth-child(7) .delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.impact-table td:nth-child(7) .edit {
+  border-radius: 6px;
+}
+
+.impact-table td:nth-child(7) .delete {
+  border-radius: 6px;
+}
+
+.impact-no-records {
+  padding: 3rem;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.9375rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 6px;
+}
+
+/* Form Grid for Modal */
+.impact-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.impact-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.impact-form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+.impact-form-group input,
+.impact-form-group textarea {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: 'Poppins', sans-serif;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.impact-form-group input:focus,
+.impact-form-group textarea:focus {
+  outline: none;
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+.impact-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.impact-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.impact-form-group input.invalid-input,
+.impact-form-group textarea.invalid-input {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.modal-container {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #64748b;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.modal-cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.modal-cancel-btn:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.modal-submit-btn {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(91, 154, 169, 0.3);
+  transition: all 0.3s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.modal-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4A8494 0%, #3A6B7A 100%);
+  box-shadow: 0 6px 20px rgba(91, 154, 169, 0.5);
+}
+
+.modal-submit-btn:disabled,
+.modal-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .modal-container {
+    max-width: 95%;
+  }
+
+  .impact-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .impact-table {
+    font-size: 0.8125rem;
+    min-width: 1000px;
+  }
+
+  .impact-table th,
+  .impact-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .modal-header,
+  .modal-footer {
+    padding: 1rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .impact-table {
+    min-width: 800px;
+  }
+}

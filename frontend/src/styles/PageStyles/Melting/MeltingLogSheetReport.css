@@ -1,0 +1,226 @@
+/* Melting Log Sheet - Report Page Styles */
+
+.melting-log-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.melting-log-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.melting-log-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+.melting-log-report-entry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  margin-left: 1rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.melting-log-report-entry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.melting-log-report-entry-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Filter Section */
+.melting-log-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.melting-log-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.melting-log-filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.melting-log-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.melting-log-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.melting-log-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  width: auto !important;
+}
+
+.melting-log-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  background: linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(255, 127, 80, 0.3);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-height: 42px;
+}
+
+.melting-log-filter-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(255, 127, 80, 0.4);
+  background: linear-gradient(135deg, #FF6A3D 0%, #FF5722 100%);
+}
+
+.melting-log-filter-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .melting-log-filter-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .melting-log-filter-btn-container {
+    align-items: stretch;
+  }
+
+  .melting-log-filter-btn {
+    width: 100%;
+  }
+}
+
+/* Primary Data Table (reuse chr styles from Cupola Holder report) */
+.chr-primary-table-wrap {
+  margin-top: 1rem;
+}
+
+.chr-table-scroll {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+}
+
+.chr-primary-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.chr-primary-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.chr-primary-table th,
+.chr-primary-table td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.chr-primary-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.chr-primary-table tbody tr:hover td:last-child {
+  background: #f9fafb;
+}
+
+/* Specific column widths for better alignment */
+.chr-primary-table th,
+.chr-primary-table td {
+  min-width: 100px;
+}
+
+/* Actions column - always last */
+.chr-primary-table th:last-child,
+.chr-primary-table td:last-child {
+  min-width: 140px;
+  text-align: center;
+}
+
+.chr-primary-table th:last-child {
+  background: #f8fafc;
+}
+
+.chr-primary-table tbody td:last-child {
+  background: white;
+}
+
+/* Actions cell layout */
+.chr-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

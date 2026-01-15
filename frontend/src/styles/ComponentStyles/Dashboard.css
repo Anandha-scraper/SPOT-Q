@@ -1,0 +1,117 @@
+/* src/styles/ComponentStyles/Dashboard.css */
+
+.dashboard-page-container {
+  padding: var(--spacing-md, 1rem) 0 var(--spacing-md, 1rem) var(--spacing-md, 1rem);
+  background-color: #f8f9fa; /* A very light background for the content area */
+  min-height: 100vh;
+  box-sizing: border-box;
+  margin-left: 60px; /* Sidebar width when collapsed (icons visible) */
+  width: calc(100% - 60px);
+  transition: margin-left 0.3s ease, width 0.3s ease;
+  overflow-x: hidden;
+}
+
+/* Adjust dashboard margin only when sidebar is pinned (not on hover) */
+body.sidebar-pinned-expanded .dashboard-page-container {
+  margin-left: 248px; /* Match expanded sidebar width */
+  width: calc(100% - 248px);
+}
+
+body.sidebar-pinned-collapsed .dashboard-page-container {
+  margin-left: 60px;
+  width: calc(100% - 60px);
+}
+
+/* On mobile, sidebar can overlay */
+@media (max-width: 768px) {
+  .dashboard-page-container {
+    margin-left: 0;
+    width: 100%;
+    padding: var(--spacing-md, 1rem) 0 var(--spacing-md, 1rem) 72px;
+  }
+}
+
+@media (min-width: 768px) {
+  .dashboard-page-container {
+    padding: var(--spacing-lg, 1.5rem) 0 var(--spacing-lg, 1.5rem) var(--spacing-lg, 1.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-page-container {
+    padding: var(--spacing-xl, 2rem) 0 var(--spacing-xl, 2rem) var(--spacing-xl, 2rem);
+  }
+}
+
+.dashboard-page-header {
+  margin-bottom: var(--spacing-lg, 1.5rem);
+  padding-bottom: var(--spacing-sm, 0.5rem);
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm, 0.5rem);
+  align-items: flex-start;
+}
+
+@media (min-width: 640px) {
+  .dashboard-page-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.dashboard-page-header h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  color: #333;
+  margin: 0;
+  word-break: break-word;
+}
+
+.dashboard-page-content {
+  display: block;
+  width: 100%;
+}
+
+/* Example styles for individual content cards within the dashboard-page-content */
+.content-card {
+  background-color: white;
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: var(--spacing-md, 1rem);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+  transition: all 0.3s ease;
+  width: 100%;
+  min-width: 0; /* Prevent overflow */
+}
+
+@media (min-width: 768px) {
+  .content-card {
+    padding: var(--spacing-lg, 1.5rem);
+  }
+}
+
+.content-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.1));
+}
+
+/* Remove hover effect on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .content-card:hover {
+    transform: none;
+  }
+}
+
+.content-card h3 {
+  margin-top: 0;
+  color: #007bff;
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+  word-break: break-word;
+}
+
+.content-card p {
+  color: #555;
+  line-height: 1.6;
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  word-break: break-word;
+}

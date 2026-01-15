@@ -1,0 +1,156 @@
+/* Sand Testing Record - Report Page Styles */
+
+/* Page container padding to avoid cramped edges */
+.sand-testing-report-container {
+  padding: 12px 18px;
+}
+
+.sand-testing-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.75rem 0;
+  padding: 0 0 1.25rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sand-testing-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.sand-testing-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+.sand-testing-report-entry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  margin-left: 1rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.sand-testing-report-entry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.sand-testing-report-entry-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Filter Section */
+.sand-testing-filter-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.sand-testing-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sand-testing-filter-group label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.15rem;
+}
+
+.sand-testing-filter-group input {
+  width: 190px;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+}
+
+.sand-testing-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.sand-testing-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  width: auto !important;
+}
+
+.sand-testing-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  background: linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(255, 127, 80, 0.3);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-height: 42px;
+}
+
+.sand-testing-filter-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(255, 127, 80, 0.4);
+  background: linear-gradient(135deg, #FF6A3D 0%, #FF5722 100%);
+}
+
+.sand-testing-filter-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sand-testing-filter-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .sand-testing-filter-btn-container {
+    align-items: stretch;
+  }
+
+  .sand-testing-filter-btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,709 @@
+/* ==================== Micro Structure - Entry Page Styles ==================== */
+/* Version: 2.0 - Updated grid layout with 140px DISA column */
+
+/* ==================== Header Section ==================== */
+.microstructure-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.microstructure-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.microstructure-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+}
+
+/* ==================== Form Grid Layout ==================== */
+form.microstructure-form-grid,
+.microstructure-form-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.microstructure-form-group {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.microstructure-form-group.full-width {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.microstructure-first-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.microstructure-first-row .microstructure-form-group {
+  flex: 1 1 calc((100% - 5rem) / 6);
+  min-width: 150px;
+}
+
+.microstructure-first-row .microstructure-form-group.disa {
+  flex: 0 0 150px;
+  max-width: 170px;
+}
+
+.microstructure-first-row .microstructure-form-group.part-name {
+  flex: 1.4 1 280px;
+}
+
+.microstructure-first-row .microstructure-form-group input,
+.microstructure-first-row .microstructure-form-group select,
+.microstructure-first-row .microstructure-form-group .disa-dropdown-wrapper {
+  width: 100%;
+}
+
+.microstructure-range-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.microstructure-range-row .microstructure-form-group {
+  flex: 1 1 0;
+  min-width: 200px;
+}
+
+.microstructure-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.microstructure-range-inputs input {
+  flex: 1 1 0;
+}
+
+.microstructure-range-inputs .range-separator {
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Adjusting the gap between inline inputs */
+.microstructure-form-group .inline-inputs {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* ==================== Form Labels ==================== */
+.microstructure-form-group label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.625rem;
+}
+
+.required-indicator {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* ==================== Form Inputs ==================== */
+.microstructure-form-group input,
+.microstructure-form-group select,
+.microstructure-form-group textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Remove browser autocomplete background */
+.microstructure-form-group input:-webkit-autofill,
+.microstructure-form-group input:-webkit-autofill:hover,
+.microstructure-form-group input:-webkit-autofill:focus,
+.microstructure-form-group input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: inherit !important;
+}
+
+/* Focus States */
+.microstructure-form-group input:focus,
+.microstructure-form-group select:focus,
+.microstructure-form-group textarea:focus {
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+.microstructure-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* Nodularity input size adjustment */
+.microstructure-form-group.nodularity {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.nodularity input {
+  width: 100%;
+}
+
+/* Part Name input */
+.microstructure-form-group.part-name {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.part-name input {
+  width: 100%;
+}
+
+/* Date Code input */
+.microstructure-form-group.date-code {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.date-code input {
+  text-transform: uppercase;
+  width: 100%;
+}
+
+/* Heat Code input */
+.microstructure-form-group.heat-code {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.heat-code input {
+  width: 100%;
+}
+
+/* Graphite Type input */
+.microstructure-form-group.graphite-type {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.graphite-type input {
+  width: 100%;
+}
+
+/* Count Nos Range */
+.microstructure-form-group.count-nos-range,
+.microstructure-form-group.size-range,
+.microstructure-form-group.ferrite-range,
+.microstructure-form-group.pearlite-range {
+  flex: 1 1 0;
+  width: 100%;
+}
+
+/* Carbide input */
+.microstructure-form-group.carbide {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.microstructure-form-group.carbide input {
+  width: 280px;
+}
+
+/* ==================== Utility sizing helpers ==================== */
+/* Use these helper classes on the `.microstructure-form-group` to control input sizing */
+
+/* Small inputs */
+.micro-input-sm {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.micro-input-sm input,
+.micro-input-sm select,
+.micro-input-sm textarea {
+  width: 150px;
+}
+
+/* Medium inputs */
+.micro-input-md {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.micro-input-md input,
+.micro-input-md select,
+.micro-input-md textarea {
+  width: 200px;
+}
+
+/* Large inputs */
+.micro-input-lg {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.micro-input-lg input,
+.micro-input-lg select,
+.micro-input-lg textarea {
+  width: 280px;
+}
+
+/* Full width input */
+.micro-input-full {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.micro-input-full input,
+.micro-input-full select,
+.micro-input-full textarea {
+  width: 100%;
+}
+
+/* Remarks field - Full width */
+.microstructure-form-group.remarks {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+/* ==================== Validation States ==================== */
+.valid-input {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2) !important;
+}
+
+.invalid-input {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+/* ==================== Error Messages ==================== */
+.error-message {
+  display: block;
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 0.375rem;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==================== Submit Section ==================== */
+.microstructure-submit-container {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.microstructure-submit-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.microstructure-submit-error {
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 600;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.microstructure-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: 0 4px 6px rgba(91, 154, 169, 0.3);
+  transition: all 0.3s ease;
+}
+
+.microstructure-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(91, 154, 169, 0.4);
+  background: linear-gradient(135deg, #4A8494 0%, #3a6a78 100%);
+}
+
+.microstructure-submit-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.microstructure-submit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.microstructure-reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #163442 0%, #1f4f5d 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(22, 52, 66, 0.3);
+}
+
+.microstructure-reset-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(22, 52, 66, 0.4);
+  background: linear-gradient(135deg, #1f4f5d 0%, #2a6575 100%);
+}
+
+.microstructure-reset-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ==================== Report Section ==================== */
+.microstructure-report-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+}
+
+.microstructure-report-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.microstructure-report-title h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* ==================== Filter Section ==================== */
+.microstructure-filter-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-end;
+}
+
+.microstructure-filter-group label {
+  display: block;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.3rem;
+}
+
+.microstructure-filter-group input {
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  border: 1.8px solid #cbd5e1;
+  background: #fff;
+  width: 100%;
+}
+
+.microstructure-filter-btn {
+  background: #0d9488;
+  color: white;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.microstructure-filter-btn:hover {
+  background: #0f766e;
+}
+
+/* ==================== Table ==================== */
+.microstructure-table-container {
+  overflow-x: auto;
+}
+
+.microstructure-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 950px;
+}
+
+.microstructure-table th,
+.microstructure-table td {
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.microstructure-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+}
+
+.microstructure-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.microstructure-no-records {
+  text-align: center;
+  padding: 1rem;
+  color: #64748b;
+}
+
+/* ==================== Modal ==================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(30, 41, 59, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal-container {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 700px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-header h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #475569;
+  cursor: pointer;
+}
+
+.modal-close-btn:hover {
+  color: #ef4444;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+}
+
+.modal-cancel-btn,
+.modal-submit-btn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modal-cancel-btn {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.modal-cancel-btn:hover {
+  background: #cbd5e1;
+}
+
+.modal-submit-btn {
+  background: #2563eb;
+  color: white;
+}
+
+.modal-submit-btn:hover {
+  background: #1d4ed8;
+}
+
+/* ==================== Loader ==================== */
+.microstructure-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+/* ==================== Animations ==================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ==================== Responsive Design ==================== */
+@media (max-width: 1024px) {
+  .microstructure-first-row .microstructure-form-group.disa,
+  .microstructure-first-row .microstructure-form-group.part-name {
+    flex: 1 1 calc((100% - 2rem) / 3);
+    max-width: none;
+  }
+
+  .microstructure-first-row .microstructure-form-group {
+    flex: 1 1 calc((100% - 2rem) / 3);
+    min-width: 220px;
+  }
+
+  .microstructure-range-row .microstructure-form-group {
+    flex: 1 1 calc((100% - 1rem) / 2);
+    min-width: 240px;
+  }
+
+  .microstructure-form-grid {
+    gap: 0.875rem;
+  }
+
+  .microstructure-form-group.part-name input,
+  .microstructure-form-group.date-code,
+  .microstructure-form-group.heat-code,
+  .microstructure-form-group.nodularity,
+  .microstructure-form-group.graphite-type,
+  .microstructure-form-group.carbide {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .microstructure-first-row {
+    flex-direction: column;
+  }
+
+  .microstructure-first-row .microstructure-form-group,
+  .microstructure-first-row .microstructure-form-group.disa,
+  .microstructure-first-row .microstructure-form-group.part-name {
+    flex: 1 1 100%;
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .microstructure-range-row {
+    flex-direction: column;
+  }
+
+  .microstructure-range-row .microstructure-form-group {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .microstructure-form-grid {
+    gap: 0.75rem;
+  }
+
+  .microstructure-form-group {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .microstructure-form-group.part-name input,
+  .microstructure-form-group.date-code input,
+  .microstructure-form-group.heat-code input,
+  .microstructure-form-group.nodularity input,
+  .microstructure-form-group.graphite-type input,
+  .microstructure-form-group.carbide input,
+  .micro-input-sm input,
+  .micro-input-sm select,
+  .micro-input-md input,
+  .micro-input-md select,
+  .micro-input-lg input,
+  .micro-input-lg select {
+    width: 100%;
+  }
+
+  .microstructure-filter-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .microstructure-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .microstructure-submit-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .microstructure-submit-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

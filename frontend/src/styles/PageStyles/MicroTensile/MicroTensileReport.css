@@ -1,0 +1,365 @@
+/* MicroTensile Report - Aligned with Impact styling */
+
+/* Header Section */
+.microtensile-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.microtensile-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.microtensile-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* Filter Section */
+.microtensile-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.microtensile-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.microtensile-filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.microtensile-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.microtensile-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.microtensile-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  width: auto !important;
+}
+
+/* Checklist Section */
+.chr-checklist {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.chr-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.chr-check input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.chr-check span {
+  user-select: none;
+}
+
+/* Table Scroll Container */
+.chr-table-scroll {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Table Base Styles */
+.chr-primary-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.chr-primary-table th,
+.chr-primary-table td {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.chr-primary-table thead tr {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.chr-primary-table th {
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: transparent;
+  border-bottom: 2px solid #cbd5e1;
+  border-left: none;
+  border-right: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  vertical-align: middle;
+}
+
+.chr-primary-table th:first-child {
+  border-top-left-radius: 8px;
+  padding-left: 1.5rem;
+}
+
+.chr-primary-table th:last-child {
+  border-top-right-radius: 8px;
+  padding-right: 1.5rem;
+}
+
+.chr-primary-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.chr-primary-table tbody tr:hover {
+  background-color: #f8fafc;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chr-primary-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+
+.chr-primary-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+
+.chr-primary-table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.chr-primary-table tbody tr:nth-child(even):hover {
+  background-color: #f1f5f9;
+}
+
+.chr-primary-table td {
+  padding: 1.125rem 1.25rem;
+  color: #475569;
+  white-space: normal;
+  vertical-align: middle;
+  text-align: center;
+  word-wrap: break-word;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-left: none;
+  border-right: none;
+}
+
+.chr-primary-table td:first-child {
+  padding-left: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+.chr-primary-table td:last-child {
+  padding-right: 1.5rem;
+}
+
+/* No records message */
+.chr-primary-table tbody td[colspan] {
+  padding: 3rem;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.9375rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 6px;
+}
+
+/* Error Message */
+.chr-error {
+  padding: 1rem;
+  margin-top: 1rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Edit Modal Form Grid */
+.microtensile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.microtensile-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.microtensile-form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+.microtensile-form-group input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: 'Poppins', sans-serif;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.microtensile-form-group input:focus {
+  outline: none;
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+/* DISA Checklist in Modal */
+.microtensile-disa-checklist {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.microtensile-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.microtensile-checkbox {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.microtensile-checkbox-label span {
+  user-select: none;
+}
+
+/* Action Buttons Styling for MicroTensile Report */
+.microtensile-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.microtensile-actions .action-button {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  gap: 0 !important;
+}
+
+.microtensile-actions .action-button.edit,
+.microtensile-actions .action-button.delete {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 !important;
+}
+
+.microtensile-actions .action-button svg {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .microtensile-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .chr-primary-table {
+    font-size: 0.8125rem;
+    min-width: 1000px;
+  }
+
+  .chr-primary-table th,
+  .chr-primary-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .chr-primary-table {
+    min-width: 800px;
+  }
+
+  .microtensile-report-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

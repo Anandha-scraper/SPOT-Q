@@ -1,0 +1,726 @@
+/* Microstructure Table Container with Horizontal Scroll */
+.microstructure-table-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+/* Table Styling */
+.microstructure-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  background-color: white;
+}
+
+/* Consistent Header Background for All Columns */
+.microstructure-table thead th {
+  background-color: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Body Cells */
+.microstructure-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.microstructure-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.microstructure-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Non-sticky columns minimum width */
+.microstructure-table th,
+.microstructure-table td {
+  min-width: 140px;
+}
+
+/* Actions column */
+.microstructure-table th:last-child,
+.microstructure-table td:last-child {
+  min-width: 120px;
+  text-align: center;
+}
+
+/* No records message */
+.impact-no-records {
+  text-align: center;
+  padding: 40px 20px !important;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Scrollbar Styling */
+.microstructure-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.microstructure-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.microstructure-table-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.microstructure-table-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Add borders between table columns */
+.microstructure-table th,
+.microstructure-table td {
+  border-right: 1px solid #e5e7eb;
+  padding: 12px 16px;
+}
+
+/* Remove border from the last column */
+.microstructure-table th:last-child,
+.microstructure-table td:last-child {
+  border-right: none;
+}
+
+/* Optional: Make header borders slightly darker */
+.microstructure-table thead th {
+  border-right: 1px solid #d1d5db;
+}
+
+.microstructure-table thead th:last-child {
+  border-right: none;
+}
+
+/* Ensure equal column spacing */
+.microstructure-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.microstructure-table th,
+.microstructure-table td {
+  width: calc(100% / 14); /* 14 columns total */
+  text-align: left;
+  vertical-align: middle;
+}
+
+/* Actions column should be slightly wider */
+.microstructure-table th:last-child,
+.microstructure-table td:last-child {
+  width: 120px;
+  min-width: 120px;
+}
+
+/* Table container with horizontal scroll */
+.microstructure-table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* Table styling */
+.microstructure-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1400px; /* Ensures table doesn't get too cramped */
+  background: white;
+}
+
+/* Table headers */
+.microstructure-table thead th {
+  background-color: #f9fafb;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  border-right: 1px solid #d1d5db;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+/* Remove border from last header */
+.microstructure-table thead th:last-child {
+  border-right: none;
+}
+
+/* Table body cells */
+.microstructure-table tbody td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  color: #1f2937;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
+  white-space: nowrap;
+}
+
+/* Remove border from last cell */
+.microstructure-table tbody td:last-child {
+  border-right: none;
+}
+
+/* Table rows hover effect */
+.microstructure-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Equal column widths */
+.microstructure-table th:nth-child(1),
+.microstructure-table td:nth-child(1) { min-width: 180px; } /* Date Of Inspection */
+
+.microstructure-table th:nth-child(2),
+.microstructure-table td:nth-child(2) { min-width: 80px; } /* Disa */
+
+.microstructure-table th:nth-child(3),
+.microstructure-table td:nth-child(3) { min-width: 120px; } /* Part Name */
+
+.microstructure-table th:nth-child(4),
+.microstructure-table td:nth-child(4) { min-width: 100px; } /* Date Code */
+
+.microstructure-table th:nth-child(5),
+.microstructure-table td:nth-child(5) { min-width: 100px; } /* Heat Code */
+
+.microstructure-table th:nth-child(6),
+.microstructure-table td:nth-child(6) { min-width: 100px; } /* Nodularity */
+
+.microstructure-table th:nth-child(7),
+.microstructure-table td:nth-child(7) { min-width: 110px; } /* Graphite Type */
+
+.microstructure-table th:nth-child(8),
+.microstructure-table td:nth-child(8) { min-width: 90px; } /* Count Nos */
+
+.microstructure-table th:nth-child(9),
+.microstructure-table td:nth-child(9) { min-width: 80px; } /* Size */
+
+.microstructure-table th:nth-child(10),
+.microstructure-table td:nth-child(10) { min-width: 90px; } /* Ferrite % */
+
+.microstructure-table th:nth-child(11),
+.microstructure-table td:nth-child(11) { min-width: 90px; } /* Pearlite % */
+
+.microstructure-table th:nth-child(12),
+.microstructure-table td:nth-child(12) { min-width: 90px; } /* Carbide % */
+
+.microstructure-table th:nth-child(13),
+.microstructure-table td:nth-child(13) { min-width: 150px; } /* Remarks */
+
+.microstructure-table th:nth-child(14),
+.microstructure-table td:nth-child(14) { min-width: 120px; } /* Actions */
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .microstructure-table thead th,
+  .microstructure-table tbody td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .microstructure-table th,
+  .microstructure-table td {
+    min-width: 120px;
+  }
+}
+
+.microstructure-report-entry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1.2;
+  width: 100%;
+  position: relative;
+}
+
+/* Filter Section */
+.impact-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.impact-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.impact-filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.impact-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.impact-filter-container > div:has(button) {
+  display: inline-block;
+}
+
+.impact-filter-container button {
+  margin-bottom: 0;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  width: auto !important;
+}
+
+/* Loader Container */
+.impact-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+/* Details Card */
+.impact-details-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* Table Container with Horizontal Scroll */
+.impact-table-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+/* Table styling */
+.impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1300px;
+  background: white;
+  table-layout: auto;
+}
+
+/* Table headers - MAXIMUM VISIBILITY */
+.impact-table thead th {
+  background-color: #f9fafb;
+  padding: 12px 12px;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+  border-right: 1px solid #d1d5db;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.4;
+}
+
+/* Remove border from last header */
+.impact-table thead th:last-child {
+  border-right: none;
+}
+
+/* Table body cells */
+.impact-table tbody td {
+  padding: 10px 12px; /* tighter to fit more columns */
+  text-align: left;
+  font-size: 14px;
+  color: #1f2937;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
+  white-space: normal; /* allow wrapping */
+  word-break: break-word; /* wrap long tokens */
+  vertical-align: middle; /* NEW: center content vertically */
+}
+
+/* Make any links inside table cells (e.g. Date Code, Heat Code) look like normal text */
+.impact-table tbody td a {
+  color: #1f2937;
+  text-decoration: none;
+}
+
+/* Remove border from last cell */
+.impact-table tbody td:last-child {
+  border-right: none;
+}
+
+/* Table rows hover effect */
+.impact-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Remove last row border */
+.impact-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Column widths - MAXIMIZED FOR FULL HEADER DISPLAY */
+
+/* Date Of Inspection body cells: dark grey */
+.impact-table tbody td:nth-child(1) {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.impact-table th:nth-child(2),
+.impact-table td:nth-child(2) { 
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+} /* Disa */
+
+.impact-table th:nth-child(3),
+.impact-table td:nth-child(3) { 
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+} /* Part Name */
+
+.impact-table th:nth-child(4),
+.impact-table td:nth-child(4) { 
+  width: 130px;
+  min-width: 130px;
+  max-width: 130px;
+} /* Date Code */
+
+.impact-table th:nth-child(5),
+.impact-table td:nth-child(5) { 
+  width: 130px; /* match Date Code */
+  min-width: 130px;
+  max-width: 130px;
+  text-align: center;  /* NEW: center Heat Code text */
+} /* Heat Code */
+
+.impact-table th:nth-child(6),
+.impact-table td:nth-child(6) { 
+  width: 240px;          /* wider so full word fits */
+  min-width: 240px;
+  max-width: 240px;
+} /* Nodularity */
+
+.impact-table th:nth-child(6) {
+  white-space: normal;   /* allow wrapping instead of cutting text */
+}
+
+.impact-table th:nth-child(7),
+.impact-table td:nth-child(7) { 
+  width: 130px; /* match Date Code */
+  min-width: 130px;
+  max-width: 130px;
+} /* Graphite Type */
+
+.impact-table th:nth-child(8),
+.impact-table td:nth-child(8) { 
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+} /* Count Nos */
+
+.impact-table th:nth-child(9),
+.impact-table td:nth-child(9) { 
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+} /* Size */
+
+.impact-table th:nth-child(10),
+.impact-table td:nth-child(10) { 
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+} /* Ferrite % */
+
+.impact-table th:nth-child(11),
+.impact-table td:nth-child(11) { 
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+} /* Pearlite % */
+
+.impact-table th:nth-child(12),
+.impact-table td:nth-child(12) { 
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+} /* Carbide % */
+
+.impact-table th:nth-child(13),
+.impact-table td:nth-child(13) { 
+  width: 165px;
+  min-width: 165px;
+} /* Remarks */
+
+.impact-table th:nth-child(14),
+.impact-table td:nth-child(14) { 
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+  text-align: center;
+} /* Actions */
+
+/* Center-align numeric / code columns for clean alignment */
+.impact-table th:nth-child(2),
+.impact-table td:nth-child(2),  /* DISA */
+.impact-table th:nth-child(3),
+.impact-table td:nth-child(3),  /* Part Name */
+.impact-table th:nth-child(4),
+.impact-table td:nth-child(4),  /* Date Code */
+.impact-table th:nth-child(5),
+.impact-table td:nth-child(5),  /* Heat Code */
+.impact-table th:nth-child(8),
+.impact-table td:nth-child(8),  /* Count Nos */
+.impact-table th:nth-child(9),
+.impact-table td:nth-child(9),  /* Size */
+.impact-table th:nth-child(10),
+.impact-table td:nth-child(10), /* Ferrite % */
+.impact-table th:nth-child(11),
+.impact-table td:nth-child(11), /* Pearlite % */
+.impact-table th:nth-child(12),
+.impact-table td:nth-child(12)  /* Carbide % */
+{
+  text-align: center;
+}
+
+/* No records message */
+.impact-no-records {
+  text-align: center;
+  padding: 40px 20px !important;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Scrollbar Styling */
+.impact-table-container::-webkit-scrollbar {
+  height: 10px;
+}
+
+.impact-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.impact-table-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.impact-table-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+/* Modal Container */
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Modal Body */
+.modal-body {
+  padding: 2rem;
+}
+
+/* Form Grid */
+.microstructure-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.microstructure-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.microstructure-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.microstructure-form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+.microstructure-form-group input,
+.microstructure-form-group textarea {
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.microstructure-form-group input:focus,
+.microstructure-form-group textarea:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.microstructure-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem; 
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.modal-cancel-btn {
+  padding: 0.625rem 1.25rem;
+  background: white;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.modal-cancel-btn:hover:not(:disabled) {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.modal-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-submit-btn {
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.modal-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.modal-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .impact-table thead th,
+  .impact-table tbody td {
+    padding: 10px 15px;
+    font-size: 13px;
+  }
+  
+  .microstructure-form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .modal-container {
+    max-height: 95vh;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
+  }
+}

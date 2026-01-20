@@ -80,12 +80,12 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/v1/auth', authRoutes);
 
 // Private (Gated by Department)
-app.use('/api/v1/tensile-tests', protect, checkDepartmentAccess('QC'), tensileRoutes);
-app.use('/api/v1/impact-tests', protect, checkDepartmentAccess('QC'), impactRoutes);
-app.use('/api/v1/micro-tensile', protect, checkDepartmentAccess('QC'), microTensileRoutes);
-app.use('/api/v1/micro-structure', protect, checkDepartmentAccess('QC'), microStructureRoutes);
-app.use('/api/v1/qc-reports', protect, checkDepartmentAccess('QC'), qcProductionRoutes);
-app.use('/api/v1/process-records', protect, checkDepartmentAccess('Process'), processRoutes);
+app.use('/api/v1/tensile', protect, checkDepartmentAccess('Tensile'), tensileRoutes);
+app.use('/api/v1/impact-tests', protect, checkDepartmentAccess('Impact'), impactRoutes);
+app.use('/api/v1/micro-tensile', protect, checkDepartmentAccess('Micro Tensile'), microTensileRoutes);
+app.use('/api/v1/micro-structure', protect, checkDepartmentAccess('Micro Structure'), microStructureRoutes);
+app.use('/api/v1/qc-reports', protect, checkDepartmentAccess('QC - production'), qcProductionRoutes);
+app.use('/api/v1/process', protect, checkDepartmentAccess('Process'), processRoutes);
 app.use('/api/v1/sand-records', protect, checkDepartmentAccess('SandLab'), sandTestingRecordRoutes);
 app.use('/api/v1/sand-notes', protect, checkDepartmentAccess('SandLab'), foundrySandTestingNoteRoutes);
 app.use('/api/v1/moulding-disa', protect, checkDepartmentAccess('Moulding'), dismaticProductReportRoutes);

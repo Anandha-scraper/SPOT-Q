@@ -410,13 +410,14 @@ const SandTestingRecord = () => {
     
     try {
       // Send primary data + table data together
-      const response = await api.post(`/v1/sand-testing-records/table${tableNum}`, {
+      const res = await fetch(`http://localhost:5000/api/v1/sand-testing-records/table${tableNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
         tableNum,
         data: {
           ...dataToSend,
           date: primaryData.date
         }
-      });
+      }) });
+      const response = await res.json();
       
       if (response.success) {
         if (!silent) alert(`Table ${tableNum} saved successfully!`);
@@ -477,7 +478,8 @@ const SandTestingRecord = () => {
     try {
       // Format date as YYYY-MM-DD for API
       const dateStr = date.includes('T') ? date.split('T')[0] : date;
-      const response = await api.get(`/v1/sand-testing-records/date/${dateStr}`);
+      const res = await fetch(`http://localhost:5000/api/v1/sand-testing-records/date/${dateStr}`, { credentials: 'include' });
+      const response = await res.json();
       
       if (response.success && response.data && response.data.length > 0) {
         const record = response.data[0];

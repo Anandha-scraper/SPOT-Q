@@ -180,7 +180,8 @@ const SandTestingRecordReport = () => {
           ShiftIII: { ...t2EditForm.shiftIII }
         }
       };
-      const res = await api.post('/v1/sand-testing-records/table2', payload);
+      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await response.json();
       if (res?.success) {
         setT2EditModalOpen(false);
         await refetchByDateOrRange();
@@ -306,7 +307,8 @@ const SandTestingRecordReport = () => {
         total: { mixno: { start: t3EditForm.total.mixnoStart, end: t3EditForm.total.mixnoEnd, total: t3EditForm.total.mixnoTotal }, numberOfMixRejected: toNum(t3EditForm.total.numberOfMixRejected) }
       };
       const payload = { tableNum: 3, data };
-      const res = await api.post('/v1/sand-testing-records/table3', payload);
+      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await response.json();
       if (res?.success) {
         setT3EditModalOpen(false);
         await refetchByDateOrRange();
@@ -340,7 +342,8 @@ const SandTestingRecordReport = () => {
         tableNum: 4,
         data: { date: t4EditMeta.date, sandLump: t4EditForm.sandLump, newSandWt: t4EditForm.newSandWt, sandFriability: { ...t4EditForm.sandFriability } }
       };
-      const res = await api.post('/v1/sand-testing-records/table4', payload);
+      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table4', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await response.json();
       if (res?.success) {
         setT4EditModalOpen(false);
         await refetchByDateOrRange();
@@ -360,7 +363,8 @@ const SandTestingRecordReport = () => {
 
   const fetchAllRecords = async () => {
     try {
-      const response = await api.get('/v1/sand-testing-records?limit=1000&order=desc');
+      const res = await fetch('http://localhost:5000/api/v1/sand-testing-records?limit=1000&order=desc', { credentials: 'include' });
+      const response = await res.json();
       if (response.success && Array.isArray(response.data)) {
         setRecords(response.data);
         setDisplayRecords(response.data.filter(r => !isRecordEmpty(r)));
@@ -379,7 +383,8 @@ const SandTestingRecordReport = () => {
         setDisplayRecords((records || []).filter(r => !isRecordEmpty(r)));
         return;
       }
-      const res = await api.get(`/v1/sand-testing-records/date/${sel}`);
+      const response = await fetch(`http://localhost:5000/api/v1/sand-testing-records/date/${sel}`, { credentials: 'include' });
+      const res = await response.json();
       if (res.success && Array.isArray(res.data)) {
         setRecords(res.data);
         setDisplayRecords(res.data.filter(r => !isRecordEmpty(r)));
@@ -520,7 +525,8 @@ const SandTestingRecordReport = () => {
           }
         }
       };
-      const res = await api.post('/v1/sand-testing-records/table1', payload);
+      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await response.json();
       if (res?.success) {
         setT1EditModalOpen(false);
         await refetchByDateOrRange();
@@ -596,7 +602,8 @@ const SandTestingRecordReport = () => {
       data.remarks = td.remarks;
 
       const payload = { tableNum: 5, data: { ...data, date: editMeta.date } };
-      const res = await api.post('/v1/sand-testing-records/table5', payload);
+      const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const res = await response.json();
       if (res.success) {
         setEditTpModalOpen(false);
         await refetchByDateOrRange();
@@ -618,7 +625,8 @@ const SandTestingRecordReport = () => {
       if (!window.confirm('This date has no data. Delete the date?')) return;
       setDeleting(prev => ({ ...prev, [id]: true }));
       try {
-        const delRes = await api.delete(`/v1/sand-testing-records/${id}`);
+        const deleteResponse = await fetch(`http://localhost:5000/api/v1/sand-testing-records/${id}`, { method: 'DELETE', credentials: 'include' });
+        const delRes = await deleteResponse.json();
         const ok = (delRes && (delRes.success === true || delRes.status === 200 || delRes.ok === true));
         if (ok) {
           setRecords(prev => prev.filter(r => (r?._id || r?.id) !== id));
@@ -673,19 +681,24 @@ const SandTestingRecordReport = () => {
           remarks: ''
         };
         const payload = { tableNum: 5, data: { ...data, date } };
-        res = await api.post('/v1/sand-testing-records/table5', payload);
+        const response = await fetch('http://localhost:5000/api/v1/sand-testing-records/table5', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await response.json();
       } else if (table === 'table1') {
         const payload = { tableNum: 1, data: { date, sandShifts: {} } };
-        res = await api.post('/v1/sand-testing-records/table1', payload);
+        const resp1 = await fetch('http://localhost:5000/api/v1/sand-testing-records/table1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await resp1.json();
       } else if (table === 'table2') {
         const payload = { tableNum: 2, data: { date, clayShifts: {} } };
-        res = await api.post('/v1/sand-testing-records/table2', payload);
+        const resp2 = await fetch('http://localhost:5000/api/v1/sand-testing-records/table2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await resp2.json();
       } else if (table === 'table3') {
         const payload = { tableNum: 3, data: { date, mixshifts: {} } };
-        res = await api.post('/v1/sand-testing-records/table3', payload);
+        const resp3 = await fetch('http://localhost:5000/api/v1/sand-testing-records/table3', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await resp3.json();
       } else if (table === 'table4') {
         const payload = { tableNum: 4, data: { date, sandLump: '', newSandWt: '', sandFriability: {} } };
-        res = await api.post('/v1/sand-testing-records/table4', payload);
+        const resp4 = await fetch('http://localhost:5000/api/v1/sand-testing-records/table4', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        res = await resp4.json();
       } else {
         // Fallback: do not delete the whole record if table scope missing
         return alert('Unknown table scope for delete.');
@@ -747,7 +760,8 @@ const SandTestingRecordReport = () => {
         const updatedRec = (updatedRecords || []).find(r => (r?._id || r?.id) === id) || (updatedDisplay || []).find(r => (r?._id || r?.id) === id);
         if (updatedRec && isRecordDataEmpty(updatedRec)) {
           try {
-            const delRes = await api.delete(`/v1/sand-testing-records/${id}`);
+            const deleteResp = await fetch(`http://localhost:5000/api/v1/sand-testing-records/${id}`, { method: 'DELETE', credentials: 'include' });
+            const delRes = await deleteResp.json();
             if (delRes?.success || delRes?.status === 200) {
               setRecords(prev => prev.filter(r => (r?._id || r?.id) !== id));
               setDisplayRecords(prev => prev.filter(r => (r?._id || r?.id) !== id));

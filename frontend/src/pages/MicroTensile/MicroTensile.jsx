@@ -56,7 +56,14 @@ const MicroTensile = () => {
   useEffect(() => {
     const fetchCurrentDate = async () => {
       try {
-        const data = await api.get('/v1/micro-tensile-tests/current-date');
+        const resp = await fetch('/v1/micro-tensile-tests/current-date', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const data = await resp.json();
 
         if (data.success && data.date) {
           setFormData(prev => ({
@@ -363,14 +370,29 @@ const MicroTensile = () => {
       };
       delete payload.itemSecond;
 
-      const data = await api.post('/v1/micro-tensile-tests', payload);
+      const resp = await fetch('/v1/micro-tensile-tests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
 
       if (data.success) {
         // Show success popup instead of alert
         setShowSuccessPopup(true);
 
         // Re-fetch current date from backend to ensure consistency
-        const dateData = await api.get('/v1/micro-tensile-tests/current-date');
+        const dateResp = await fetch('/v1/micro-tensile-tests/current-date', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const dateData = await dateResp.json();
         const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
         // Reset all fields except DISA checklist and date
@@ -423,7 +445,14 @@ const MicroTensile = () => {
   const handleReset = async () => {
     try {
       // Re-fetch current date from backend to ensure consistency
-      const dateData = await api.get('/v1/micro-tensile-tests/current-date');
+      const resp = await fetch('/v1/micro-tensile-tests/current-date', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const dateData = await resp.json();
       const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
       setFormData({

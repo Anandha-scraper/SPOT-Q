@@ -1,11 +1,11 @@
 // Registery routes of departments
 const ROUTE_DEPARTMENT_MAP = {
-    '/api/v1/tensile-tests': 'Tensile',
+    '/api/v1/tensile': 'Tensile',
     '/api/v1/impact-tests': 'Impact',
     '/api/v1/micro-tensile-tests': 'Micro Tensile',
     '/api/v1/micro-structure': 'Micro Structure',
     '/api/v1/qc-reports': 'QC - production',
-    '/api/v1/process-records': 'Process',
+    '/api/v1/process': 'Process',
     '/api/v1/melting-logs': 'Melting',
     '/api/v1/cupola-holder-logs': 'Melting',
     '/api/v1/dmm-settings': 'Moulding',
@@ -22,7 +22,7 @@ const getRequiredDepartment = (path) => {
         return ROUTE_DEPARTMENT_MAP[pathWithoutQuery];
     }
     
-    // Check for nested routes (e.g., /api/v1/tensile-tests/123)
+    // Check for nested routes (e.g., /api/v1/tensile/123)
     for (const routePath in ROUTE_DEPARTMENT_MAP) {
         if (pathWithoutQuery.startsWith(routePath + '/') || pathWithoutQuery === routePath) {
             return ROUTE_DEPARTMENT_MAP[routePath];

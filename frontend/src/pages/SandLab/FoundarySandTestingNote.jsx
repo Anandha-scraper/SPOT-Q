@@ -117,7 +117,8 @@ export default function FoundrySandTestingNote() {
     
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const response = await api.get(`/v1/foundry-sand-testing-notes?startDate=${dateStr}&endDate=${dateStr}`);
+      const res = await fetch(`http://localhost:5000/api/v1/foundry-sand-testing-notes?startDate=${dateStr}&endDate=${dateStr}`, { credentials: 'include' });
+      const response = await res.json();
       
       if (response.success && response.data && response.data.length > 0) {
         // Check if any entry has the same date AND shift
@@ -247,7 +248,8 @@ export default function FoundrySandTestingNote() {
     try {
       setCheckingData(true);
       // Get all entries for this date
-      const response = await api.get(`/v1/foundry-sand-testing-notes?startDate=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`);
+      const res = await fetch(`http://localhost:5000/api/v1/foundry-sand-testing-notes?startDate=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`, { credentials: 'include' });
+      const response = await res.json();
       
       let record = null;
       if (response.success && response.data && Array.isArray(response.data) && response.data.length > 0) {
@@ -700,7 +702,8 @@ export default function FoundrySandTestingNote() {
         payload.shearStrengthSetting = primaryData.shearStrengthSetting;
       }
 
-      const response = await api.post('/v1/foundry-sand-testing-notes', payload);
+      const res = await fetch('http://localhost:5000/api/v1/foundry-sand-testing-notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const response = await res.json();
       
       if (response.success) {
         setPrimaryId(response.data?._id || null);
@@ -878,7 +881,8 @@ export default function FoundrySandTestingNote() {
         ...sectionPayload
       };
 
-      const response = await api.post('/v1/foundry-sand-testing-notes', payload);
+      const res = await fetch('http://localhost:5000/api/v1/foundry-sand-testing-notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+      const response = await res.json();
       
       if (response.success) {
         alert(`${sectionName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} saved successfully!`);

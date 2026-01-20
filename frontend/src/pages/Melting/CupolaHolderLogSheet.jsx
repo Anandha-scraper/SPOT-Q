@@ -73,11 +73,18 @@ const CupolaHolderLogSheet = () => {
     
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const response = await api.get(`/v1/cupola-holder-logs?startDate=${dateStr}&endDate=${dateStr}`);
+      const response = await fetch(`/v1/cupola-holder-logs?startDate=${dateStr}&endDate=${dateStr}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const data = await response.json();
       
-      if (response.success && response.data && response.data.length > 0) {
+      if (data.success && data.data && data.data.length > 0) {
         // Check if any entry has the same date AND shift
-        const hasDataForShift = response.data.some(entry => {
+        const hasDataForShift = data.data.some(entry => {
           const entryShift = entry.shift;
           return entryShift === shift;
         });
@@ -189,7 +196,14 @@ const CupolaHolderLogSheet = () => {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
       const encodedShift = encodeURIComponent(shift);
       const encodedHolder = encodeURIComponent(holderNumber);
-      const response = await api.get(`/v1/cupola-holder-logs/primary/${dateStr}/${encodedShift}/${encodedHolder}`);
+      const resp = await fetch(`/v1/cupola-holder-logs/primary/${dateStr}/${encodedShift}/${encodedHolder}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const response = await resp.json();
       
       if (response.success && response.data) {
         // Populate primary data with fetched data
@@ -271,14 +285,22 @@ const CupolaHolderLogSheet = () => {
     // Save primary data to database
     setPrimaryLoading(true);
     try {
-      const response = await api.post('/v1/cupola-holder-logs/primary', {
-        primaryData: {
-          date: primaryData.date,
-          shift: primaryData.shift,
-          holderNumber: primaryData.holderNumber,
-          heatNo: primaryData.heatNo
-        }
+      const resp = await fetch('/v1/cupola-holder-logs/primary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          primaryData: {
+            date: primaryData.date,
+            shift: primaryData.shift,
+            holderNumber: primaryData.holderNumber,
+            heatNo: primaryData.heatNo
+          }
+        })
       });
+      const response = await resp.json();
       
       if (response.success) {
         setPrimaryId(response.data._id);
@@ -340,7 +362,15 @@ const CupolaHolderLogSheet = () => {
       
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+shift+holderNumber and update it, or create new one
-      const data = await api.post('/v1/cupola-holder-logs', allData);
+      const response = await fetch('/v1/cupola-holder-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(allData)
+      });
+      const data = await response.json();
       if (data.success) {
         alert('All tables saved successfully!');
       }

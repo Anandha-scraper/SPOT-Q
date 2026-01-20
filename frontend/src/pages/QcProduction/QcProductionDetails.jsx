@@ -127,7 +127,8 @@ const QcProductionDetails = () => {
 
     try {
       setSubmitLoading(true);
-      const data = await api.post('/v1/qc-reports', formData);
+      const response = await fetch('http://localhost:5000/api/v1/qc-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(formData) });
+      const data = await response.json();
 
       if (data.success) {
         alert('QC Production report created successfully!');

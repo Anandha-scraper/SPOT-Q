@@ -50,19 +50,16 @@ const Tensile = () => {
   const firstFieldRef = useRef(null);
   const submitButtonRef = useRef(null);
 
-  // Fetch server date on component mount
+  // Set current date on mount (client-side, like Process.jsx)
   useEffect(() => {
-    const fetchServerDate = async () => {
-      try {
-        const dateData = await api.get('/v1/tensile-tests/current-date');
-        if (dateData.success && dateData.date) {
-          setFormData(prev => ({ ...prev, dateOfInspection: dateData.date }));
-        }
-      } catch (error) {
-        console.error('Error fetching current date:', error);
-      }
-    };
-    fetchServerDate();
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setFormData(prev => ({
+      ...prev,
+      dateOfInspection: `${y}-${m}-${d}`
+    }));
   }, []);
 
   const handleChange = (e) => {
@@ -292,13 +289,23 @@ const Tensile = () => {
         testedBy: formData.testedBy
       };
 
-      const data = await api.post('/v1/tensile-tests', payload);
+      const response = await fetch('/v1/tensile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
 
       if (data.success) {
         alert('Tensile test entry created successfully!');
 
-        const dateData = await api.get('/v1/tensile-tests/current-date');
-        const currentDate = dateData.success && dateData.date ? dateData.date : formData.dateOfInspection;
+        // Get current date (client-side)
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        const currentDate = `${y}-${m}-${d}`;
 
         setFormData({
           dateOfInspection: currentDate,
@@ -347,8 +354,12 @@ const Tensile = () => {
 
   const handleReset = async () => {
     try {
-      const dateData = await api.get('/v1/tensile-tests/current-date');
-      const currentDate = dateData.success && dateData.date ? dateData.date : formData.dateOfInspection;
+      // Get current date (client-side)
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const currentDate = `${y}-${m}-${d}`;
 
       setFormData({
         dateOfInspection: currentDate,

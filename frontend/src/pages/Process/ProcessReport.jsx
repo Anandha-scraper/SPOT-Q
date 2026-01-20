@@ -23,7 +23,7 @@ const ProcessReport = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/v1/process-records', {
+      const response = await fetch('/v1/process', {
         credentials: 'include'
       });
       const data = await response.json();

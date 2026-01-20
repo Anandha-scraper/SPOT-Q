@@ -62,7 +62,14 @@ const MicroStructure = () => {
       try {
         setDateLoading(true);
 
-        const dateData = await api.get('/v1/micro-structure/current-date');
+        const resp = await fetch('/v1/micro-structure/current-date', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const dateData = await resp.json();
         if (dateData.success && dateData.date) {
           setFormData(prev => ({ ...prev, date: dateData.date }));
         }
@@ -285,13 +292,28 @@ const MicroStructure = () => {
 
     try {
       setSubmitLoading(true);
-      const data = await api.post('/v1/micro-structure', formData);
+      const resp = await fetch('/v1/micro-structure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await resp.json();
 
       if (data.success) {
         // Show success popup
         setShowSuccessPopup(true);
 
-        const dateData = await api.get('/v1/micro-structure/current-date');
+        const dateResp = await fetch('/v1/micro-structure/current-date', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const dateData = await dateResp.json();
         const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
         // Reset form
@@ -347,7 +369,14 @@ const MicroStructure = () => {
   // ====================== Reset ======================
   const handleReset = async () => {
     try {
-      const dateData = await api.get('/v1/micro-structure/current-date');
+      const resp = await fetch('/v1/micro-structure/current-date', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const dateData = await resp.json();
       const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
       setFormData({

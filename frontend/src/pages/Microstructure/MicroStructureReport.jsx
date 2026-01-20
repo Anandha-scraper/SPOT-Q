@@ -24,7 +24,14 @@ const MicroStructureReport = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const data = await api.get('/v1/micro-structure');
+      const resp = await fetch('/v1/micro-structure', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const data = await resp.json();
 
       if (data.success) {
         setItems(data.data || []);
@@ -67,7 +74,15 @@ const MicroStructureReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const data = await api.put(`/v1/micro-structure/${editingItem._id}`, editFormData);
+      const resp = await fetch(`/v1/micro-structure/${editingItem._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(editFormData)
+      });
+      const data = await resp.json();
 
       if (data.success) {
         setShowEditModal(false);
@@ -84,7 +99,14 @@ const MicroStructureReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const data = await api.delete(`/v1/micro-structure/${id}`);
+        const resp = await fetch(`/v1/micro-structure/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const data = await resp.json();
 
         if (data.success) {
           fetchItems();

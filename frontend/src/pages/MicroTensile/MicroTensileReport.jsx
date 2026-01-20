@@ -37,8 +37,19 @@ const MicroTensileReport = () => {
     if (!row?._id) return;
     setDeleteLoading(true);
     try {
-      await api.delete(`/v1/micro-tensile-tests/${row._id}`);
-      setEntries((prev) => prev.filter((e) => e._id !== row._id));
+      const resp = await fetch(`/v1/micro-tensile-tests/${row._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      if (resp.ok) {
+        setEntries((prev) => prev.filter((e) => e._id !== row._id));
+      } else {
+        const data = await resp.json();
+        alert(data.message || 'Failed to delete the record');
+      }
     } catch (e) {
       alert(e.message || 'Failed to delete the record');
     } finally {
@@ -139,7 +150,15 @@ const MicroTensileReport = () => {
       const payload = { ...editForm, item: itemObj };
       delete payload.itemSecond;
 
-      const res = await api.put(`/v1/micro-tensile-tests/${row._id}`, payload);
+      const resp = await fetch(`/v1/micro-tensile-tests/${row._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const res = await resp.json();
       if (res?.success) {
         const updated = payload;
         setEntries((prev) => prev.map((e) => (e._id === row._id ? { ...e, ...updated, _id: row._id } : e)));
@@ -176,7 +195,14 @@ const MicroTensileReport = () => {
     try {
       const start = selectedDate;
       const end = selectedDate;
-      const data = await api.get(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`);
+      const resp = await fetch(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const data = await resp.json();
       if (data?.success) {
         const list = Array.isArray(data.data) ? data.data : [];
         const sorted = [...list].sort((a, b) => {
@@ -204,7 +230,14 @@ const MicroTensileReport = () => {
       const day = String(today.getDate()).padStart(2, '0');
       const todayString = `${year}-${month}-${day}`;
       
-      const res = await api.get(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`);
+      const resp = await fetch(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const res = await resp.json();
       if (res?.success && Array.isArray(res.data)) {
         // Filter to ensure we only get today's entries
         const todaysEntries = res.data.filter(entry => {

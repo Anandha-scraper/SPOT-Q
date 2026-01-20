@@ -5,6 +5,13 @@ import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
+  // Helper: display DD/MM/YYYY
+  const formatDateDisplay = (iso) => {
+    if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   const [currentDate, setCurrentDate] = useState('');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,12 +37,19 @@ const TensileReport = () => {
   const fetchCurrentDateAndEntries = async () => {
     try {
       setLoading(true);
-      const dateData = await api.get('/v1/tensile-tests/current-date');
-      const todayStr = dateData.success && dateData.date ? dateData.date : new Date().toISOString().split('T')[0];
+      // Get current date (client-side)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
       setCurrentDate(todayStr);
 
       // Fetch entries for current date
-      const data = await api.get(`/v1/tensile-tests/by-date?date=${todayStr}`);
+      const response = await fetch(`/v1/tensile/by-date?date=${todayStr}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
 
       if (data.success) {
         setEntries(data.data || []);
@@ -100,7 +114,13 @@ const TensileReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const data = await api.put(`/v1/tensile-tests/${editingItem._id}`, editFormData);
+      const response = await fetch(`/v1/tensile/${editingItem._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(editFormData)
+      });
+      const data = await response.json();
 
       if (data.success) {
         setShowEditModal(false);
@@ -117,7 +137,11 @@ const TensileReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const data = await api.delete(`/v1/tensile-tests/${id}`);
+        const response = await fetch(`/v1/tensile/${id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        const data = await response.json();
 
         if (data.success) {
           fetchCurrentDateAndEntries();
@@ -144,7 +168,10 @@ const TensileReport = () => {
         query += `&endDate=${endDate}`;
       }
 
-      const data = await api.get(`/v1/tensile-tests/filter?${query}`);
+      const response = await fetch(`/v1/tensile/filter?${query}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
 
       if (data.success) {
         setEntries(data.data || []);
@@ -270,31 +297,12 @@ const TensileReport = () => {
                         })()}
                       </td>
 
-                      <td style={{ minWidth: '100px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => handleEdit(item)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              cursor: 'pointer'
-                            }}
-                          >
+                      <td>
+                        <div>
+                          <button onClick={() => handleEdit(item)}>
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #fecaca',
-                              background: '#fee2e2',
-                              color: '#b91c1c',
-                              cursor: 'pointer'
-                            }}
-                          >
+                          <button onClick={() => handleDelete(item._id)}>
                             Delete
                           </button>
                         </div>

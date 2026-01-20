@@ -24,7 +24,8 @@ const QcProductionDetailsReport = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const data = await api.get('/v1/qc-reports');
+      const response = await fetch('http://localhost:5000/api/v1/qc-reports', { credentials: 'include' });
+      const data = await response.json();
 
       if (data.success) {
         setItems(data.data || []);
@@ -79,7 +80,8 @@ const QcProductionDetailsReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const data = await api.put(`/v1/qc-production-details/${editingItem._id}`, editFormData);
+      const response = await fetch(`http://localhost:5000/api/v1/qc-production-details/${editingItem._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(editFormData) });
+      const data = await response.json();
       
       if (data.success) {
         setShowEditModal(false);
@@ -96,7 +98,8 @@ const QcProductionDetailsReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const data = await api.delete(`/v1/qc-production-details/${id}`);
+        const response = await fetch(`http://localhost:5000/api/v1/qc-production-details/${id}`, { method: 'DELETE', credentials: 'include' });
+        const data = await response.json();
         
         if (data.success) {
           fetchItems();

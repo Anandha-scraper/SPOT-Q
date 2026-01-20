@@ -41,7 +41,10 @@ const Impact = () => {
       try {
         setDateLoading(true);
 
-        const dateData = await api.get('/v1/impact-tests/current-date');
+        const response = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
+          credentials: 'include'
+        });
+        const dateData = await response.json();
         if (dateData.success && dateData.date) {
           setFormData(prev => ({ ...prev, date: dateData.date }));
         }

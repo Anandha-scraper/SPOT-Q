@@ -1,5 +1,6 @@
 /* Tensile Test - Report Page Styles */
 
+/* Header Section */
 .tensile-report-header {
   width: 100%;
   display: flex;
@@ -30,8 +31,6 @@
   align-items: center;
   gap: 0.75rem;
   line-height: 1;
-  width: 100%;
-  position: relative;
 }
 
 /* Filter Section */
@@ -46,15 +45,13 @@
 .impact-filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
 .impact-filter-group label {
-  display: block;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: #334155;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.375rem;
 }
 
 .impact-filter-group input {
@@ -63,19 +60,13 @@
   font-size: 0.875rem;
 }
 
-.impact-filter-container > div:has(button) {
-  display: inline-block;
-}
-
 .impact-filter-container button {
-  margin-bottom: 0;
   min-height: 38px;
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
-  width: auto !important;
 }
 
-/* Loader Container */
+/* Loader */
 .impact-loader-container {
   display: flex;
   justify-content: center;
@@ -95,66 +86,54 @@
 .impact-table {
   width: 100%;
   border-collapse: collapse;
-  border-spacing: 0;
+  table-layout: fixed;
   font-size: 0.875rem;
 }
 
-.impact-table th,
-.impact-table td {
-  border-left: none !important;
-  border-right: none !important;
-}
-
+/* Table Header */
 .impact-table thead tr {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .impact-table th {
-  padding: 1rem 1.25rem;
-  text-align: left;
+  padding: 0.875rem 0.5rem;
+  text-align: center;
   font-weight: 700;
   color: #1e293b;
   white-space: nowrap;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: transparent;
+  letter-spacing: 0.3px;
   border-bottom: 2px solid #cbd5e1;
-  border-left: none;
-  border-right: none;
-  position: sticky;
-  top: 0;
-  z-index: 10;
   vertical-align: middle;
 }
 
-.impact-table th:first-child {
-  border-top-left-radius: 8px;
-  padding-left: 1.5rem;
-}
+/* Column Widths for Equal Distribution */
+.impact-table th:nth-child(1) { width: 1%; }   /* Date */
+.impact-table th:nth-child(2) { width: 1%; }   /* Item */
+.impact-table th:nth-child(3) { width: 1%; }   /* Date Code */
+.impact-table th:nth-child(4) { width: 1%; }   /* Heat Code */
+.impact-table th:nth-child(5) { width: 1%; }   /* Dia */
+.impact-table th:nth-child(6) { width: 1%; }   /* Lo */
+.impact-table th:nth-child(7) { width: 1%; }   /* Li */
+.impact-table th:nth-child(8) { width: 5%; }   /* Breaking Load */
+.impact-table th:nth-child(9) { width: 5%; }   /* Yield Load */
+.impact-table th:nth-child(10) { width: 5%; }  /* UTS */
+.impact-table th:nth-child(11) { width: 5%; }  /* YS */
+.impact-table th:nth-child(12) { width: 5%; }  /* Elongation */
+.impact-table th:nth-child(13) { width: 5%; }  /* Tested By */
+.impact-table th:nth-child(14) { width: 5%; }  /* Remarks */
+.impact-table th:nth-child(15) { width: 5%; }  /* Actions */
 
-.impact-table th:last-child {
-  border-top-right-radius: 8px;
-  padding-right: 1.5rem;
-}
-
+/* Table Body */
 .impact-table tbody tr {
   border-bottom: 1px solid #e2e8f0;
   background-color: white;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .impact-table tbody tr:hover {
   background-color: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.impact-table tbody tr:last-child td:first-child {
-  border-bottom-left-radius: 8px;
-}
-
-.impact-table tbody tr:last-child td:last-child {
-  border-bottom-right-radius: 8px;
 }
 
 .impact-table tbody tr:nth-child(even) {
@@ -166,37 +145,69 @@
 }
 
 .impact-table td {
-  padding: 1.125rem 1.25rem;
+  padding: 0.75rem 0.5rem;
   color: #475569;
-  white-space: normal;
-  vertical-align: middle;
   text-align: center;
-  word-wrap: break-word;
+  vertical-align: middle;
   font-size: 0.875rem;
-  line-height: 1.5;
-  border-left: none;
-  border-right: none;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .impact-table td:first-child {
-  padding-left: 1.5rem;
   font-weight: 600;
   color: #1e293b;
-  text-align: center;
 }
 
-.impact-table td:last-child {
-  padding-right: 1.5rem;
+/* Actions Column Buttons */
+.impact-table td:last-child > div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+.impact-table td:last-child button {
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.impact-table td:last-child button:first-child {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.impact-table td:last-child button:first-child:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.impact-table td:last-child button:last-child {
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.impact-table td:last-child button:last-child:hover {
+  background: #fca5a5;
+  border-color: #f87171;
+}
+
+/* No Records */
 .impact-no-records {
   padding: 3rem;
   text-align: center;
   color: #94a3b8;
   font-style: italic;
   font-size: 0.9375rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 6px;
 }
 
 /* Modal Styles */

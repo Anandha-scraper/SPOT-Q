@@ -1,11 +1,9 @@
 // backend/utils/dateUtils.js
 const mongoose = require('mongoose');
 const ensureDateDocument = async (Model, dateString) => {
-
     // 1. Convert YYYY-MM-DD to a clean UTC Date object (00:00:00)
     const [year, month, day] = dateString.split('-').map(Number);
     const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-
     // 2. Find or Create the daily batch document
     let document = await Model.findOne({ date: dateObj });
     if (!document) {
@@ -17,9 +15,7 @@ const ensureDateDocument = async (Model, dateString) => {
     return document;
 };
 
-
 // UI LOGIC: Returns YYYY-MM-DD based on local server time
-
 const getCurrentDate = () => {
     const today = new Date();
     const year = today.getFullYear();

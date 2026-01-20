@@ -18,7 +18,14 @@ const MeltingLogSheetReport = () => {
     try {
       const start = fromDate;
       const end = toDate || fromDate;
-      const data = await api.get(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`);
+      const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      const data = await response.json();
       if (data?.success) {
         const list = Array.isArray(data.data) ? data.data : [];
         const sorted = [...list].sort((a, b) => {
@@ -50,7 +57,14 @@ const MeltingLogSheetReport = () => {
         const past = new Date(today);
         past.setDate(past.getDate() - 60);
         const start = past.toISOString().split('T')[0];
-        const res = await api.get(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`);
+        const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const res = await response.json();
         if (res?.success && Array.isArray(res.data)) {
           const sorted = [...res.data].sort((a, b) => {
             const da = new Date(a.date || a.createdAt || 0).getTime();
@@ -80,7 +94,14 @@ const MeltingLogSheetReport = () => {
         const past = new Date(today);
         past.setDate(past.getDate() - 60);
         const start = past.toISOString().split('T')[0];
-        const res = await api.get(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`);
+        const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          }
+        });
+        const res = await response.json();
         if (res?.success && Array.isArray(res.data)) {
           const sorted = [...res.data].sort((a, b) => {
             const da = new Date(a.date || a.createdAt || 0).getTime();
@@ -116,8 +137,19 @@ const MeltingLogSheetReport = () => {
     const row = confirm.row;
     if (!row?._id) return;
     try {
-      await api.delete(`/v1/melting-logs/${row._id}`);
-      setEntries((prev) => prev.filter((e) => e._id !== row._id));
+      const response = await fetch(`/v1/melting-logs/${row._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      if (response.ok) {
+        setEntries((prev) => prev.filter((e) => e._id !== row._id));
+      } else {
+        const data = await response.json();
+        alert(data.message || 'Failed to delete the record');
+      }
     } catch (e) {
       alert(e.message || 'Failed to delete the record');
     } finally {
@@ -206,7 +238,15 @@ const MeltingLogSheetReport = () => {
     if (!row?._id) return;
     try {
       const payload = { ...editForm };
-      const res = await api.put(`/v1/melting-logs/${row._id}`, payload);
+      const response = await fetch(`/v1/melting-logs/${row._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const res = await response.json();
       if (res?.success) {
         setEntries((prev) => prev.map((e) => (e._id === row._id ? { ...e, ...payload, _id: row._id } : e)));
         setEditModal({ open: false, row: null });

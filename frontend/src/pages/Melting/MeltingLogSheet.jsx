@@ -46,7 +46,8 @@ const MeltingLogSheet = () => {
     
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const response = await api.get(`/v1/melting-logs?startDate=${dateStr}&endDate=${dateStr}`);
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs?startDate=${dateStr}&endDate=${dateStr}`, { credentials: 'include' });
+      const response = await res.json();
       
       if (response.success && response.data && response.data.length > 0) {
         // Check if any entry has the same date AND shift
@@ -204,11 +205,12 @@ const MeltingLogSheet = () => {
     
     try {
       // Send primary data + table data together
-      const response = await api.post(`/v1/melting-logs/table${tableNum}`, {
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/table${tableNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
         tableNum,
         primaryData: primaryData,
         data: tableData
-      });
+      }) });
+      const response = await res.json();
       
       if (response.success) {
         alert(`Table ${tableNum} saved successfully!`);

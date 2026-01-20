@@ -101,7 +101,7 @@ export default function ProcessControl() {
 
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+disa and update it, or create new one
-      const response = await fetch('http://localhost:5000/api/v1/process-records', {
+      const response = await fetch('/v1/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

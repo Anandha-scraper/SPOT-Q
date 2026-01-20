@@ -1,14 +1,19 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 1. Global Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // 2. Security Middleware
 const { protect } = require('./middleware/auth'); // Standardized name
@@ -49,7 +54,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
     try {
       console.log('Synchronizing Daily Department Records...');
-      // Promise.all ensures the server doesn't "fully" start until all depts are ready
+      // Ensures today's entry exists for all depts
       await Promise.all([
         impactCtrl.initializeTodayEntry(),
         tensileCtrl.initializeTodayEntry(),
@@ -102,7 +107,19 @@ app.use((err, req, res, next) => {
 app.use('*', (req, res) => res.status(404).json({ success: false, message: 'API Route not found' }));
 
 // 8. Start
-const server = app.listen(PORT, () => console.log(`Server active on port ${PORT}`));
+const server = app.listen(PORT, async () => {
+  console.log(`Server active on port ${PORT}`);
+  
+  // Initialize daily entry management for all departments
+  const { initializeDailyEntry, ensureTodayEntry } = require('./utils/dailyEntryManager');
+  const Process = require('./models/Process');
+  
+  // Setup cron job for Process department
+  initializeDailyEntry(Process, 'Process');
+  
+  // Create today's entry if it doesn't exist
+  await ensureTodayEntry(Process, 'Process');
+});
 
 // Graceful Error Management
 server.on('error', (err) => {

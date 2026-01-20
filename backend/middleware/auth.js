@@ -3,9 +3,10 @@ const User = require('../models/user');
 // 1. Protect Middleware (Ensures the user is logged in and the token is valid/not expired. )
 exports.protect = async (req, res, next) => {
     try {
-        // Get token from header
-        let token = req.headers.authorization?.startsWith('Bearer ') ? 
-                   req.headers.authorization.split(' ')[1] : null;
+        // Get token from cookie (preferred) or fallback to Authorization header
+        let token = req.cookies?.token || 
+                   (req.headers.authorization?.startsWith('Bearer ') ? 
+                    req.headers.authorization.split(' ')[1] : null);
 
         if (!token) {
             return res.status(401).json({ 
@@ -62,7 +63,7 @@ exports.checkAdminAccess = (req, res, next) => {
     } else {
         return res.status(403).json({ 
             success: false, 
-            message: 'Access denied. Admin privileges required.' 
+            message: 'Access denied' 
         });
     }
 };

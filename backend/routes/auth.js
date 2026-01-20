@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { login, verify, createEmployee, getAllUsers, updateEmployee, deleteEmployee, changePassword, getDepartments } = require('../controllers/auth');
+const { login, verify, logout, createEmployee, getAllUsers, updateEmployee, deleteEmployee, changePassword, getDepartments, getLoginHistory } = require('../controllers/auth');
 const { protect } = require('../middleware/auth');
 const { checkAdminAccess } = require('../middleware/access');
 
 
 router.post('/login', login);
 router.get('/verify', protect, verify);
-router.put('/changepassword', protect, changePassword); 
+router.post('/logout', protect, logout);
+router.put('/changepassword', protect, changePassword);
+router.get('/login-history', protect, getLoginHistory);
 router.use('/admin', protect, checkAdminAccess); 
 router.get('/admin/users', getAllUsers);
 router.post('/admin/users', createEmployee);

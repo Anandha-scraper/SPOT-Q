@@ -24,38 +24,17 @@ export default function ProcessControl() {
   const inputRefs = useRef({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
-  const [dateLoading, setDateLoading] = useState(true);
 
-  // Fetch current date from backend on mount
+  // Set current date on mount
   useEffect(() => {
-    const fetchCurrentDate = async () => {
-      try {
-        setDateLoading(true);
-        const data = await api.get('/v1/system/current-date');
-
-        if (data.success && data.data?.date) {
-          setFormData(prev => ({
-            ...prev,
-            date: data.data.date
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching current date:', error);
-        // Fallback to local date if backend fails
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, '0');
-        const d = String(today.getDate()).padStart(2, '0');
-        setFormData(prev => ({
-          ...prev,
-          date: `${y}-${m}-${d}`
-        }));
-      } finally {
-        setDateLoading(false);
-      }
-    };
-
-    fetchCurrentDate();
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setFormData(prev => ({
+      ...prev,
+      date: `${y}-${m}-${d}`
+    }));
   }, []);
 
   const fieldOrder = ['disa', 'partName', 'datecode', 'heatcode', 'quantityOfMoulds', 'metalCompositionC', 'metalCompositionSi',
@@ -122,14 +101,25 @@ export default function ProcessControl() {
 
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+disa and update it, or create new one
-      const data = await api.post('/v1/process-records', formData);
+      const response = await fetch('http://localhost:5000/api/v1/process-records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
 
       if (data.success) {
         alert('Process control entry saved successfully!');
 
-        // Re-fetch current date from backend to ensure consistency
-        const dateData = await api.get('/v1/system/current-date');
-        const currentDate = dateData.success && dateData.data?.date ? dateData.data.date : formData.date;
+        // Get current date
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        const currentDate = `${y}-${m}-${d}`;
 
         // Reset all fields except primary data (date and disa)
         const resetData = { date: currentDate };
@@ -162,43 +152,29 @@ export default function ProcessControl() {
     }
   };
 
-  const handleReset = async () => {
-    try {
-      // Re-fetch current date from backend to ensure consistency
-      const dateData = await api.get('/v1/system/current-date');
-      const currentDate = dateData.success && dateData.data?.date ? dateData.data.date : formData.date;
+const handleReset = () => {
+    // Get current date
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const currentDate = `${y}-${m}-${d}`;
 
-      // Reset all fields except primary data (date and disa)
-      const resetData = { date: currentDate };
-      Object.keys(formData).forEach(key => {
-        if (key !== 'date' && key !== 'disa') {
-          resetData[key] = '';
-        } else if (key === 'disa') {
-          resetData[key] = formData.disa; // Keep disa
-        }
-      });
-      setFormData(resetData);
-      // Keep primary locked if it was locked
-      // Focus on Part Name for next entry
-      setTimeout(() => {
-        inputRefs.current.partName?.focus();
-      }, 100);
-    } catch (error) {
-      console.error('Error resetting form:', error);
-      // On error, just reset fields but keep current date
-      const resetData = { date: formData.date };
-      Object.keys(formData).forEach(key => {
-        if (key !== 'date' && key !== 'disa') {
-          resetData[key] = '';
-        } else if (key === 'disa') {
-          resetData[key] = formData.disa;
-        }
-      });
-      setFormData(resetData);
-      setTimeout(() => {
-        inputRefs.current.partName?.focus();
-      }, 100);
-    }
+    // Reset all fields except primary data (date and disa)
+    const resetData = { date: currentDate };
+    Object.keys(formData).forEach(key => {
+      if (key !== 'date' && key !== 'disa') {
+        resetData[key] = '';
+      } else if (key === 'disa') {
+        resetData[key] = formData.disa; // Keep disa
+      }
+    });
+    setFormData(resetData);
+    // Keep primary locked if it was locked
+    // Focus on Part Name for next entry
+    setTimeout(() => {
+      inputRefs.current.partName?.focus();
+    }, 100);
   };
 
   return (
@@ -212,7 +188,7 @@ export default function ProcessControl() {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          {dateLoading ? 'Loading date...' : `DATE : ${formatDisplayDate(formData.date)}`}
+          {`DATE : ${formatDisplayDate(formData.date)}`}
         </div>
       </div>
 

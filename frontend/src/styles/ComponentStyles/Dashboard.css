@@ -1,7 +1,7 @@
 /* src/styles/ComponentStyles/Dashboard.css */
 
 .dashboard-page-container {
-  padding: var(--spacing-md, 1rem) 0 var(--spacing-md, 1rem) var(--spacing-md, 1rem);
+  padding: var(--spacing-md, 1rem) var(--spacing-md, 1rem) var(--spacing-md, 1rem) var(--spacing-md, 1rem);
   background-color: #f8f9fa; /* A very light background for the content area */
   min-height: 100vh;
   box-sizing: border-box;
@@ -27,19 +27,19 @@ body.sidebar-pinned-collapsed .dashboard-page-container {
   .dashboard-page-container {
     margin-left: 0;
     width: 100%;
-    padding: var(--spacing-md, 1rem) 0 var(--spacing-md, 1rem) 72px;
+    padding: var(--spacing-md, 1rem) var(--spacing-md, 1rem) var(--spacing-md, 1rem) 72px;
   }
 }
 
 @media (min-width: 768px) {
   .dashboard-page-container {
-    padding: var(--spacing-lg, 1.5rem) 0 var(--spacing-lg, 1.5rem) var(--spacing-lg, 1.5rem);
+    padding: var(--spacing-lg, 1.5rem) var(--spacing-lg, 1.5rem) var(--spacing-lg, 1.5rem) var(--spacing-lg, 1.5rem);
   }
 }
 
 @media (min-width: 1024px) {
   .dashboard-page-container {
-    padding: var(--spacing-xl, 2rem) 0 var(--spacing-xl, 2rem) var(--spacing-xl, 2rem);
+    padding: var(--spacing-xl, 2rem) var(--spacing-xl, 2rem) var(--spacing-xl, 2rem) var(--spacing-xl, 2rem);
   }
 }
 

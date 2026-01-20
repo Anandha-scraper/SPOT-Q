@@ -98,9 +98,164 @@
 .process-filter-container button {
   margin-bottom: 0;
   min-height: 38px;
-  padding: 0.5rem 1rem;
+}
+
+/* Card Grid Styles */
+.process-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.process-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 140px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.process-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(91, 154, 169, 0.2);
+  border-color: #5B9AA9;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+}
+
+.process-card-date {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.process-card-disa {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.process-card-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.process-card-value {
   font-size: 0.875rem;
-  width: auto !important;
+  font-weight: 500;
+  color: #475569;
+}
+
+.process-card-entries {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.process-card-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #5B9AA9;
+}
+
+.process-card-text {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.process-no-records {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #64748b;
+  font-size: 1rem;
+}
+
+/* Pagination Styles */
+.process-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding: 1rem 0;
+}
+
+.process-pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #5B9AA9 0%, #4a7d8a 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(91, 154, 169, 0.3);
+}
+
+.process-pagination-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(91, 154, 169, 0.4);
+  background: linear-gradient(135deg, #4a7d8a 0%, #3a6d7a 100%);
+}
+
+.process-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #94a3b8;
+  box-shadow: none;
+}
+
+.process-pagination-pages {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.process-pagination-page {
+  min-width: 36px;
+  height: 36px;
+  padding: 0.5rem;
+  background: white;
+  color: #475569;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.process-pagination-page:hover {
+  border-color: #5B9AA9;
+  color: #5B9AA9;
+  background: #f0f9ff;
+}
+
+.process-pagination-page.active {
+  background: linear-gradient(135deg, #5B9AA9 0%, #4a7d8a 100%);
+  color: white;
+  border-color: #5B9AA9;
 }
 
 .process-filter-btn {
@@ -134,7 +289,30 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1400px) {
+  .process-cards-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .process-cards-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .process-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
+  .process-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
   .process-filter-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -146,5 +324,21 @@
 
   .process-filter-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .process-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .process-pagination {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .process-pagination-pages {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }

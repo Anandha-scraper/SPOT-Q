@@ -1,11 +1,16 @@
 const Process = require('../models/Process');
-const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM INITIALIZATION **/
 
 exports.initializeTodayEntry = async () => {
     try {
-        await ensureDateDocument(Process, getCurrentDate());
+        const today = new Date().toISOString().split('T')[0];
+        const existingDoc = await Process.findOne({ date: today });
+        
+        if (!existingDoc) {
+            await Process.create({ date: today, entries: [] });
+            console.log(`Created empty process document for ${today}`);
+        }
     } catch (error) {
         console.error('Process initialization failed:', error.message);
     }
@@ -15,14 +20,34 @@ exports.initializeTodayEntry = async () => {
 
 exports.getAllEntries = async (req, res) => {
     try {
-        // Flattening all entries from all days into one list for the UI
         const documents = await Process.find().sort({ date: -1 });
-        const allEntries = documents.flatMap(doc => 
-            doc.entries.map(e => ({ ...e.toObject(), date: doc.date }))
-        );
-
-        res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
+        
+        // Flatten entries for frontend compatibility
+        const flatEntries = [];
+        documents.forEach(doc => {
+            if (doc.entries && doc.entries.length > 0) {
+                doc.entries.forEach(entry => {
+                    flatEntries.push({
+                        _id: entry._id,
+                        date: doc.date,
+                        ...entry.toObject()
+                    });
+                });
+            } else {
+                // Include empty date documents
+                flatEntries.push({
+                    _id: doc._id,
+                    date: doc.date,
+                    disa: '',
+                    partName: '',
+                    entries: []
+                });
+            }
+        });
+        
+        res.status(200).json({ success: true, count: flatEntries.length, data: flatEntries });
     } catch (error) {
+        console.error('Error fetching process records:', error);
         res.status(500).json({ success: false, message: 'Error fetching entries.' });
     }
 };
@@ -31,39 +56,49 @@ exports.getAllEntries = async (req, res) => {
 
 exports.createEntry = async (req, res) => {
     try {
-        const { date, heatCode, ...updateData } = req.body;
+        const { date, disa, ...entryData } = req.body;
 
-        if (!date || !heatCode) {
-            return res.status(400).json({ success: false, message: 'Date and Heat Code are required.' });
+        if (!date || !disa) {
+            return res.status(400).json({ success: false, message: 'Date and DISA are required.' });
         }
 
-        const document = await ensureDateDocument(Process, date);
+        // Find or create document for this date
+        let document = await Process.findOne({ date });
 
-        // Check if an entry for this specific Heat already exists in today's array
-        const existingEntryIndex = document.entries.findIndex(e => e.heatCode === heatCode);
-
-        if (existingEntryIndex > -1) {
-            // UPDATE: Merge new data into the existing entry
-            Object.assign(document.entries[existingEntryIndex], updateData);
-            await document.save();
-            return res.status(200).json({
+        if (!document) {
+            // Create new document with this entry
+            document = await Process.create({
+                date,
+                entries: [{ disa, ...entryData }]
+            });
+            return res.status(201).json({
                 success: true,
-                data: document.entries[existingEntryIndex],
-                message: 'Process record updated in daily log.'
+                data: document,
+                message: 'New process record created successfully.'
             });
         }
 
-        // CREATE: Push new entry if it doesn't exist
-        document.entries.push({ heatCode, ...updateData });
+        // Check if entry with same DISA exists
+        const existingEntryIndex = document.entries.findIndex(e => e.disa === disa);
+
+        if (existingEntryIndex !== -1) {
+            // UPDATE: Replace existing entry
+            document.entries[existingEntryIndex] = { disa, ...entryData };
+        } else {
+            // ADD: Push new entry
+            document.entries.push({ disa, ...entryData });
+        }
+
         await document.save();
 
-        res.status(201).json({
+        res.status(200).json({
             success: true,
-            data: document.entries[document.entries.length - 1],
-            message: 'New process record added to daily log.'
+            data: document,
+            message: 'Process record saved successfully.'
         });
 
     } catch (error) {
+        console.error('Error creating/updating process record:', error);
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -73,16 +108,21 @@ exports.createEntry = async (req, res) => {
 exports.updateEntry = async (req, res) => {
     try {
         const { id } = req.params;
-        const document = await Process.findOne({ 'entries._id': id });
+        const { date, disa, ...entryData } = req.body;
+
+        const document = await Process.findOne({ date });
 
         if (!document) return res.status(404).json({ success: false, message: 'Record not found.' });
 
         const entry = document.entries.id(id);
-        Object.assign(entry, req.body);
+        if (!entry) return res.status(404).json({ success: false, message: 'Entry not found.' });
+
+        Object.assign(entry, { disa, ...entryData });
         await document.save();
 
-        res.status(200).json({ success: true, data: entry, message: 'Updated successfully.' });
+        res.status(200).json({ success: true, data: document, message: 'Updated successfully.' });
     } catch (error) {
+        console.error('Error updating process record:', error);
         res.status(400).json({ success: false, message: error.message });
     }
 };
@@ -90,6 +130,7 @@ exports.updateEntry = async (req, res) => {
 exports.deleteEntry = async (req, res) => {
     try {
         const { id } = req.params;
+        
         const document = await Process.findOne({ 'entries._id': id });
 
         if (!document) return res.status(404).json({ success: false, message: 'Record not found.' });
@@ -99,6 +140,7 @@ exports.deleteEntry = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Entry deleted successfully.' });
     } catch (error) {
+        console.error('Error deleting process record:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

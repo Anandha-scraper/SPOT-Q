@@ -29,6 +29,7 @@ exports.login = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid credentials.' });
         }
 
+        // Generate fresh JWT token for this login
         const token = generateToken(user._id);
 
         // Convert JWT_EXPIRE to seconds 
@@ -49,6 +50,14 @@ exports.login = async (req, res) => {
 
         const expiresAt = new Date(Date.now() + (expiresInSeconds * 1000)).toISOString();
 
+        // Set JWT token in httpOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: expiresInSeconds * 1000
+        });
+
         // Async Audit Logging
         try {
             await LoginActivity.create({
@@ -64,7 +73,6 @@ exports.login = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            token,
             expiresAt, 
             user: {
                 id: user._id,
@@ -83,6 +91,21 @@ exports.login = async (req, res) => {
 // PROTECTED USER ACTIONS
 exports.verify = async (req, res) => {
     res.status(200).json({ success: true, user: req.user });
+};
+
+exports.logout = async (req, res) => {
+    try {
+        // Clear the token cookie
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+        });
+        
+        res.status(200).json({ success: true, message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Logout failed' });
+    }
 };
 
 exports.changePassword = async (req, res) => {
@@ -206,4 +229,18 @@ exports.deleteEmployee = async (req, res) => {
 
 exports.getDepartments = async (req, res) => {
     res.status(200).json({ success: true, data: DEPARTMENTS });
+};
+
+exports.getLoginHistory = async (req, res) => {
+    try {
+        const loginHistory = await LoginActivity.find({ userId: req.user._id })
+            .sort({ loginAt: -1 })
+            .limit(5)
+            .select('loginAt ip userAgent');
+        
+        res.status(200).json({ success: true, data: loginHistory });
+    } catch (error) {
+        console.error('Login History Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch login history' });
+    }
 };

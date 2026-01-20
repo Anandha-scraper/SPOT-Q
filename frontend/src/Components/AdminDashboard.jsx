@@ -9,7 +9,7 @@ import '../styles/ComponentStyles/AdminDashboard.css';
 const AdminDashboard = () => {
 
     // Hooks and Context
-    const { user, isAdmin, token } = useContext(AuthContext);
+    const { user, isAdmin } = useContext(AuthContext);
     const navigate = useNavigate();
 
     // Data States
@@ -55,9 +55,7 @@ const AdminDashboard = () => {
     const fetchDepartments = async () => {
         try {
             const response = await fetch('http://localhost:5000/api/v1/auth/admin/departments', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             const data = await response.json();
             if (data.success) setDepartments(data.data);
@@ -70,9 +68,7 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
             const response = await fetch('http://localhost:5000/api/v1/auth/admin/users', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             const data = await response.json();
             if (data.success) setUsers(data.data);
@@ -116,9 +112,9 @@ const AdminDashboard = () => {
             const response = await fetch('http://localhost:5000/api/v1/auth/admin/users', {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
@@ -153,9 +149,7 @@ const AdminDashboard = () => {
         try {
             const response = await fetch(`http://localhost:5000/api/v1/auth/admin/users/${userToDelete.userId}`, { 
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             const data = await response.json();
             if (data.success) {
@@ -194,9 +188,9 @@ const AdminDashboard = () => {
             const response = await fetch(`http://localhost:5000/api/v1/auth/admin/users/${selectedUser._id}`, {
                 method: 'PUT',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ password: newPassword })
             });
             const data = await response.json();

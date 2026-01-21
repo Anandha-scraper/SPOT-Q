@@ -76,6 +76,7 @@
 
 /* Table Container */
 .impact-table-container {
+  max-width: 100%;
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
@@ -84,10 +85,11 @@
 }
 
 .impact-table {
-  width: 100%;
+  min-width: 1800px;      /* increase from 1400px to 1800px (or 2000px if you like) */
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 0.875rem;
+  border: 1px solid #cbd5e1;
 }
 
 /* Table Header */
@@ -104,25 +106,35 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border-bottom: 2px solid #cbd5e1;
+  border-left: 2px solid #334155 !important;
+  border-right: 2px solid #334155 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
   vertical-align: middle;
 }
 
+.impact-table th:first-child {
+  border-left: none !important;
+}
+
+.impact-table th:last-child {
+  border-right: none !important;
+}
+
 /* Column Widths for Equal Distribution */
-.impact-table th:nth-child(1) { width: 1%; }   /* Date */
-.impact-table th:nth-child(2) { width: 1%; }   /* Item */
-.impact-table th:nth-child(3) { width: 1%; }   /* Date Code */
-.impact-table th:nth-child(4) { width: 1%; }   /* Heat Code */
-.impact-table th:nth-child(5) { width: 1%; }   /* Dia */
-.impact-table th:nth-child(6) { width: 1%; }   /* Lo */
-.impact-table th:nth-child(7) { width: 1%; }   /* Li */
-.impact-table th:nth-child(8) { width: 5%; }   /* Breaking Load */
-.impact-table th:nth-child(9) { width: 5%; }   /* Yield Load */
-.impact-table th:nth-child(10) { width: 5%; }  /* UTS */
-.impact-table th:nth-child(11) { width: 5%; }  /* YS */
-.impact-table th:nth-child(12) { width: 5%; }  /* Elongation */
-.impact-table th:nth-child(13) { width: 5%; }  /* Tested By */
-.impact-table th:nth-child(14) { width: 5%; }  /* Remarks */
+.impact-table th:nth-child(1) { width: 6% !important; }   /* Date */
+.impact-table th:nth-child(2) { width: 4% !important;}   /* Item */
+.impact-table th:nth-child(3) { width: 4% !important;}   /* Date Code */
+.impact-table th:nth-child(4) { width: 4% !important; }   /* Heat Code */
+.impact-table th:nth-child(5) { width: 3% !important; }   /* Dia */
+.impact-table th:nth-child(6) { width: 3% !important; }   /* Lo */
+.impact-table th:nth-child(7) { width: 3% !important; }   /* Li */
+.impact-table th:nth-child(8) { width: 4% !important; }   /* Breaking Load */
+.impact-table th:nth-child(9) { width: 4%; }   /* Yield Load */
+.impact-table th:nth-child(10) { width: 3%; }  /* UTS */
+.impact-table th:nth-child(11) { width: 3%; }  /* YS */
+.impact-table th:nth-child(12) { width: 5% !important; }  /* Elongation */
+.impact-table th:nth-child(13) { width: 4%; }  /* Tested By */
+.impact-table th:nth-child(14) { width: 4%; }  /* Remarks */
 .impact-table th:nth-child(15) { width: 5%; }  /* Actions */
 
 /* Table Body */
@@ -147,18 +159,58 @@
 .impact-table td {
   padding: 0.75rem 0.5rem;
   color: #475569;
-  text-align: center;
+  text-align: center !important;
   vertical-align: middle;
   font-size: 0.875rem;
   line-height: 1.4;
   word-wrap: break-word;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: table-cell;
+  border-left: 2px solid #334155 !important;
+  border-right: 2px solid #334155 !important;
+}
+
+/* Force perfect centering for Li (mm) column */
+.impact-table th:nth-child(7),
+.impact-table tbody tr td:nth-child(7) {
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Force perfect centering for Tested By column */
+.impact-table th:nth-child(13),
+.impact-table tbody tr td:nth-child(13) {
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .impact-table td:first-child {
   font-weight: 600;
   color: #1e293b;
+  border-left: none !important;
+}
+
+/* Force perfect centering for Actions column */
+.impact-table th:nth-child(15),
+.impact-table tbody tr td:nth-child(15) {
+  text-align: center !important;
+  vertical-align: middle !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+/* Li Column - Center Alignment */
+.impact-table td:nth-child(7) {
+  text-align: center !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  display: table-cell !important;
+  vertical-align: middle !important;
+  padding: 0.75rem 0.5rem !important;
 }
 
 /* Actions Column Buttons */

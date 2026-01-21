@@ -114,11 +114,23 @@ const TensileReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
+      // Convert numeric fields from strings to numbers
+      const updatePayload = {
+        ...editFormData,
+        dia: editFormData.dia ? parseFloat(editFormData.dia) : '',
+        lo: editFormData.lo ? parseFloat(editFormData.lo) : '',
+        li: editFormData.li ? parseFloat(editFormData.li) : '',
+        breakingLoad: editFormData.breakingLoad ? parseFloat(editFormData.breakingLoad) : '',
+        yieldLoad: editFormData.yieldLoad ? parseFloat(editFormData.yieldLoad) : '',
+        uts: editFormData.uts ? parseFloat(editFormData.uts) : '',
+        ys: editFormData.ys ? parseFloat(editFormData.ys) : '',
+        elongation: editFormData.elongation ? parseFloat(editFormData.elongation) : ''
+      };
       const response = await fetch(`/v1/tensile/${editingItem._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(editFormData)
+        body: JSON.stringify(updatePayload)
       });
       const data = await response.json();
 

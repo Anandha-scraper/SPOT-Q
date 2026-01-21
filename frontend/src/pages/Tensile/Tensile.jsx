@@ -272,19 +272,20 @@ const Tensile = () => {
       setSubmitLoading(true);
 
       // Send payload with date from dateOfInspection
+      // Convert numeric fields from strings to numbers
       const payload = {
         date: formData.dateOfInspection,
         item: formData.item,
         dateCode: formData.dateCode,
         heatCode: formData.heatCode,
-        dia: formData.dia,
-        lo: formData.lo,
-        li: formData.li,
-        breakingLoad: formData.breakingLoad,
-        yieldLoad: formData.yieldLoad,
-        uts: formData.uts,
-        ys: formData.ys,
-        elongation: formData.elongation,
+        dia: formData.dia ? parseFloat(formData.dia) : '',
+        lo: formData.lo ? parseFloat(formData.lo) : '',
+        li: formData.li ? parseFloat(formData.li) : '',
+        breakingLoad: formData.breakingLoad ? parseFloat(formData.breakingLoad) : '',
+        yieldLoad: formData.yieldLoad ? parseFloat(formData.yieldLoad) : '',
+        uts: formData.uts ? parseFloat(formData.uts) : '',
+        ys: formData.ys ? parseFloat(formData.ys) : '',
+        elongation: formData.elongation ? parseFloat(formData.elongation) : '',
         remarks: formData.remarks,
         testedBy: formData.testedBy
       };

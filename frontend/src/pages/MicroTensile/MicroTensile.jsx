@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, RefreshCw, FileText } from 'lucide-react';
-import { SuccessPopup } from '../../Components/PopUp';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
@@ -830,15 +829,6 @@ const MicroTensile = () => {
           </button>
         </div>
       </div>
-
-      <SuccessPopup
-        isOpen={showSuccessPopup}
-        onClose={() => setShowSuccessPopup(false)}
-        departmentName="Micro Tensile"
-        message="Micro Tensile Entry saved"
-        autoClose={true}
-        autoCloseDelay={2000}
-      />
     </>
   );
 };

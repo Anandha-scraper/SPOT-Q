@@ -24,11 +24,14 @@ const MicroStructureReport = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const resp = await fetch('/v1/micro-structure', {
+      // Fetch all entries using a wide date range
+      const startDate = '2020-01-01';
+      const endDate = '2030-12-31';
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/filter?startDate=${startDate}&endDate=${endDate}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const data = await resp.json();
@@ -36,6 +39,8 @@ const MicroStructureReport = () => {
       if (data.success) {
         setItems(data.data || []);
         setFilteredItems(data.data || []);
+      } else {
+        console.error('Failed to fetch:', data.message);
       }
     } catch (error) {
       console.error('Error fetching micro structure tests:', error);
@@ -74,11 +79,11 @@ const MicroStructureReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const resp = await fetch(`/v1/micro-structure/${editingItem._id}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/${editingItem._id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(editFormData)
       });
@@ -87,6 +92,8 @@ const MicroStructureReport = () => {
       if (data.success) {
         setShowEditModal(false);
         fetchItems();
+      } else {
+        alert('Failed to update entry: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating micro structure test:', error);
@@ -99,17 +106,19 @@ const MicroStructureReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const resp = await fetch(`/v1/micro-structure/${id}`, {
+        const resp = await fetch(`http://localhost:5000/api/v1/micro-structure/${id}`, {
           method: 'DELETE',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         });
         const data = await resp.json();
 
         if (data.success) {
           fetchItems();
+        } else {
+          alert('Failed to delete entry: ' + (data.message || 'Unknown error'));
         }
       } catch (error) {
         console.error('Error deleting micro structure test:', error);

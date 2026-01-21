@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Save, RefreshCw, Loader2 } from 'lucide-react';
-import { SuccessPopup } from '../../Components/PopUp';
 import '../../styles/PageStyles/Impact/Impact.css';
 
 const Impact = () => {
@@ -198,13 +197,24 @@ const Impact = () => {
 
     try {
       setSubmitLoading(true);
-      const data = await api.post('/v1/impact-tests', formData);
+      const response = await fetch('http://localhost:5000/api/v1/impact-tests', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
 
       if (data.success) {
         // Show success popup
         setShowSuccessPopup(true);
 
-        const dateData = await api.get('/v1/impact-tests/current-date');
+        const dateResponse = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
+          credentials: 'include'
+        });
+        const dateData = await dateResponse.json();
         const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
         // Reset form
@@ -238,7 +248,10 @@ const Impact = () => {
   // ====================== Reset ======================
   const handleReset = async () => {
     try {
-      const dateData = await api.get('/v1/impact-tests/current-date');
+      const response = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
+        credentials: 'include'
+      });
+      const dateData = await response.json();
       const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
 
       setFormData({
@@ -438,13 +451,6 @@ const Impact = () => {
           </button>
         </div>
       </div>
-
-      {/* Success Popup */}
-      <SuccessPopup
-        isOpen={showSuccessPopup}
-        onClose={() => setShowSuccessPopup(false)}
-        departmentName="Impact"
-      />
     </>
   );
 };

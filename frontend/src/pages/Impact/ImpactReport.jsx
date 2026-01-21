@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
-import { EditCard, ConfirmDelete, ConfirmSave, EditedPopup } from '../../Components/PopUp';
+import { EditCard } from '../../Components/PopUp';
 import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 
@@ -453,35 +453,6 @@ const ImpactReport = () => {
         </div>
       </EditCard>
 
-      {/* Save Confirmation */}
-      <ConfirmSave
-        isOpen={showSaveConfirm}
-        onClose={() => setShowSaveConfirm(false)}
-        onConfirm={handleUpdate}
-        title="Confirm Save"
-        message="Do you want to save these changes to the Impact test entry?"
-        loading={editLoading}
-      />
-
-      {/* Delete Confirmation */}
-      <ConfirmDelete
-        isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setDeleteItemId(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        title="Confirm Deletion"
-        message="Are you sure you want to delete this record?"
-        loading={deleteLoading}
-      />
-
-      {/* Edited Popup */}
-      <EditedPopup
-        isOpen={showEditedPopup}
-        onClose={() => setShowEditedPopup(false)}
-        departmentName="Impact"
-      />
     </>
   );
 };

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Save, RefreshCw, Loader2 } from 'lucide-react';
-import { SuccessPopup } from '../../Components/PopUp';
 import { DisaDropdown } from '../../Components/Buttons';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 import '../../styles/PageStyles/Impact/Impact.css';
@@ -62,11 +61,11 @@ const MicroStructure = () => {
       try {
         setDateLoading(true);
 
-        const resp = await fetch('/v1/micro-structure/current-date', {
+        const resp = await fetch('http://localhost:5000/api/v1/micro-structure/current-date', {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         });
         const dateData = await resp.json();
@@ -292,13 +291,41 @@ const MicroStructure = () => {
 
     try {
       setSubmitLoading(true);
-      const resp = await fetch('/v1/micro-structure', {
+      
+      // Transform form data to match backend schema
+      const submitData = {
+        date: formData.date,
+        disa: formData.disa,
+        partName: formData.partName,
+        dateCode: formData.dateCode,
+        heatCode: formData.heatCode,
+        nodularity: parseFloat(formData.nodularity),
+        graphiteType: parseFloat(formData.graphiteType),
+        // Combine From-To ranges into single string
+        countNos: formData.countNosFrom && formData.countNosTo 
+          ? `${formData.countNosFrom}-${formData.countNosTo}` 
+          : formData.countNosFrom || formData.countNosTo || '',
+        size: formData.sizeFrom && formData.sizeTo 
+          ? `${formData.sizeFrom}-${formData.sizeTo}` 
+          : formData.sizeFrom || formData.sizeTo || '',
+        // For ferrite, pearlite - use From value as the main value, or combine as range string
+        ferrite: formData.ferriteFrom && formData.ferriteTo 
+          ? parseFloat(formData.ferriteFrom) 
+          : parseFloat(formData.ferriteFrom || formData.ferriteTo || 0),
+        pearlite: formData.pearliteFrom && formData.pearliteTo 
+          ? parseFloat(formData.pearliteFrom) 
+          : parseFloat(formData.pearliteFrom || formData.pearliteTo || 0),
+        carbide: parseFloat(formData.carbide || 0),
+        remarks: formData.remarks || ''
+      };
+      
+      const resp = await fetch('http://localhost:5000/api/v1/micro-structure', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       });
       const data = await resp.json();
 
@@ -306,11 +333,11 @@ const MicroStructure = () => {
         // Show success popup
         setShowSuccessPopup(true);
 
-        const dateResp = await fetch('/v1/micro-structure/current-date', {
+        const dateResp = await fetch('http://localhost:5000/api/v1/micro-structure/current-date', {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         });
         const dateData = await dateResp.json();
@@ -369,11 +396,11 @@ const MicroStructure = () => {
   // ====================== Reset ======================
   const handleReset = async () => {
     try {
-      const resp = await fetch('/v1/micro-structure/current-date', {
+      const resp = await fetch('http://localhost:5000/api/v1/micro-structure/current-date', {
         method: 'GET',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const dateData = await resp.json();
@@ -850,13 +877,6 @@ const MicroStructure = () => {
           </button>
         </div>
       </div>
-
-      {/* Success Popup */}
-      <SuccessPopup
-        isOpen={showSuccessPopup}
-        onClose={() => setShowSuccessPopup(false)}
-        departmentName="Micro Structure"
-      />
     </>
   );
 };

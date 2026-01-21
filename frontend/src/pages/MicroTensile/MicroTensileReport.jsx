@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
-import { ConfirmDelete, EditCard, ConfirmSave, EditedPopup } from '../../Components/PopUp';
+import { EditCard } from '../../Components/PopUp';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
@@ -426,15 +426,6 @@ const MicroTensileReport = () => {
       {error && (
         <div className="chr-error">{error}</div>
       )}
-
-      <ConfirmDelete
-        isOpen={confirm.open}
-        onClose={closeConfirm}
-        title="Confirm Deletion"
-        message="Are you sure you want to delete this Micro Tensile test record?"
-        onConfirm={performDelete}
-        loading={deleteLoading}
-      />
 
       <EditCard
         isOpen={editModal.open}

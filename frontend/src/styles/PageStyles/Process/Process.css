@@ -71,6 +71,31 @@
   box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
 }
 
+/* Validation styles */
+.valid-input {
+  border-color: #22c55e !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+}
+
+.invalid-input {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.valid-input:focus {
+  outline: none;
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2) !important;
+}
+
+.invalid-input:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
 .process-submit-container {
   margin-top: 2rem;
   display: flex;
@@ -211,6 +236,55 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Time Range Inputs Styling */
+.time-range-group {
+  min-height: auto !important;
+}
+
+.time-range-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.time-inputs-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-inputs-group input,
+.time-inputs-group select {
+  padding: 0.625rem 0.5rem;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  background: white;
+  text-align: center;
+}
+
+.time-inputs-group input:focus,
+.time-inputs-group select:focus {
+  outline: none;
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+.time-inputs-group span {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.time-separator {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0.5rem;
 }
 
 /* Responsive Design */

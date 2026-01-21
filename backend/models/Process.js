@@ -15,7 +15,8 @@ const ProcessEntrySchema = new mongoose.Schema({
     datecode: {
         type: String,
         trim: true,
-        default: ''
+        default: '',
+        match: /^[0-9][A-Z][0-9]{2}$/  // Example: '3A21'
     },
     heatcode: { 
         type: String, 
@@ -34,7 +35,7 @@ const ProcessEntrySchema = new mongoose.Schema({
     metalCompositionMgFL: { type: Number, default: 0 },
     metalCompositionCu: { type: Number, default: 0 },
     metalCompositionCr: { type: Number, default: 0 },
-    timeOfPouring: { type: String, default: '' },
+    timeOfPouring: { type: String, default: '' }, // Format: "HH:MM - HH:MM" (24-hour)
     pouringTemperature: { type: Number, default: 0 },
     ppCode: { type: String, trim: true, default: '' },
     treatmentNo: { type: String, trim: true, default: '' },

@@ -46,7 +46,8 @@ exports.getEntriesByDate = async (req, res) => {
     try {
         const { date } = req.params;
         const document = await ensureDateDocument(SandTestingRecord, date);
-        res.status(200).json({ success: true, data: document });
+        // Return as array for frontend compatibility
+        res.status(200).json({ success: true, data: [document] });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching records by date.' });
     }
@@ -56,7 +57,9 @@ exports.getEntriesByDate = async (req, res) => {
 
 exports.createTableEntry = async (req, res) => {
     try {
-        const { tableNum, data } = req.body;
+        // Get tableNum from either URL param or request body
+        const tableNum = req.params.tableNum || req.body.tableNum;
+        const data = req.body.data || req.body;
         const targetDate = data.date || getCurrentDate();
         
         // Map UI Table Numbers to Schema Fields

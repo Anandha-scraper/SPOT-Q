@@ -4,7 +4,6 @@ import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
-import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 const initialFormData = {
   date: new Date().toISOString().split('T')[0],

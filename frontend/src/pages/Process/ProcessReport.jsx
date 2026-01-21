@@ -84,28 +84,40 @@ const ProcessReport = () => {
     setCurrentPage(1);
   };
 
-  // Group items by date
-  const groupedByDate = filteredItems.reduce((acc, item) => {
+  // Group items by date AND DISA (each DISA gets its own card)
+  const groupedByDateAndDisa = filteredItems.reduce((acc, item) => {
     const date = item.date || 'No Date';
-    if (!acc[date]) {
-      acc[date] = [];
+    const disa = item.disa || 'Unknown DISA';
+    const key = `${date}_${disa}`;
+    
+    if (!acc[key]) {
+      acc[key] = {
+        date,
+        disa,
+        entries: []
+      };
     }
-    acc[date].push(item);
+    acc[key].entries.push(item);
     return acc;
   }, {});
 
-  // Convert to array and sort dates in descending order
-  const dateCards = Object.keys(groupedByDate)
+  // Convert to array and sort by date (desc) then by DISA (asc)
+  const dateCards = Object.values(groupedByDateAndDisa)
     .sort((a, b) => {
-      if (a === 'No Date') return 1;
-      if (b === 'No Date') return -1;
-      return new Date(b) - new Date(a);
+      // First sort by date (descending)
+      if (a.date === 'No Date') return 1;
+      if (b.date === 'No Date') return -1;
+      const dateCompare = new Date(b.date) - new Date(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Then sort by DISA (ascending) for same date
+      return a.disa.localeCompare(b.disa);
     })
-    .map(date => ({
-      date,
-      entries: groupedByDate[date],
-      count: groupedByDate[date].length,
-      disas: [...new Set(groupedByDate[date].map(item => item.disa || '-'))]
+    .map(group => ({
+      date: group.date,
+      disa: group.disa,
+      entries: group.entries,
+      count: group.entries.length
     }));
 
   // Pagination
@@ -117,7 +129,8 @@ const ProcessReport = () => {
   const handleCardClick = (dateData) => {
     navigate('/process/report/entries', { 
       state: { 
-        date: dateData.date, 
+        date: dateData.date,
+        disa: dateData.disa,
         entries: dateData.entries 
       } 
     });
@@ -188,7 +201,7 @@ const ProcessReport = () => {
               <div className="process-cards-grid">
                 {currentCards.map((card) => (
                   <div 
-                    key={card.date} 
+                    key={`${card.date}_${card.disa}`} 
                     className="process-card"
                     onClick={() => handleCardClick(card)}
                   >
@@ -197,7 +210,7 @@ const ProcessReport = () => {
                     </div>
                     <div className="process-card-disa">
                       <span className="process-card-label">DISA:</span>
-                      <span className="process-card-value">{card.disas.join(', ')}</span>
+                      <span className="process-card-value">{card.disa}</span>
                     </div>
                     <div className="process-card-entries">
                       <span className="process-card-count">{card.count}</span>

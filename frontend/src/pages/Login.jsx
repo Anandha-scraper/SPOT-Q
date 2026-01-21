@@ -27,14 +27,29 @@ const Login = () => {
     }
 
     setLoading(true);
+    const startTime = Date.now();
 
     try {
       await login(employeeId, password);
       // AuthContext will set user/token; router in app.jsx will redirect
+      
+      // Ensure loader shows for at least 5 seconds
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 5000 - elapsedTime);
+      
+      setTimeout(() => {
+        setLoading(false);
+      }, remainingTime);
     } catch (err) {
       setError(err?.message || "Login failed. Please check your credentials.");
-    } finally {
-      setLoading(false);
+      
+      // Still wait 5 seconds even on error
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 5000 - elapsedTime);
+      
+      setTimeout(() => {
+        setLoading(false);
+      }, remainingTime);
     }
   };
 

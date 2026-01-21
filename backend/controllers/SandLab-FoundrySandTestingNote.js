@@ -1,5 +1,4 @@
 const FoundrySandTestingNote = require('../models/SandLab-FoundrySandTestingNote');
-const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM SYNC **/
 
@@ -29,41 +28,67 @@ exports.getAllEntries = async (req, res) => {
     }
 };
 
+exports.getEntriesByDate = async (req, res) => {
+    try {
+        const { date } = req.params;
+        
+        // Parse the date string (format: YYYY-MM-DD)
+        const [year, month, day] = date.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+        
+        // Find all entries for this specific date
+        const entries = await FoundrySandTestingNote.find({ date: dateObj }).sort({ shift: 1 });
+        
+        res.status(200).json(entries);
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching records by date.' });
+    }
+};
+
 /** 3. CORE LOGIC (Smart Upsert) **/
 
 exports.createEntry = async (req, res) => {
     try {
-        const { date, shift, section, ...otherData } = req.body;
+        const { date, shift, section, sandPlant, ...otherData } = req.body;
         
         if (!date || !shift) {
             return res.status(400).json({ success: false, message: 'Date and Shift are required.' });
         }
 
-        // 1. Find or create the daily batch
-        const document = await ensureDateDocument(FoundrySandTestingNote, date);
+        // Parse date to ensure consistent format
+        const [year, month, day] = date.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
-        // 2. Locate the specific shift record or prepare a new one
-        // Note: Assuming your model has an array of entries per shift or you store shift-specific data
-        // For this refactor, we match your logic of Date + Shift as a primary key
+        // Find existing record by date and shift
         let record = await FoundrySandTestingNote.findOne({ 
-            date: document.date, 
+            date: dateObj, 
             shift: String(shift).trim() 
         });
 
         if (!record) {
-            record = new FoundrySandTestingNote({ date: document.date, shift: String(shift).trim() });
+            // For new records, sandPlant is required
+            if (!sandPlant) {
+                return res.status(400).json({ success: false, message: 'Sand Plant is required for new entries.' });
+            }
+            record = new FoundrySandTestingNote({ 
+                date: dateObj, 
+                shift: String(shift).trim(),
+                sandPlant: sandPlant
+            });
         }
 
         // 3. SMART MERGE: Use Object.assign for the specific section
-        // This removes 150 lines of "if (section === ...)" code
         if (section === 'primary') {
-            Object.assign(record, otherData);
+            // Update primary fields including sandPlant
+            Object.assign(record, { sandPlant, ...otherData });
         } else if (otherData[section]) {
             // Merges clayTests, sieveTesting, parameters, or additionalData dynamically
             record[section] = { ...record[section], ...otherData[section] };
+            // Also update sandPlant if provided (to handle updates)
+            if (sandPlant) record.sandPlant = sandPlant;
         } else {
             // Fallback for general updates
-            Object.assign(record, otherData);
+            Object.assign(record, { sandPlant, ...otherData });
         }
 
         await record.save();

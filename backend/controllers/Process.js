@@ -78,16 +78,8 @@ exports.createEntry = async (req, res) => {
             });
         }
 
-        // Check if entry with same DISA exists
-        const existingEntryIndex = document.entries.findIndex(e => e.disa === disa);
-
-        if (existingEntryIndex !== -1) {
-            // UPDATE: Replace existing entry
-            document.entries[existingEntryIndex] = { disa, ...entryData };
-        } else {
-            // ADD: Push new entry
-            document.entries.push({ disa, ...entryData });
-        }
+        // Add new entry (multiple entries allowed per DISA on same date)
+        document.entries.push({ disa, ...entryData });
 
         await document.save();
 

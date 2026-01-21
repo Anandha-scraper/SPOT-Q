@@ -1,0 +1,82 @@
+/* Foundry Sand Testing Note - Report Page Styles */
+/* Matching SandTestingRecordReport.css structure */
+/* Page container padding to avoid cramped edges */
+.sand-testing-report-container {
+  padding: 12px 18px;
+}
+
+.sand-testing-report-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.75rem 0;
+  padding: 0 0 1.25rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sand-testing-report-header-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.sand-testing-report-header-text h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* Filter Section */
+.sand-testing-filter-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.sand-testing-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sand-testing-filter-group label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.15rem;
+}
+
+.sand-testing-filter-group input {
+  width: 190px;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sand-testing-filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .sand-testing-filter-group input {
+    width: 100%;
+  }
+}

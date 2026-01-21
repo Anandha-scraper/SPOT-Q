@@ -86,8 +86,8 @@ app.use('/api/v1/micro-tensile', protect, checkDepartmentAccess('Micro Tensile')
 app.use('/api/v1/micro-structure', protect, checkDepartmentAccess('Micro Structure'), microStructureRoutes);
 app.use('/api/v1/qc-reports', protect, checkDepartmentAccess('QC - production'), qcProductionRoutes);
 app.use('/api/v1/process', protect, checkDepartmentAccess('Process'), processRoutes);
-app.use('/api/v1/sand-records', protect, checkDepartmentAccess('SandLab'), sandTestingRecordRoutes);
-app.use('/api/v1/sand-notes', protect, checkDepartmentAccess('SandLab'), foundrySandTestingNoteRoutes);
+app.use('/api/v1/sand-testing-records', protect, checkDepartmentAccess('Sand Lab'), sandTestingRecordRoutes);
+app.use('/api/v1/foundry-sand-testing-notes', protect, checkDepartmentAccess('Sand Lab'), foundrySandTestingNoteRoutes);
 app.use('/api/v1/moulding-disa', protect, checkDepartmentAccess('Moulding'), dismaticProductReportRoutes);
 app.use('/api/v1/moulding-dmm', protect, checkDepartmentAccess('Moulding'), dmmSettingParametersRoutes);
 app.use('/api/v1/melting-logs', protect, checkDepartmentAccess('Melting'), meltingLogsheetRoutes);

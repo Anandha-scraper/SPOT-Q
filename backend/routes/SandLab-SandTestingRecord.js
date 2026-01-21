@@ -11,6 +11,7 @@ const {
 
 router.get('/stats', getStats);
 router.get('/date/:date', getEntriesByDate);
+router.post('/table:tableNum', createTableEntry);
 router.post('/table-update', createTableEntry);
 router.route('/')
     .get(getAllEntries);

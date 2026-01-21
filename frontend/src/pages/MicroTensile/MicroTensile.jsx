@@ -459,7 +459,7 @@ const MicroTensile = () => {
         date: currentDate,
         disa: formData.disa,
         item: '',
-        itemSecond: '',
+
         dateCode: '',
         heatCode: '',
         barDia: '',
@@ -477,6 +477,7 @@ const MicroTensile = () => {
       // Reset validation states
       setItemValid(null);
       setItemSecondValid(null);
+      setItemSecondValid(null);
       setDateCodeValid(null);
       setHeatCodeValid(null);
       setBarDiaValid(null);
@@ -493,7 +494,7 @@ const MicroTensile = () => {
         date: formData.date,
         disa: formData.disa,
         item: '',
-        itemSecond: '',
+  
         dateCode: '',
         heatCode: '',
         barDia: '',
@@ -556,8 +557,8 @@ const MicroTensile = () => {
             {/* Force next items to new line */}
             <div style={{ gridColumn: '1 / -1', height: 0 }}></div>
 
-            <div className="microtensile-form-group" style={{ gridColumn: 'span 2' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="microtensile-form-group" >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 <div className={`${errors.item ? 'microtensile-error-outline' : ''}`}>
                   <label>Item <span className="required-indicator">*</span></label>
                   <input
@@ -578,23 +579,6 @@ const MicroTensile = () => {
                   />
                 </div>
                 <div>
-                  <label>Item (Optional)</label>
-                  <input
-                    ref={el => inputRefs.current.itemSecond = el}
-                    type="text"
-                    name="itemSecond"
-                    value={formData.itemSecond}
-                    onChange={handleChange}
-                    onKeyDown={e => handleKeyDown(e, 'itemSecond')}
-                    placeholder="e.g: 234/4564/4334"
-                    className={
-                      itemSecondValid === null
-                        ? ""
-                        : itemSecondValid
-                        ? "valid-input"
-                        : "invalid-input"
-                    }
-                  />
                 </div>
               </div>
             </div>

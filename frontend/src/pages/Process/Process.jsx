@@ -703,6 +703,42 @@ export default function ProcessControl() {
         });
         setFormData(resetData);
         
+        // Reset all validation states to null
+        setPartNameValid(null);
+        setDatecodeValid(null);
+        setHeatcodeValid(null);
+        setQuantityOfMouldsValid(null);
+        setMetalCValid(null);
+        setMetalSiValid(null);
+        setMetalMnValid(null);
+        setMetalPValid(null);
+        setMetalSValid(null);
+        setMetalMgFLValid(null);
+        setMetalCuValid(null);
+        setMetalCrValid(null);
+        setPouringTimeValid(null);
+        setPouringTempValid(null);
+        setPpCodeValid(null);
+        setTreatmentNoValid(null);
+        setFcNoValid(null);
+        setHeatNoValid(null);
+        setConNoValid(null);
+        setTappingTimeValid(null);
+        setCorrCValid(null);
+        setCorrSiValid(null);
+        setCorrMnValid(null);
+        setCorrSValid(null);
+        setCorrCrValid(null);
+        setCorrCuValid(null);
+        setCorrSnValid(null);
+        setTappingWtValid(null);
+        setMgValid(null);
+        setResMgConvertorValid(null);
+        setRecOfMgValid(null);
+        setStreamInoculantValid(null);
+        setPTimeValid(null);
+        setRemarksValid(null);
+        
         // Keep primary locked, focus on Part Name for next entry
         setTimeout(() => {
           inputRefs.current.partName?.focus();

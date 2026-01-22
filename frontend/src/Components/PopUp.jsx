@@ -104,4 +104,40 @@ export const DeleteConfirmCard = ({
   );
 };
 
+// Remarks Display Card component
+export const RemarksCard = ({
+  isOpen,
+  onClose,
+  remarksText = ''
+}) => {
+  if (!isOpen) return null;
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget && onClose) {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="popup-overlay" onClick={handleBackdropClick}>
+      <div className="popup-container popup-medium" onClick={(e) => e.stopPropagation()}>
+        <div className="popup-header">
+          <h2 className="popup-title">
+            Remarks
+          </h2>
+        </div>
+
+        <div className="popup-body remarks-body">
+          <p className="remarks-text">
+            {remarksText || 'No remarks available'}
+          </p>
+        </div>
+
+        <div className="popup-footer">
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default EditCard;

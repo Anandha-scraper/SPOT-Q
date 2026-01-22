@@ -26,6 +26,10 @@
   max-width: 450px;
 }
 
+.popup-medium {
+  max-width: 550px;
+}
+
 .popup-large {
   max-width: 700px;
 }
@@ -155,6 +159,34 @@
 .delete-department-name {
   color: #dc2626;
   font-weight: 700;
+}
+
+/* Remarks Card specific styles */
+.remarks-body {
+  padding: 1.75rem 2rem;
+  min-height: 120px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.remarks-text {
+  font-size: 0.9375rem;
+  color: #334155;
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Poppins', sans-serif;
+}
+
+.popup-btn-confirm {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.popup-btn-confirm:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
 import Loader from '../../Components/Loader';
+import Table from '../../Components/Table';
 import { EditCard, DeleteConfirmCard } from '../../Components/PopUp';
 import { EditButton, DeleteButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Process/ProcessReportEntries.css';
@@ -361,95 +362,53 @@ const ProcessReportEntries = () => {
         </div>
       </div>
 
-      <div className="process-entries-table-container">
-        <table className="process-entries-table">
-          <thead>
-            <tr>
-              <th>Part Name</th>
-              <th>Date Code</th>
-              <th>Heat Code</th>
-              <th>Qty. Of Moulds</th>
-              <th>C</th>
-              <th>Si</th>
-              <th>Mn</th>
-              <th>P</th>
-              <th>S</th>
-              <th>Mg FL</th>
-              <th>Cu</th>
-              <th>Cr</th>
-              <th>Time Of Pouring</th>
-              <th>Pouring Temp</th>
-              <th>PP Code</th>
-              <th>Treatment No</th>
-              <th>FC No</th>
-              <th>Heat No</th>
-              <th>Con No</th>
-              <th>Tapping Time</th>
-              <th>Corr. Add C</th>
-              <th>Corr. Add Si</th>
-              <th>Corr. Add Mn</th>
-              <th>Corr. Add S</th>
-              <th>Corr. Add Cr</th>
-              <th>Corr. Add Cu</th>
-              <th>Corr. Add Sn</th>
-              <th>Tapping Wt</th>
-              <th>Mg</th>
-              <th>Res Mg Convertor</th>
-              <th>Rec Of Mg</th>
-              <th>Stream Inoculant</th>
-              <th>P Time</th>
-              <th>Remarks</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentEntries.map((item, index) => (
-              <tr key={item._id || index}>
-                <td>{item.partName || '-'}</td>
-                <td>{item.datecode || '-'}</td>
-                <td>{item.heatcode || '-'}</td>
-                <td>{item.quantityOfMoulds !== undefined && item.quantityOfMoulds !== null ? item.quantityOfMoulds : '-'}</td>
-                <td>{item.metalCompositionC || '-'}</td>
-                <td>{item.metalCompositionSi || '-'}</td>
-                <td>{item.metalCompositionMn || '-'}</td>
-                <td>{item.metalCompositionP || '-'}</td>
-                <td>{item.metalCompositionS || '-'}</td>
-                <td>{item.metalCompositionMgFL || '-'}</td>
-                <td>{item.metalCompositionCu || '-'}</td>
-                <td>{item.metalCompositionCr || '-'}</td>
-                <td>{item.timeOfPouring || '-'}</td>
-                <td>{item.pouringTemperature || '-'}</td>
-                <td>{item.ppCode || '-'}</td>
-                <td>{item.treatmentNo || '-'}</td>
-                <td>{item.fcNo || '-'}</td>
-                <td>{item.heatNo || '-'}</td>
-                <td>{item.conNo || '-'}</td>
-                <td>{item.tappingTime || '-'}</td>
-                <td>{item.correctiveAdditionC || '-'}</td>
-                <td>{item.correctiveAdditionSi || '-'}</td>
-                <td>{item.correctiveAdditionMn || '-'}</td>
-                <td>{item.correctiveAdditionS || '-'}</td>
-                <td>{item.correctiveAdditionCr || '-'}</td>
-                <td>{item.correctiveAdditionCu || '-'}</td>
-                <td>{item.correctiveAdditionSn || '-'}</td>
-                <td>{item.tappingWt || '-'}</td>
-                <td>{item.mg || '-'}</td>
-                <td>{item.resMgConvertor || '-'}</td>
-                <td>{item.recOfMg || '-'}</td>
-                <td>{item.streamInoculant || '-'}</td>
-                <td>{item.pTime || '-'}</td>
-                <td>{item.remarks || '-'}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                    <EditButton onClick={() => handleEdit(item)} />
-                    <DeleteButton onClick={() => handleDelete(item)} />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table
+        columns={[
+          { key: 'partName', label: 'Part Name', width: '4%' },
+          { key: 'datecode', label: 'Date Code', width: '3%' },
+          { key: 'heatcode', label: 'Heat Code', width: '3%' },
+          { key: 'quantityOfMoulds', label: 'Qty. Of Moulds', width: '3%' },
+          { key: 'metalCompositionC', label: 'C', width: '2%' },
+          { key: 'metalCompositionSi', label: 'Si', width: '2%' },
+          { key: 'metalCompositionMn', label: 'Mn', width: '2%' },
+          { key: 'metalCompositionP', label: 'P', width: '2%' },
+          { key: 'metalCompositionS', label: 'S', width: '2%' },
+          { key: 'metalCompositionMgFL', label: 'Mg FL', width: '2%' },
+          { key: 'metalCompositionCu', label: 'Cu', width: '2%' },
+          { key: 'metalCompositionCr', label: 'Cr', width: '2%' },
+          { key: 'timeOfPouring', label: 'Time Of Pouring', width: '4%' },
+          { key: 'pouringTemperature', label: 'Pouring Temp', width: '3%' },
+          { key: 'ppCode', label: 'PP Code', width: '3%' },
+          { key: 'treatmentNo', label: 'Treatment No', width: '3%' },
+          { key: 'fcNo', label: 'FC No', width: '2%' },
+          { key: 'heatNo', label: 'Heat No', width: '3%' },
+          { key: 'conNo', label: 'Con No', width: '2%' },
+          { key: 'tappingTime', label: 'Tapping Time', width: '3%' },
+          { key: 'correctiveAdditionC', label: 'Corr. Add C', width: '3%' },
+          { key: 'correctiveAdditionSi', label: 'Corr. Add Si', width: '3%' },
+          { key: 'correctiveAdditionMn', label: 'Corr. Add Mn', width: '3%' },
+          { key: 'correctiveAdditionS', label: 'Corr. Add S', width: '3%' },
+          { key: 'correctiveAdditionCr', label: 'Corr. Add Cr', width: '3%' },
+          { key: 'correctiveAdditionCu', label: 'Corr. Add Cu', width: '3%' },
+          { key: 'correctiveAdditionSn', label: 'Corr. Add Sn', width: '3%' },
+          { key: 'tappingWt', label: 'Tapping Wt', width: '3%' },
+          { key: 'mg', label: 'Mg', width: '2%' },
+          { key: 'resMgConvertor', label: 'Res Mg Convertor', width: '4%' },
+          { key: 'recOfMg', label: 'Rec Of Mg', width: '3%' },
+          { key: 'streamInoculant', label: 'Stream Inoculant', width: '4%' },
+          { key: 'pTime', label: 'P Time', width: '2%' },
+          { key: 'remarks', label: 'Remarks', width: '4%' }
+        ]}
+        data={currentEntries}
+        minWidth={3500}
+        renderActions={(item) => (
+          <>
+            <EditButton onClick={() => handleEdit(item)} />
+            <DeleteButton onClick={() => handleDelete(item)} />
+          </>
+        )}
+        noDataMessage="No process entries found"
+      />
 
       {/* Edit Modal */}
       <EditCard

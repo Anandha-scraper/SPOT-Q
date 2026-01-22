@@ -1,0 +1,104 @@
+/* Reusable Table Component Styles */
+
+/* Table Container */
+.reusable-table-container {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.reusable-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+  border: 1px solid #cbd5e1;
+}
+
+/* Table Header */
+.reusable-table thead tr {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.reusable-table th {
+  padding: 0.875rem 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid #cbd5e1;
+  vertical-align: middle;
+}
+
+/* Table Body */
+.reusable-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  background-color: white;
+  transition: background-color 0.2s ease;
+}
+
+.reusable-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.reusable-table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.reusable-table tbody tr:nth-child(even):hover {
+  background-color: #f1f5f9;
+}
+
+.reusable-table td {
+  padding: 0.75rem 1.5rem;
+  color: #475569;
+  text-align: center !important;
+  vertical-align: middle;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: table-cell;
+}
+
+/* No Records */
+.reusable-table-no-records {
+  padding: 3rem;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.9375rem;
+}
+
+/* Actions Column */
+.action-buttons-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .reusable-table {
+    font-size: 0.8125rem;
+  }
+
+  .reusable-table th,
+  .reusable-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .reusable-table {
+    min-width: 800px;
+  }
+}

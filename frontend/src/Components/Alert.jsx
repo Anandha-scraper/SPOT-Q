@@ -1,5 +1,6 @@
 import React from 'react';
 import '../styles/ComponentStyles/Alert.css';
+
 // DELETING STATUS COMPONENT
 const DeletingStatus = () => {
   return (

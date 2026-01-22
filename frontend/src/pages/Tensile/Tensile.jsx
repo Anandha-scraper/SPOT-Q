@@ -32,6 +32,7 @@ const Tensile = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // VALIDATION STATES
   const [itemValid, setItemValid] = useState(null);
@@ -72,17 +73,23 @@ const Tensile = () => {
 
     // --- VALIDATE ITEM: text required ---
     if (name === 'item') {
-      setItemValid(
-        value.trim() === "" ? null : value.trim().length > 0
-      );
+      if (value.trim() === "") {
+        // Only show red if submit was attempted, otherwise neutral
+        setItemValid(submitAttempted ? false : null);
+      } else {
+        setItemValid(value.trim().length > 0);
+      }
     }
 
     // --- VALIDATE DATE CODE: specific format (e.g., 6F25) ---
     if (name === 'dateCode') {
       const pattern = /^[0-9][A-Z][0-9]{2}$/;
-      setDateCodeValid(
-        value.trim() === "" ? null : pattern.test(value)
-      );
+      if (value.trim() === "") {
+        // Only show red if submit was attempted, otherwise neutral
+        setDateCodeValid(submitAttempted ? false : null);
+      } else {
+        setDateCodeValid(pattern.test(value));
+      }
       setFormData(prev => ({
         ...prev,
         [name]: value.toUpperCase()
@@ -97,75 +104,96 @@ const Tensile = () => {
       return;
     }
 
-    // --- VALIDATE HEAT CODE: text required ---
+    // --- VALIDATE HEAT CODE: only numbers ---
     if (name === 'heatCode') {
-      setHeatCodeValid(
-        value.trim() === "" ? null : value.trim().length > 0
-      );
+      const numericPattern = /^\d+$/;
+      if (value.trim() === "") {
+        setHeatCodeValid(null); // Optional field, always neutral when empty
+      } else {
+        setHeatCodeValid(numericPattern.test(value));
+      }
     }
 
     // --- VALIDATE DIA: number ---
     if (name === 'dia') {
-      setDiaValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setDiaValid(null); // Optional field, always neutral when empty
+      } else {
+        setDiaValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE LO: number ---
     if (name === 'lo') {
-      setLoValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setLoValid(null); // Optional field, always neutral when empty
+      } else {
+        setLoValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE LI: number ---
     if (name === 'li') {
-      setLiValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setLiValid(null); // Optional field, always neutral when empty
+      } else {
+        setLiValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE BREAKING LOAD: number ---
     if (name === 'breakingLoad') {
-      setBreakingLoadValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setBreakingLoadValid(null); // Optional field, always neutral when empty
+      } else {
+        setBreakingLoadValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE YIELD LOAD: number ---
     if (name === 'yieldLoad') {
-      setYieldLoadValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setYieldLoadValid(null); // Optional field, always neutral when empty
+      } else {
+        setYieldLoadValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE UTS: number ---
     if (name === 'uts') {
-      setUtsValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setUtsValid(null); // Optional field, always neutral when empty
+      } else {
+        setUtsValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE YS: number ---
     if (name === 'ys') {
-      setYsValid(
-        value.trim() === "" ? null : !isNaN(value) && parseFloat(value) > 0
-      );
+      if (value.trim() === "") {
+        setYsValid(null); // Optional field, always neutral when empty
+      } else {
+        setYsValid(!isNaN(value) && parseFloat(value) > 0);
+      }
     }
 
     // --- VALIDATE ELONGATION: number between 0-100 ---
     if (name === 'elongation') {
-      const num = parseFloat(value);
-      setElongationValid(
-        value.trim() === "" ? null : !isNaN(num) && num >= 0 && num <= 100
-      );
+      if (value.trim() === "") {
+        setElongationValid(null); // Optional field, always neutral when empty
+      } else {
+        const num = parseFloat(value);
+        setElongationValid(!isNaN(num) && num >= 0 && num <= 100);
+      }
     }
 
-    // --- VALIDATE TESTED BY: text required ---
+    // --- VALIDATE TESTED BY: optional text field ---
     if (name === 'testedBy') {
-      setTestedByValid(
-        value.trim() === "" ? null : value.trim().length > 0
-      );
+      if (value.trim() === "") {
+        setTestedByValid(null); // Optional field, always neutral when empty
+      } else {
+        setTestedByValid(value.trim().length > 0);
+      }
     }
 
     setFormData(prev => ({
@@ -238,30 +266,159 @@ const Tensile = () => {
   const handleSubmit = async () => {
     // Clear any previous error
     setSubmitError('');
+    setSubmitAttempted(true);
 
-    // Validate ONLY required fields based on backend model
-    // Required: item, dateCode
-    const requiredFields = [
-      { name: 'item', value: formData.item, setState: setItemValid },
-      { name: 'dateCode', value: formData.dateCode, setState: setDateCodeValid }
-    ];
+    // Validate ALL fields - turn empty fields red on submit
+    let hasErrors = false;
+    const errors = {};
 
-    const emptyFields = requiredFields.filter(field => !field.value || field.value.toString().trim() === '');
+    // Required fields validation
+    if (!formData.item || formData.item.trim() === '') {
+      setItemValid(false);
+      errors.item = 'Item is required';
+      hasErrors = true;
+    } else if (formData.item.trim().length > 0) {
+      setItemValid(true);
+    }
 
-    if (emptyFields.length > 0) {
-      // Highlight all empty required fields in red
-      emptyFields.forEach(field => {
-        field.setState(false);
-      });
+    if (!formData.dateCode || formData.dateCode.trim() === '') {
+      setDateCodeValid(false);
+      errors.dateCode = 'Date Code is required';
+      hasErrors = true;
+    } else {
+      const pattern = /^[0-9][A-Z][0-9]{2}$/;
+      if (!pattern.test(formData.dateCode)) {
+        setDateCodeValid(false);
+        errors.dateCode = 'Invalid format (e.g., 6F25)';
+        hasErrors = true;
+      } else {
+        setDateCodeValid(true);
+      }
+    }
 
-      // Set error message
-      setSubmitError('Please fill in all required fields');
+    // All other fields - mark as invalid if empty OR if they have invalid data
+    if (!formData.heatCode || formData.heatCode.trim() === '') {
+      setHeatCodeValid(false);
+      hasErrors = true;
+    } else {
+      const numericPattern = /^\d+$/;
+      if (!numericPattern.test(formData.heatCode)) {
+        setHeatCodeValid(false);
+        hasErrors = true;
+      } else {
+        setHeatCodeValid(true);
+      }
+    }
 
-      // Clear error message after 3 seconds
-      setTimeout(() => {
-        setSubmitError('');
-      }, 3000);
+    if (!formData.dia || formData.dia.toString().trim() === '') {
+      setDiaValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.dia) || parseFloat(formData.dia) <= 0) {
+        setDiaValid(false);
+        hasErrors = true;
+      } else {
+        setDiaValid(true);
+      }
+    }
 
+    if (!formData.lo || formData.lo.toString().trim() === '') {
+      setLoValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.lo) || parseFloat(formData.lo) <= 0) {
+        setLoValid(false);
+        hasErrors = true;
+      } else {
+        setLoValid(true);
+      }
+    }
+
+    if (!formData.li || formData.li.toString().trim() === '') {
+      setLiValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.li) || parseFloat(formData.li) <= 0) {
+        setLiValid(false);
+        hasErrors = true;
+      } else {
+        setLiValid(true);
+      }
+    }
+
+    if (!formData.breakingLoad || formData.breakingLoad.toString().trim() === '') {
+      setBreakingLoadValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.breakingLoad) || parseFloat(formData.breakingLoad) <= 0) {
+        setBreakingLoadValid(false);
+        hasErrors = true;
+      } else {
+        setBreakingLoadValid(true);
+      }
+    }
+
+    if (!formData.yieldLoad || formData.yieldLoad.toString().trim() === '') {
+      setYieldLoadValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.yieldLoad) || parseFloat(formData.yieldLoad) <= 0) {
+        setYieldLoadValid(false);
+        hasErrors = true;
+      } else {
+        setYieldLoadValid(true);
+      }
+    }
+
+    if (!formData.uts || formData.uts.toString().trim() === '') {
+      setUtsValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.uts) || parseFloat(formData.uts) <= 0) {
+        setUtsValid(false);
+        hasErrors = true;
+      } else {
+        setUtsValid(true);
+      }
+    }
+
+    if (!formData.ys || formData.ys.toString().trim() === '') {
+      setYsValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(formData.ys) || parseFloat(formData.ys) <= 0) {
+        setYsValid(false);
+        hasErrors = true;
+      } else {
+        setYsValid(true);
+      }
+    }
+
+    if (!formData.elongation || formData.elongation.toString().trim() === '') {
+      setElongationValid(false);
+      hasErrors = true;
+    } else {
+      const num = parseFloat(formData.elongation);
+      if (isNaN(num) || num < 0 || num > 100) {
+        setElongationValid(false);
+        hasErrors = true;
+      } else {
+        setElongationValid(true);
+      }
+    }
+
+    // Tested By is optional - only validate if it has a value
+    if (formData.testedBy && formData.testedBy.trim() !== '') {
+      if (formData.testedBy.trim().length === 0) {
+        setTestedByValid(false);
+        hasErrors = true;
+      } else {
+        setTestedByValid(true);
+      }
+    }
+
+    if (hasErrors) {
+      setValidationErrors(errors);
       return;
     }
 
@@ -325,6 +482,7 @@ const Tensile = () => {
           testedBy: ''
         });
         setValidationErrors({});
+        setSubmitAttempted(false);
 
         // Reset validation states
         setItemValid(null);
@@ -379,6 +537,7 @@ const Tensile = () => {
         testedBy: ''
       });
       setValidationErrors({});
+      setSubmitAttempted(false);
     } catch (error) {
       console.error('Error fetching current date:', error);
       // Reset with current date in formData if API fails
@@ -399,6 +558,7 @@ const Tensile = () => {
         testedBy: ''
       });
       setValidationErrors({});
+      setSubmitAttempted(false);
     }
 
     // Reset validation states
@@ -479,12 +639,12 @@ const Tensile = () => {
             <div className="tensile-form-group">
               <label>Heat Code</label>
               <input
-                type="text"
+                type="number"
                 name="heatCode"
                 value={formData.heatCode}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: HC-001"
+                placeholder="Enter number only"
                 className={
                   heatCodeValid === null
                     ? ""
@@ -664,24 +824,6 @@ const Tensile = () => {
             </div>
 
             <div className="tensile-form-group">
-              <label>Remarks</label>
-              <input
-                type="text"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Enter any additional notes or observations..."
-                maxLength={80}
-                style={{
-                  width: '100%',
-                  resize: 'none'
-                }}
-                className=""
-              />
-            </div>
-
-            <div className="tensile-form-group">
               <label>Tested By</label>
               <input
                 type="text"
@@ -697,6 +839,19 @@ const Tensile = () => {
                     ? "valid-input"
                     : "invalid-input"
                 }
+              />
+            </div>
+
+            <div className="tensile-form-group">
+              <label>Remarks</label>
+              <input
+                type="text"
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter any additional notes..."
+                maxLength={200}
               />
             </div>
       </form>

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, PencilLine, BookOpenCheck } from 'lucide-react';
 import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import { DeleteConfirmCard, RemarksCard } from '../../Components/PopUp';
 import Loader from '../../Components/Loader';
+import Table from '../../Components/Table';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
-  // Helper: display DD/MM/YYYY
+  // Helper: display date in readable format (e.g., "22 Jan 2026")
   const formatDateDisplay = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
     const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[parseInt(m) - 1];
+    return `${parseInt(d)} ${month} ${y}`;
   };
 
   const [currentDate, setCurrentDate] = useState('');
@@ -19,6 +23,7 @@ const TensileReport = () => {
   // Filter states
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [isFilterActive, setIsFilterActive] = useState(false);
 
   // Edit states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -30,9 +35,65 @@ const TensileReport = () => {
   const [showRemarksModal, setShowRemarksModal] = useState(false);
   const [remarksText, setRemarksText] = useState('');
 
+  // Delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Edit validation states
+  const [editItemValid, setEditItemValid] = useState(null);
+  const [editDateCodeValid, setEditDateCodeValid] = useState(null);
+  const [editHeatCodeValid, setEditHeatCodeValid] = useState(null);
+  const [editDiaValid, setEditDiaValid] = useState(null);
+  const [editLoValid, setEditLoValid] = useState(null);
+  const [editLiValid, setEditLiValid] = useState(null);
+  const [editBreakingLoadValid, setEditBreakingLoadValid] = useState(null);
+  const [editYieldLoadValid, setEditYieldLoadValid] = useState(null);
+  const [editUtsValid, setEditUtsValid] = useState(null);
+  const [editYsValid, setEditYsValid] = useState(null);
+  const [editElongationValid, setEditElongationValid] = useState(null);
+  const [editTestedByValid, setEditTestedByValid] = useState(null);
+  const [editSubmitAttempted, setEditSubmitAttempted] = useState(false);
+
   useEffect(() => {
     fetchCurrentDateAndEntries();
   }, []);
+
+  const refreshData = async () => {
+    if (isFilterActive && startDate) {
+      // Re-fetch filtered data
+      await fetchFilteredData();
+    } else {
+      // Re-fetch current date data
+      await fetchCurrentDateAndEntries();
+    }
+  };
+
+  const fetchFilteredData = async () => {
+    try {
+      setLoading(true);
+
+      // Build query params
+      let query = `startDate=${startDate}`;
+      if (endDate) {
+        query += `&endDate=${endDate}`;
+      }
+
+      const response = await fetch(`/v1/tensile/filter?${query}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setEntries(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error filtering entries:', error);
+      alert('Failed to filter entries: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCurrentDateAndEntries = async () => {
     try {
@@ -85,6 +146,123 @@ const TensileReport = () => {
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
+
+    // --- VALIDATE ITEM: text required ---
+    if (name === 'item') {
+      if (value.trim() === "") {
+        setEditItemValid(editSubmitAttempted ? false : null);
+      } else {
+        setEditItemValid(value.trim().length > 0);
+      }
+    }
+
+    // --- VALIDATE DATE CODE: specific format (e.g., 6F25) ---
+    if (name === 'dateCode') {
+      const pattern = /^[0-9][A-Z][0-9]{2}$/;
+      if (value.trim() === "") {
+        setEditDateCodeValid(editSubmitAttempted ? false : null);
+      } else {
+        setEditDateCodeValid(pattern.test(value));
+      }
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value.toUpperCase()
+      }));
+      return;
+    }
+
+    // --- VALIDATE HEAT CODE: only numbers ---
+    if (name === 'heatCode') {
+      const numericPattern = /^\d+$/;
+      if (value.trim() === "") {
+        setEditHeatCodeValid(null);
+      } else {
+        setEditHeatCodeValid(numericPattern.test(value));
+      }
+    }
+
+    // --- VALIDATE DIA: number ---
+    if (name === 'dia') {
+      if (value.trim() === "") {
+        setEditDiaValid(null);
+      } else {
+        setEditDiaValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE LO: number ---
+    if (name === 'lo') {
+      if (value.trim() === "") {
+        setEditLoValid(null);
+      } else {
+        setEditLoValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE LI: number ---
+    if (name === 'li') {
+      if (value.trim() === "") {
+        setEditLiValid(null);
+      } else {
+        setEditLiValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE BREAKING LOAD: number ---
+    if (name === 'breakingLoad') {
+      if (value.trim() === "") {
+        setEditBreakingLoadValid(null);
+      } else {
+        setEditBreakingLoadValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE YIELD LOAD: number ---
+    if (name === 'yieldLoad') {
+      if (value.trim() === "") {
+        setEditYieldLoadValid(null);
+      } else {
+        setEditYieldLoadValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE UTS: number ---
+    if (name === 'uts') {
+      if (value.trim() === "") {
+        setEditUtsValid(null);
+      } else {
+        setEditUtsValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE YS: number ---
+    if (name === 'ys') {
+      if (value.trim() === "") {
+        setEditYsValid(null);
+      } else {
+        setEditYsValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // --- VALIDATE ELONGATION: number between 0-100 ---
+    if (name === 'elongation') {
+      if (value.trim() === "") {
+        setEditElongationValid(null);
+      } else {
+        const num = parseFloat(value);
+        setEditElongationValid(!isNaN(num) && num >= 0 && num <= 100);
+      }
+    }
+
+    // --- VALIDATE TESTED BY: optional text field ---
+    if (name === 'testedBy') {
+      if (value.trim() === "") {
+        setEditTestedByValid(null);
+      } else {
+        setEditTestedByValid(value.trim().length > 0);
+      }
+    }
+
     setEditFormData(prev => ({
       ...prev,
       [name]: value
@@ -108,10 +286,177 @@ const TensileReport = () => {
       remarks: item.remarks || '',
       testedBy: item.testedBy || ''
     });
+
+    // Reset validation states
+    setEditItemValid(null);
+    setEditDateCodeValid(null);
+    setEditHeatCodeValid(null);
+    setEditDiaValid(null);
+    setEditLoValid(null);
+    setEditLiValid(null);
+    setEditBreakingLoadValid(null);
+    setEditYieldLoadValid(null);
+    setEditUtsValid(null);
+    setEditYsValid(null);
+    setEditElongationValid(null);
+    setEditTestedByValid(null);
+    setEditSubmitAttempted(false);
+
     setShowEditModal(true);
   };
 
   const handleUpdate = async () => {
+    setEditSubmitAttempted(true);
+
+    // Validate ALL fields
+    let hasErrors = false;
+
+    // Required fields validation
+    if (!editFormData.item || editFormData.item.trim() === '') {
+      setEditItemValid(false);
+      hasErrors = true;
+    } else {
+      setEditItemValid(true);
+    }
+
+    if (!editFormData.dateCode || editFormData.dateCode.trim() === '') {
+      setEditDateCodeValid(false);
+      hasErrors = true;
+    } else {
+      const pattern = /^[0-9][A-Z][0-9]{2}$/;
+      if (!pattern.test(editFormData.dateCode)) {
+        setEditDateCodeValid(false);
+        hasErrors = true;
+      } else {
+        setEditDateCodeValid(true);
+      }
+    }
+
+    // All other fields - mark as invalid if empty OR if they have invalid data
+    if (!editFormData.heatCode || editFormData.heatCode.trim() === '') {
+      setEditHeatCodeValid(false);
+      hasErrors = true;
+    } else {
+      const numericPattern = /^\d+$/;
+      if (!numericPattern.test(editFormData.heatCode)) {
+        setEditHeatCodeValid(false);
+        hasErrors = true;
+      } else {
+        setEditHeatCodeValid(true);
+      }
+    }
+
+    if (!editFormData.dia || editFormData.dia.toString().trim() === '') {
+      setEditDiaValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.dia) || parseFloat(editFormData.dia) <= 0) {
+        setEditDiaValid(false);
+        hasErrors = true;
+      } else {
+        setEditDiaValid(true);
+      }
+    }
+
+    if (!editFormData.lo || editFormData.lo.toString().trim() === '') {
+      setEditLoValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.lo) || parseFloat(editFormData.lo) <= 0) {
+        setEditLoValid(false);
+        hasErrors = true;
+      } else {
+        setEditLoValid(true);
+      }
+    }
+
+    if (!editFormData.li || editFormData.li.toString().trim() === '') {
+      setEditLiValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.li) || parseFloat(editFormData.li) <= 0) {
+        setEditLiValid(false);
+        hasErrors = true;
+      } else {
+        setEditLiValid(true);
+      }
+    }
+
+    if (!editFormData.breakingLoad || editFormData.breakingLoad.toString().trim() === '') {
+      setEditBreakingLoadValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.breakingLoad) || parseFloat(editFormData.breakingLoad) <= 0) {
+        setEditBreakingLoadValid(false);
+        hasErrors = true;
+      } else {
+        setEditBreakingLoadValid(true);
+      }
+    }
+
+    if (!editFormData.yieldLoad || editFormData.yieldLoad.toString().trim() === '') {
+      setEditYieldLoadValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.yieldLoad) || parseFloat(editFormData.yieldLoad) <= 0) {
+        setEditYieldLoadValid(false);
+        hasErrors = true;
+      } else {
+        setEditYieldLoadValid(true);
+      }
+    }
+
+    if (!editFormData.uts || editFormData.uts.toString().trim() === '') {
+      setEditUtsValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.uts) || parseFloat(editFormData.uts) <= 0) {
+        setEditUtsValid(false);
+        hasErrors = true;
+      } else {
+        setEditUtsValid(true);
+      }
+    }
+
+    if (!editFormData.ys || editFormData.ys.toString().trim() === '') {
+      setEditYsValid(false);
+      hasErrors = true;
+    } else {
+      if (isNaN(editFormData.ys) || parseFloat(editFormData.ys) <= 0) {
+        setEditYsValid(false);
+        hasErrors = true;
+      } else {
+        setEditYsValid(true);
+      }
+    }
+
+    if (!editFormData.elongation || editFormData.elongation.toString().trim() === '') {
+      setEditElongationValid(false);
+      hasErrors = true;
+    } else {
+      const num = parseFloat(editFormData.elongation);
+      if (isNaN(num) || num < 0 || num > 100) {
+        setEditElongationValid(false);
+        hasErrors = true;
+      } else {
+        setEditElongationValid(true);
+      }
+    }
+
+    // Tested By is optional - only validate if it has a value
+    if (editFormData.testedBy && editFormData.testedBy.trim() !== '') {
+      if (editFormData.testedBy.trim().length === 0) {
+        setEditTestedByValid(false);
+        hasErrors = true;
+      } else {
+        setEditTestedByValid(true);
+      }
+    }
+
+    if (hasErrors) {
+      return;
+    }
+
     try {
       setEditLoading(true);
       // Convert numeric fields from strings to numbers
@@ -136,7 +481,8 @@ const TensileReport = () => {
 
       if (data.success) {
         setShowEditModal(false);
-        fetchCurrentDateAndEntries();
+        setEditSubmitAttempted(false);
+        refreshData();
       }
     } catch (error) {
       console.error('Error updating tensile test:', error);
@@ -146,23 +492,36 @@ const TensileReport = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this entry?')) {
-      try {
-        const response = await fetch(`/v1/tensile/${id}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        });
-        const data = await response.json();
+  const handleDeleteClick = (id) => {
+    setDeletingId(id);
+    setShowDeleteModal(true);
+  };
 
-        if (data.success) {
-          fetchCurrentDateAndEntries();
-        }
-      } catch (error) {
-        console.error('Error deleting tensile test:', error);
-        alert('Failed to delete entry: ' + (error.message || 'Unknown error'));
+  const handleDeleteConfirm = async () => {
+    try {
+      setDeleteLoading(true);
+      const response = await fetch(`/v1/tensile/${deletingId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setShowDeleteModal(false);
+        setDeletingId(null);
+        refreshData();
       }
+    } catch (error) {
+      console.error('Error deleting tensile test:', error);
+      alert('Failed to delete entry: ' + (error.message || 'Unknown error'));
+    } finally {
+      setDeleteLoading(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setDeletingId(null);
   };
 
   const handleFilter = async () => {
@@ -171,34 +530,14 @@ const TensileReport = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-
-      // Build query params
-      let query = `startDate=${startDate}`;
-      if (endDate) {
-        query += `&endDate=${endDate}`;
-      }
-
-      const response = await fetch(`/v1/tensile/filter?${query}`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setEntries(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error filtering entries:', error);
-      alert('Failed to filter entries: ' + (error.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
+    setIsFilterActive(true);
+    await fetchFilteredData();
   };
 
   const handleClearFilter = () => {
     setStartDate(null);
     setEndDate(null);
+    setIsFilterActive(false);
     fetchCurrentDateAndEntries();
   };
 
@@ -246,106 +585,66 @@ const TensileReport = () => {
           <Loader />
         </div>
       ) : (
-        <div className="impact-details-card">
-          <div className="impact-table-container">
-            <table className="impact-table">
-              <thead>
-                <tr>
-                  <th>Date of Inspection</th>
-                  <th>Item</th>
-                  <th>Date Code</th>
-                  <th>Heat Code</th>
-                  <th>Dia (mm)</th>
-                  <th>Lo (mm)</th>
-                  <th>Li (mm)</th>
-                  <th>Breaking Load (kN)</th>
-                  <th>Yield Load (kN)</th>
-                  <th>UTS (N/mm²)</th>
-                  <th>YS (N/mm²)</th>
-                  <th>Elongation (%)</th>
-                  <th>Tested By</th>
-                  <th>Remarks</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.length === 0 ? (
-                  <tr>
-                    <td colSpan="15" className="impact-no-records">
-                      No records found
-                    </td>
-                  </tr>
-                ) : (
-                  entries.map((item, index) => (
-                    <tr key={item._id || index}>
-                      <td>{formatDateDisplay(currentDate)}</td>
-                      <td>{item.item || '-'}</td>
-                      <td>{item.dateCode || '-'}</td>
-                      <td>{item.heatCode || '-'}</td>
-                      <td>{item.dia !== undefined && item.dia !== null ? item.dia : '-'}</td>
-                      <td>{item.lo !== undefined && item.lo !== null ? item.lo : '-'}</td>
-                      <td>{item.li !== undefined && item.li !== null ? item.li : '-'}</td>
-                      <td>{item.breakingLoad !== undefined && item.breakingLoad !== null ? item.breakingLoad : '-'}</td>
-                      <td>{item.yieldLoad !== undefined && item.yieldLoad !== null ? item.yieldLoad : '-'}</td>
-                      <td>{item.uts !== undefined && item.uts !== null ? item.uts : '-'}</td>
-                      <td>{item.ys !== undefined && item.ys !== null ? item.ys : '-'}</td>
-                      <td>{item.elongation !== undefined && item.elongation !== null ? item.elongation : '-'}</td>
-                      <td>{item.testedBy || '-'}</td>
-                      <td>
-                        {(() => {
-                          const value = typeof item.remarks === 'string' ? item.remarks : '';
-                          if (!value) return '-';
-                          const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
-                          return (
-                            <span
-                              onClick={() => openRemarks(value)}
-                              title={value}
-                              style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
-                              aria-label="View full remarks"
-                            >
-                              {short}
-                            </span>
-                          );
-                        })()}
-                      </td>
-
-                      <td>
-                        <div>
-                          <button onClick={() => handleEdit(item)}>
-                            Edit
-                          </button>
-                          <button onClick={() => handleDelete(item._id)}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table
+          columns={[
+            { 
+              key: 'date', 
+              label: 'Date of Inspection', 
+              width: '6%', 
+              bold: true,
+              render: (item) => formatDateDisplay(item.date || currentDate)
+            },
+            { key: 'item', label: 'Item', width: '4%' },
+            { key: 'dateCode', label: 'Date Code', width: '4%' },
+            { key: 'heatCode', label: 'Heat Code', width: '4%' },
+            { key: 'dia', label: 'Dia (mm)', width: '3%' },
+            { key: 'lo', label: 'Lo (mm)', width: '3%' },
+            { key: 'li', label: 'Li (mm)', width: '3%' },
+            { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '5%' },
+            { key: 'yieldLoad', label: 'Yield Load (kN)', width: '4%' },
+            { key: 'uts', label: 'UTS (N/mm²)', width: '3%' },
+            { key: 'ys', label: 'YS (N/mm²)', width: '3%' },
+            { key: 'elongation', label: 'Elongation (%)', width: '5%' },
+            { key: 'testedBy', label: 'Tested By', width: '4%' },
+            { 
+              key: 'remarks', 
+              label: 'Remarks', 
+              width: '4%',
+              render: (item) => {
+                const value = typeof item.remarks === 'string' ? item.remarks : '';
+                if (!value) return '-';
+                const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
+                return (
+                  <span
+                    onClick={() => openRemarks(value)}
+                    title={value}
+                    style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
+                    aria-label="View full remarks"
+                  >
+                    {short}
+                  </span>
+                );
+              }
+            }
+          ]}
+          data={entries}
+          minWidth={2200} // Table width
+          renderActions={(item) => (
+            <>
+              <EditButton onClick={() => handleEdit(item)} />
+              <DeleteButton onClick={() => handleDeleteClick(item._id)} />
+            </>
+          )}
+          noDataMessage="No records found"
+        />
       )}
 
-      {showRemarksModal && (
-        <div className="modal-overlay" onClick={() => setShowRemarksModal(false)}>
-          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Remarks</h2>
-              <button className="modal-close-btn" onClick={() => setShowRemarksModal(false)}>
-                <X size={24} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{remarksText}</div>
-            </div>
-            <div className="modal-footer">
-              <button className="modal-submit-btn" onClick={() => setShowRemarksModal(false)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Remarks Modal */}
+      <RemarksCard
+        isOpen={showRemarksModal}
+        onClose={() => setShowRemarksModal(false)}
+        remarksText={remarksText}
+      />
 
       {/* Edit Modal */}
       {showEditModal && (
@@ -368,28 +667,49 @@ const TensileReport = () => {
                     value={editFormData.item}
                     onChange={handleEditChange}
                     placeholder="e.g: Steel Rod"
+                    className={
+                      editItemValid === null
+                        ? ""
+                        : editItemValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
                 <div className="tensile-form-group">
-                  <label>Date Code</label>
+                  <label>Date Code *</label>
                   <input
                     type="text"
                     name="dateCode"
                     value={editFormData.dateCode}
                     onChange={handleEditChange}
-                    placeholder="e.g: 2024-DC-001"
+                    placeholder="e.g: 6F25"
+                    className={
+                      editDateCodeValid === null
+                        ? ""
+                        : editDateCodeValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
                 <div className="tensile-form-group">
                   <label>Heat Code</label>
                   <input
-                    type="text"
+                    type="number"
                     name="heatCode"
                     value={editFormData.heatCode}
                     onChange={handleEditChange}
-                    placeholder="e.g: HC-2024-001"
+                    placeholder="Enter number only"
+                    className={
+                      editHeatCodeValid === null
+                        ? ""
+                        : editHeatCodeValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -402,6 +722,13 @@ const TensileReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 10.5"
+                    className={
+                      editDiaValid === null
+                        ? ""
+                        : editDiaValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -414,6 +741,13 @@ const TensileReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="Original length"
+                    className={
+                      editLoValid === null
+                        ? ""
+                        : editLoValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -426,6 +760,13 @@ const TensileReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="Final length"
+                    className={
+                      editLiValid === null
+                        ? ""
+                        : editLiValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -437,6 +778,13 @@ const TensileReport = () => {
                     value={editFormData.breakingLoad}
                     onChange={handleEditChange}
                     step="0.01"
+                    className={
+                      editBreakingLoadValid === null
+                        ? ""
+                        : editBreakingLoadValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -448,6 +796,13 @@ const TensileReport = () => {
                     value={editFormData.yieldLoad}
                     onChange={handleEditChange}
                     step="0.01"
+                    className={
+                      editYieldLoadValid === null
+                        ? ""
+                        : editYieldLoadValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -459,6 +814,13 @@ const TensileReport = () => {
                     value={editFormData.uts}
                     onChange={handleEditChange}
                     step="0.01"
+                    className={
+                      editUtsValid === null
+                        ? ""
+                        : editUtsValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -470,6 +832,13 @@ const TensileReport = () => {
                     value={editFormData.ys}
                     onChange={handleEditChange}
                     step="0.01"
+                    className={
+                      editYsValid === null
+                        ? ""
+                        : editYsValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -481,6 +850,13 @@ const TensileReport = () => {
                     value={editFormData.elongation}
                     onChange={handleEditChange}
                     step="0.01"
+                    className={
+                      editElongationValid === null
+                        ? ""
+                        : editElongationValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
@@ -492,17 +868,25 @@ const TensileReport = () => {
                     value={editFormData.testedBy}
                     onChange={handleEditChange}
                     placeholder="e.g: John Doe"
+                    className={
+                      editTestedByValid === null
+                        ? ""
+                        : editTestedByValid
+                        ? "valid-input"
+                        : "invalid-input"
+                    }
                   />
                 </div>
 
                 <div className="tensile-form-group full-width">
                   <label>Remarks</label>
-                  <textarea
+                  <input
+                    type="text"
                     name="remarks"
                     value={editFormData.remarks}
                     onChange={handleEditChange}
-                    rows="3"
                     placeholder="Any additional notes"
+                    maxLength={200}
                   />
                 </div>
               </div>
@@ -527,6 +911,15 @@ const TensileReport = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmCard
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        departmentName="Tensile"
+        loading={deleteLoading}
+      />
     </>
   );
 };

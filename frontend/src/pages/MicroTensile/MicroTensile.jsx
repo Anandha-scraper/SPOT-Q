@@ -55,8 +55,9 @@ const MicroTensile = () => {
   useEffect(() => {
     const fetchCurrentDate = async () => {
       try {
-        const resp = await fetch('/v1/micro-tensile-tests/current-date', {
+        const resp = await fetch('http://localhost:5000/api/v1/micro-tensile/current-date', {
           method: 'GET',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -369,8 +370,9 @@ const MicroTensile = () => {
       };
       delete payload.itemSecond;
 
-      const resp = await fetch('/v1/micro-tensile-tests', {
+      const resp = await fetch('http://localhost:5000/api/v1/micro-tensile', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -383,20 +385,9 @@ const MicroTensile = () => {
         // Show success popup instead of alert
         setShowSuccessPopup(true);
 
-        // Re-fetch current date from backend to ensure consistency
-        const dateResp = await fetch('/v1/micro-tensile-tests/current-date', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-          }
-        });
-        const dateData = await dateResp.json();
-        const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
-
         // Reset all fields except DISA checklist and date
         setFormData({
-          date: currentDate,
+          date: formData.date,
           disa: formData.disa,
           item: '',
           itemSecond: '',
@@ -441,86 +432,40 @@ const MicroTensile = () => {
   };
 
 
-  const handleReset = async () => {
-    try {
-      // Re-fetch current date from backend to ensure consistency
-      const resp = await fetch('/v1/micro-tensile-tests/current-date', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      const dateData = await resp.json();
-      const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
+  const handleReset = () => {
+    // Reset all fields except DISA checklist and date
+    setFormData({
+      date: formData.date,
+      disa: formData.disa,
+      item: '',
+      itemSecond: '',
+      dateCode: '',
+      heatCode: '',
+      barDia: '',
+      gaugeLength: '',
+      maxLoad: '',
+      yieldLoad: '',
+      tensileStrength: '',
+      yieldStrength: '',
+      elongation: '',
+      remarks: '',
+      testedBy: ''
+    });
+    setErrors({});
 
-      setFormData({
-        date: currentDate,
-        disa: formData.disa,
-        item: '',
-
-        dateCode: '',
-        heatCode: '',
-        barDia: '',
-        gaugeLength: '',
-        maxLoad: '',
-        yieldLoad: '',
-        tensileStrength: '',
-        yieldStrength: '',
-        elongation: '',
-        remarks: '',
-        testedBy: ''
-      });
-      setErrors({});
-
-      // Reset validation states
-      setItemValid(null);
-      setItemSecondValid(null);
-      setItemSecondValid(null);
-      setDateCodeValid(null);
-      setHeatCodeValid(null);
-      setBarDiaValid(null);
-      setGaugeLengthValid(null);
-      setMaxLoadValid(null);
-      setYieldLoadValid(null);
-      setTensileStrengthValid(null);
-      setYieldStrengthValid(null);
-      setElongationValid(null);
-    } catch (error) {
-      console.error('Error resetting form:', error);
-      // On error, just reset fields but keep current date and DISA
-      setFormData({
-        date: formData.date,
-        disa: formData.disa,
-        item: '',
-  
-        dateCode: '',
-        heatCode: '',
-        barDia: '',
-        gaugeLength: '',
-        maxLoad: '',
-        yieldLoad: '',
-        tensileStrength: '',
-        yieldStrength: '',
-        elongation: '',
-        remarks: '',
-        testedBy: ''
-      });
-      setErrors({});
-
-      // Reset validation states
-      setItemValid(null);
-      setItemSecondValid(null);
-      setDateCodeValid(null);
-      setHeatCodeValid(null);
-      setBarDiaValid(null);
-      setGaugeLengthValid(null);
-      setMaxLoadValid(null);
-      setYieldLoadValid(null);
-      setTensileStrengthValid(null);
-      setYieldStrengthValid(null);
-      setElongationValid(null);
-    }
+    // Reset validation states
+    setItemValid(null);
+    setItemSecondValid(null);
+    setDateCodeValid(null);
+    setHeatCodeValid(null);
+    setBarDiaValid(null);
+    setGaugeLengthValid(null);
+    setMaxLoadValid(null);
+    setYieldLoadValid(null);
+    setTensileStrengthValid(null);
+    setYieldStrengthValid(null);
+    setElongationValid(null);
+    setTestedByValid(null);
   };
 
   return (

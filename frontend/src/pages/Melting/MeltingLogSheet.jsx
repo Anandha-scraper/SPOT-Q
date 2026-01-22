@@ -46,24 +46,21 @@ const MeltingLogSheet = () => {
     
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const res = await fetch(`http://localhost:5000/api/v1/melting-logs?startDate=${dateStr}&endDate=${dateStr}`, { credentials: 'include' });
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/primary/${dateStr}`, { credentials: 'include' });
       const response = await res.json();
       
-      if (response.success && response.data && response.data.length > 0) {
-        // Check if any entry has the same date AND shift
-        const hasDataForShift = response.data.some(entry => {
-          const entryShift = entry.shift;
-          return entryShift === shift;
-        });
+      if (response.success && response.data) {
+        // response.data is a single object, not an array
+        const entryShift = response.data.shift;
         
-        if (hasDataForShift) {
+        if (entryShift === shift) {
           // Data exists for this date+shift combination, lock shift dropdown
           setPrimaryLocks(prev => ({
             ...prev,
             shift: true
           }));
         } else {
-          // No data for this date+shift combination, unlock shift (unless primaryId exists)
+          // Different shift exists for this date, unlock shift (unless primaryId exists)
           if (!primaryId) {
             setPrimaryLocks(prev => {
               const newLocks = { ...prev };
@@ -205,7 +202,7 @@ const MeltingLogSheet = () => {
     
     try {
       // Send primary data + table data together
-      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/table${tableNum}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/table-update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
         tableNum,
         primaryData: primaryData,
         data: tableData
@@ -244,31 +241,56 @@ const MeltingLogSheet = () => {
     try {
       // Submit all tables in parallel
       const promises = [
-        api.post('/v1/melting-logs/table1', {
-          tableNum: 1,
-          primaryData: primaryData,
-          data: table1
-        }),
-        api.post('/v1/melting-logs/table2', {
-          tableNum: 2,
-          primaryData: primaryData,
-          data: table2
-        }),
-        api.post('/v1/melting-logs/table3', {
-          tableNum: 3,
-          primaryData: primaryData,
-          data: table3
-        }),
-        api.post('/v1/melting-logs/table4', {
-          tableNum: 4,
-          primaryData: primaryData,
-          data: table4
-        }),
-        api.post('/v1/melting-logs/table5', {
-          tableNum: 5,
-          primaryData: primaryData,
-          data: table5
-        })
+        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tableNum: 1,
+            primaryData: primaryData,
+            data: table1
+          })
+        }).then(res => res.json()),
+        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tableNum: 2,
+            primaryData: primaryData,
+            data: table2
+          })
+        }).then(res => res.json()),
+        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tableNum: 3,
+            primaryData: primaryData,
+            data: table3
+          })
+        }).then(res => res.json()),
+        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tableNum: 4,
+            primaryData: primaryData,
+            data: table4
+          })
+        }).then(res => res.json()),
+        fetch('http://localhost:5000/api/v1/melting-logs/table-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tableNum: 5,
+            primaryData: primaryData,
+            data: table5
+          })
+        }).then(res => res.json())
       ];
 
       const results = await Promise.all(promises);
@@ -314,7 +336,12 @@ const MeltingLogSheet = () => {
     try {
       // Format date for API (YYYY-MM-DD)
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const response = await api.get(`/v1/melting-logs/primary/${dateStr}`);
+      const res = await fetch(`http://localhost:5000/api/v1/melting-logs/primary/${dateStr}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const response = await res.json();
       
       if (response.success && response.data) {
         // Populate form with fetched data
@@ -391,10 +418,16 @@ const MeltingLogSheet = () => {
     // Save primary data to database (without locking)
     setPrimaryLoading(true);
     try {
-      const response = await api.post('/v1/melting-logs/primary', {
-        primaryData: primaryData,
-        isLocked: false
+      const res = await fetch('http://localhost:5000/api/v1/melting-logs/primary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          primaryData: primaryData,
+          isLocked: false
+        })
       });
+      const response = await res.json();
       
       if (response.success) {
         setPrimaryId(response.data._id);

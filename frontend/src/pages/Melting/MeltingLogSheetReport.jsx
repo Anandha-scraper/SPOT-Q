@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton } from '../../Components/Buttons';
+import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 
 const MeltingLogSheetReport = () => {
@@ -9,7 +9,7 @@ const MeltingLogSheetReport = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entries, setEntries] = useState([]);
-  const [show, setShow] = useState({ table0: true, table1: false, table2: false, table3: false, table4: false, table5: false });
+  const [show, setShow] = useState({ table0: true, table1: true, table2: true, table3: true, table4: true, table5: true });
 
   const handleFilter = async () => {
     if (!fromDate) return;
@@ -18,11 +18,11 @@ const MeltingLogSheetReport = () => {
     try {
       const start = fromDate;
       const end = toDate || fromDate;
-      const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const data = await response.json();
@@ -33,7 +33,7 @@ const MeltingLogSheetReport = () => {
           const db = new Date(b.date || b.createdAt || 0).getTime();
           return db - da;
         });
-        setEntries(sorted.slice(0, 5));
+        setEntries(sorted);
       } else {
         setEntries([]);
       }
@@ -57,11 +57,11 @@ const MeltingLogSheetReport = () => {
         const past = new Date(today);
         past.setDate(past.getDate() - 60);
         const start = past.toISOString().split('T')[0];
-        const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+        const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         });
         const res = await response.json();
@@ -71,7 +71,7 @@ const MeltingLogSheetReport = () => {
             const db = new Date(b.date || b.createdAt || 0).getTime();
             return db - da;
           });
-          setEntries(sorted.slice(0, 5));
+          setEntries(sorted);
         } else {
           setEntries([]);
         }
@@ -94,11 +94,11 @@ const MeltingLogSheetReport = () => {
         const past = new Date(today);
         past.setDate(past.getDate() - 60);
         const start = past.toISOString().split('T')[0];
-        const response = await fetch(`/v1/melting-logs?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+        const response = await fetch(`http://localhost:5000/api/v1/melting-logs/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
           method: 'GET',
+          credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         });
         const res = await response.json();
@@ -108,7 +108,7 @@ const MeltingLogSheetReport = () => {
             const db = new Date(b.date || b.createdAt || 0).getTime();
             return db - da;
           });
-          setEntries(sorted.slice(0, 5));
+          setEntries(sorted);
         } else {
           setEntries([]);
         }
@@ -137,8 +137,9 @@ const MeltingLogSheetReport = () => {
     const row = confirm.row;
     if (!row?._id) return;
     try {
-      const response = await fetch(`/v1/melting-logs/${row._id}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/${row._id}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -238,7 +239,22 @@ const MeltingLogSheetReport = () => {
     if (!row?._id) return;
     try {
       const payload = { ...editForm };
-      const response = await fetch(`/v1/melting-logs/${row._id}`, {
+      
+      // Convert numeric string fields to numbers, and remove empty fields
+      const numericFields = ['cumulativeLiquidMetal', 'finalKWHr', 'initialKWHr', 'totalUnits', 'cumulativeUnits'];
+      numericFields.forEach(field => {
+        if (payload[field] === '' || payload[field] == null) {
+          // Don't send empty values - keep existing value in DB
+          delete payload[field];
+        } else {
+          // Convert to number
+          payload[field] = Number(payload[field]);
+        }
+      });
+      
+      console.log('Sending payload:', payload); // Debug log
+      
+      const response = await fetch(`http://localhost:5000/api/v1/melting-logs/${row._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -247,12 +263,17 @@ const MeltingLogSheetReport = () => {
         body: JSON.stringify(payload)
       });
       const res = await response.json();
+      console.log('Response from server:', res); // Debug log
       if (res?.success) {
-        setEntries((prev) => prev.map((e) => (e._id === row._id ? { ...e, ...payload, _id: row._id } : e)));
+        // Reload the data to get the correct values from backend
+        handleFilter();
         setEditModal({ open: false, row: null });
         setSaveConfirm({ open: false });
+      } else {
+        alert(res?.message || 'Failed to update the record');
       }
     } catch (e) {
+      console.error('Save error:', e); // Debug log
       alert(e.message || 'Failed to update the record');
     } finally {
       setSaveConfirm({ open: false });
@@ -383,8 +404,8 @@ const MeltingLogSheetReport = () => {
                   ))}
                   <td>
                     <div className="chr-actions">
-                      <button onClick={() => requestEdit(row)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer' }}>Edit</button>
-                      <button onClick={() => requestDelete(row)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #fecaca', background: '#fee2e2', color: '#b91c1c', cursor: 'pointer' }}>Delete</button>
+                      <EditButton onClick={() => requestEdit(row)} />
+                      <DeleteButton onClick={() => requestDelete(row)} />
                     </div>
                   </td>
                 </tr>
@@ -520,23 +541,23 @@ const MeltingLogSheetReport = () => {
 
               <div className="microtensile-form-group">
                 <label>Cumulative Liquid Metal</label>
-                <input type="text" name="cumulativeLiquidMetal" value={editForm.cumulativeLiquidMetal ?? ''} onChange={handleEditChange} />
+                <input type="number" name="cumulativeLiquidMetal" value={editForm.cumulativeLiquidMetal ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
                 <label>Final KWHr</label>
-                <input type="text" name="finalKWHr" value={editForm.finalKWHr ?? ''} onChange={handleEditChange} />
+                <input type="number" name="finalKWHr" value={editForm.finalKWHr ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
                 <label>Initial KWHr</label>
-                <input type="text" name="initialKWHr" value={editForm.initialKWHr ?? ''} onChange={handleEditChange} />
+                <input type="number" name="initialKWHr" value={editForm.initialKWHr ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
                 <label>Total Units</label>
-                <input type="text" name="totalUnits" value={editForm.totalUnits ?? ''} onChange={handleEditChange} />
+                <input type="number" name="totalUnits" value={editForm.totalUnits ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
                 <label>Cumulative Units</label>
-                <input type="text" name="cumulativeUnits" value={editForm.cumulativeUnits ?? ''} onChange={handleEditChange} />
+                <input type="number" name="cumulativeUnits" value={editForm.cumulativeUnits ?? ''} onChange={handleEditChange} />
               </div>
 
               <div className="microtensile-form-group">

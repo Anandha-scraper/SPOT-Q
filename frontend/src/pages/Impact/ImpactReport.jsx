@@ -6,12 +6,11 @@ import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 
 const ImpactReport = () => {
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   const [currentDate, setCurrentDate] = useState('');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Filter states (single-date filter)
+  // Filter states
   const [selectedDate, setSelectedDate] = useState(null);
   const [isFiltered, setIsFiltered] = useState(false);
 
@@ -20,20 +19,12 @@ const ImpactReport = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
 
   // Delete confirmation states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Save confirmation states
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-
-  // Edited popup state
-  const [showEditedPopup, setShowEditedPopup] = useState(false);
-
-  // Edit validation state
-  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     fetchCurrentDateAndEntries();
@@ -41,12 +32,13 @@ const ImpactReport = () => {
 
   const fetchCurrentDateAndEntries = async () => {
     setLoading(true);
-
     try {
       // Get server date
       let todayStr;
       try {
-        const dateResponse = await fetch(`${API_BASE}/v1/system/current-date`);
+        const dateResponse = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
+          credentials: 'include'
+        });
         const dateData = await dateResponse.json();
         todayStr = dateData.success && dateData.date ? dateData.date : new Date().toISOString().split('T')[0];
       } catch {
@@ -55,29 +47,24 @@ const ImpactReport = () => {
       setCurrentDate(todayStr);
 
       // Fetch entries for current date
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/v1/impact-tests/by-date?date=${todayStr}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${todayStr}`, {
+        credentials: 'include'
       });
       const data = await response.json();
 
       if (data.success) {
-        // API returns entries array (subdocuments) without a date field — attach the date so UI shows correct stored date
         const list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: todayStr })) : [];
         setEntries(list);
       }
     } catch (error) {
       console.error('Error fetching entries:', error);
-      // Set current date even on error
       const todayStr = new Date().toISOString().split('T')[0];
       setCurrentDate(todayStr);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -113,7 +100,6 @@ const ImpactReport = () => {
   const handleEdit = (item) => {
     setEditingItem(item);
     setEditFormData({
-      date: item.date ? new Date(item.date).toISOString().split('T')[0] : '',
       partName: item.partName || '',
       dateCode: item.dateCode || '',
       specification: {
@@ -123,12 +109,11 @@ const ImpactReport = () => {
       observedValue: item.observedValue || '',
       remarks: item.remarks || ''
     });
-    setEditError(''); // Clear any previous error
+    setEditError('');
     setShowEditModal(true);
   };
 
-  const handleSaveClick = () => {
-    // Clear any previous error
+  const handleSaveEdit = async () => {
     setEditError('');
 
     // Check if any data has changed
@@ -141,36 +126,27 @@ const ImpactReport = () => {
       editFormData.remarks !== editingItem.remarks;
 
     if (!hasChanges) {
-      setEditError('No data Edited');
-      // Clear error message after 3 seconds
+      setEditError('No data edited');
       setTimeout(() => {
         setEditError('');
       }, 3000);
       return;
     }
 
-    setShowSaveConfirm(true);
-  };
-
-  const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      setShowSaveConfirm(false);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/v1/impact-tests/${editingItem._id}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/${editingItem._id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(editFormData)
       });
       const data = await response.json();
 
       if (data.success) {
         setShowEditModal(false);
-        setShowEditedPopup(true);
-        // Refresh the entries - either filtered or current date
         if (isFiltered) {
           handleFilter();
         } else {
@@ -179,7 +155,7 @@ const ImpactReport = () => {
       }
     } catch (error) {
       console.error('Error updating impact test:', error);
-      alert('Failed to update entry: ' + (error.message || 'Unknown error'));
+      setEditError('Failed to update entry');
     } finally {
       setEditLoading(false);
     }
@@ -193,20 +169,15 @@ const ImpactReport = () => {
   const handleDeleteConfirm = async () => {
     try {
       setDeleteLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/v1/impact-tests/${deleteItemId}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/${deleteItemId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        credentials: 'include'
       });
       const data = await response.json();
 
       if (data.success) {
         setShowDeleteConfirm(false);
         setDeleteItemId(null);
-        // Refresh the entries - either filtered or current date
         if (isFiltered) {
           handleFilter();
         } else {
@@ -215,7 +186,7 @@ const ImpactReport = () => {
       }
     } catch (error) {
       console.error('Error deleting impact test:', error);
-      alert('Failed to delete entry: ' + (error.message || 'Unknown error'));
+      alert('Failed to delete entry');
     } finally {
       setDeleteLoading(false);
     }
@@ -229,19 +200,12 @@ const ImpactReport = () => {
 
     try {
       setLoading(true);
-
-      // Query backend for entries of a specific date
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/v1/impact-tests/by-date?date=${selectedDate}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${selectedDate}`, {
+        credentials: 'include'
       });
       const data = await response.json();
 
       if (data.success) {
-        // Attach the selected date to each entry so the report shows the stored date instead of today's date
         const list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: selectedDate })) : [];
         setEntries(list);
         setCurrentDate(selectedDate);
@@ -249,7 +213,7 @@ const ImpactReport = () => {
       }
     } catch (error) {
       console.error('Error fetching entries by date:', error);
-      alert('Failed to fetch entries: ' + (error.message || 'Unknown error'));
+      alert('Failed to fetch entries');
     } finally {
       setLoading(false);
     }
@@ -261,18 +225,6 @@ const ImpactReport = () => {
     fetchCurrentDateAndEntries();
   };
 
-  // Helper function to format specification display
-  const formatSpecification = (spec) => {
-    if (!spec) return '-';
-    const val = spec.val || '';
-    const constraint = spec.constraint || '';
-    if (val && constraint) {
-      return `${val} ${constraint}`;
-    }
-    return val || constraint || '-';
-  };
-
-  // Helper function to format date display
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '-';
     try {
@@ -285,7 +237,6 @@ const ImpactReport = () => {
       return dateStr;
     }
   };
-
 
   return (
     <>
@@ -323,62 +274,63 @@ const ImpactReport = () => {
           <Loader />
         </div>
       ) : (
-          <div className="impact-table-container">
-            <table className="impact-table">
-              <thead>
+        <div className="impact-table-container">
+          <table className="impact-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Part Name</th>
+                <th>Date Code</th>
+                <th>Specification Value</th>
+                <th>Specification Constraint</th>
+                <th>Observed Value</th>
+                <th>Remarks</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.length === 0 ? (
                 <tr>
-                  <th>Date</th>
-                  <th>Part Name</th>
-                  <th>Date Code</th>
-                  <th>Specification</th>
-                  <th>Observed Value</th>
-                  <th>Remarks</th>
-                  <th>Actions</th>
+                  <td colSpan="8" className="impact-no-records">
+                    {isFiltered ? 'No entries found for the selected date' : 'No entries found for today'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {entries.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="impact-no-records">
-                      {isFiltered ? 'No entries found for the selected date range' : 'No entries found for today'}
+              ) : (
+                entries.map((item, index) => (
+                  <tr key={item._id || index}>
+                    <td>
+                      {(() => {
+                        const raw = item.date || currentDate;
+                        const isoDate = typeof raw === 'string' ? raw.split('T')[0] : new Date(raw).toISOString().split('T')[0];
+                        return formatDateDisplay(isoDate);
+                      })()}
+                    </td>
+                    <td>{item.partName || '-'}</td>
+                    <td>{item.dateCode || '-'}</td>
+                    <td>{item.specification?.val || '-'}</td>
+                    <td>{item.specification?.constraint || '-'}</td>
+                    <td>{item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}</td>
+                    <td>{item.remarks || '-'}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+                        <EditButton onClick={() => handleEdit(item)} />
+                        <DeleteButton onClick={() => handleDeleteClick(item._id)} />
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  entries.map((item, index) => (
-                    <tr key={item._id || index}>
-                      <td>
-                        {(() => {
-                          const raw = item.date || currentDate;
-                          const isoDate = typeof raw === 'string' ? raw.split('T')[0] : new Date(raw).toISOString().split('T')[0];
-                          return formatDateDisplay(isoDate);
-                        })()}
-                      </td>
-                      <td>{item.partName || '-'}</td>
-                      <td>{item.dateCode || '-'}</td>
-                      <td>{formatSpecification(item.specification)}</td>
-                      <td>{item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}</td>
-                      <td>{item.remarks || '-'}</td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
-                          <EditButton onClick={() => handleEdit(item)} />
-                          <DeleteButton onClick={() => handleDeleteClick(item._id)} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Edit Card */}
+      {/* Edit Modal */}
       <EditCard
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
         departmentName="Impact"
-        onSave={handleSaveClick}
-        onCancel={() => setShowEditModal(false)}
+        onSave={handleSaveEdit}
         loading={editLoading}
         error={editError}
       >
@@ -388,9 +340,9 @@ const ImpactReport = () => {
             <input
               type="text"
               name="partName"
-              value={editFormData.partName}
+              value={editFormData.partName || ''}
               onChange={handleEditChange}
-              placeholder="e.g: Engine Block"
+              placeholder="e.g: Crankshaft"
             />
           </div>
 
@@ -399,9 +351,9 @@ const ImpactReport = () => {
             <input
               type="text"
               name="dateCode"
-              value={editFormData.dateCode}
+              value={editFormData.dateCode || ''}
               onChange={handleEditChange}
-              placeholder="e.g: 3A21"
+              placeholder="e.g: 6F25"
             />
           </div>
 
@@ -413,7 +365,7 @@ const ImpactReport = () => {
               value={editFormData.specification?.val || ''}
               onChange={handleEditChange}
               step="0.1"
-              placeholder="e.g: 3"
+              placeholder="e.g: 12.5"
             />
           </div>
 
@@ -424,7 +376,7 @@ const ImpactReport = () => {
               name="specificationConstraint"
               value={editFormData.specification?.constraint || ''}
               onChange={handleEditChange}
-              placeholder="e.g: unnotch - Rj"
+              placeholder="e.g: 30° unnotch"
             />
           </div>
 
@@ -433,7 +385,7 @@ const ImpactReport = () => {
             <input
               type="text"
               name="observedValue"
-              value={editFormData.observedValue}
+              value={editFormData.observedValue || ''}
               onChange={handleEditChange}
               placeholder="e.g: 12 or 34,45"
             />
@@ -444,7 +396,7 @@ const ImpactReport = () => {
             <input
               type="text"
               name="remarks"
-              value={editFormData.remarks}
+              value={editFormData.remarks || ''}
               onChange={handleEditChange}
               placeholder="Enter any additional notes..."
               maxLength={80}
@@ -453,6 +405,31 @@ const ImpactReport = () => {
         </div>
       </EditCard>
 
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="impact-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="impact-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this entry?</p>
+            <div className="impact-modal-actions">
+              <button 
+                className="impact-modal-btn cancel-btn" 
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button 
+                className="impact-modal-btn delete-btn" 
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

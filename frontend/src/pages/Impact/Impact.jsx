@@ -211,15 +211,9 @@ const Impact = () => {
         // Show success popup
         setShowSuccessPopup(true);
 
-        const dateResponse = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
-          credentials: 'include'
-        });
-        const dateData = await dateResponse.json();
-        const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
-
-        // Reset form
+        // Reset form but keep the current date
         setFormData({
-          date: currentDate,
+          date: formData.date,
           partName: '',
           dateCode: '',
           specification: { val: '', constraint: '' },
@@ -246,45 +240,20 @@ const Impact = () => {
   };
 
   // ====================== Reset ======================
-  const handleReset = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
-        credentials: 'include'
-      });
-      const dateData = await response.json();
-      const currentDate = dateData.success && dateData.date ? dateData.date : formData.date;
+  const handleReset = () => {
+    setFormData({
+      date: formData.date,
+      partName: '',
+      dateCode: '',
+      specification: { val: '', constraint: '' },
+      observedValue: '',
+      remarks: ''
+    });
 
-      setFormData({
-        date: currentDate,
-        partName: '',
-        dateCode: '',
-        specification: { val: '', constraint: '' },
-        observedValue: '',
-        remarks: ''
-      });
-
-      setPartNameValid(null);
-      setDateCodeValid(null);
-      setSpecificationValValid(null);
-      setObservedValueValid(null);
-
-    } catch (error) {
-      console.error('Error resetting form:', error);
-
-      setFormData({
-        date: formData.date,
-        partName: '',
-        dateCode: '',
-        specification: { val: '', constraint: '' },
-        observedValue: '',
-        remarks: ''
-      });
-
-      setPartNameValid(null);
-      setDateCodeValid(null);
-      setSpecificationValValid(null);
-      setObservedValueValid(null);
-    }
+    setPartNameValid(null);
+    setDateCodeValid(null);
+    setSpecificationValValid(null);
+    setObservedValueValid(null);
   };
 
   // ====================== JSX ======================

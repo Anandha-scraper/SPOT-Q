@@ -53,7 +53,6 @@ exports.getAllEntries = async (req, res) => {
 };
 
 /** 3. CORE LOGIC (Create or Update Entry) **/
-
 exports.createEntry = async (req, res) => {
     try {
         const { date, disa, ...entryData } = req.body;

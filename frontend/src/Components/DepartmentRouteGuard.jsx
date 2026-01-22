@@ -1,11 +1,6 @@
 import React, { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-
-/**
- * Map frontend routes to departments
- * This should match the backend ROUTE_DEPARTMENT_MAP
- */
 const ROUTE_DEPARTMENT_MAP = {
   '/tensile': 'Tensile',
   '/tensile/report': 'Tensile',
@@ -33,9 +28,6 @@ const ROUTE_DEPARTMENT_MAP = {
   '/sand-lab/foundry-sand-testing-note/report': 'Sand Lab'
 };
 
-/**
- * Map department to default route
- */
 const DEPARTMENT_DEFAULT_ROUTE = {
   'Tensile': '/tensile',
   'Impact': '/impact',
@@ -48,31 +40,22 @@ const DEPARTMENT_DEFAULT_ROUTE = {
   'Sand Lab': '/sand-lab/sand-testing-record'
 };
 
-/**
- * Get the required department for a given route path
- * @param {string} pathname - The current route path
- * @returns {string|null} - The required department or null if not mapped
- */
 function getRequiredDepartment(pathname) {
   // Normalize path - ensure it starts with / and remove query string
   const cleanPath = (pathname.startsWith('/') ? pathname : `/${pathname}`).split('?')[0];
-  
   // Check for exact matches first
   if (ROUTE_DEPARTMENT_MAP[cleanPath]) {
     return ROUTE_DEPARTMENT_MAP[cleanPath];
   }
-  
   // Sort routes by length (longest first) to match more specific routes first
   // This ensures /tensile/report matches before /tensile
   const sortedRoutes = Object.keys(ROUTE_DEPARTMENT_MAP).sort((a, b) => b.length - a.length);
-  
   // Check for path prefixes (for nested routes and reports)
   for (const routePath of sortedRoutes) {
     // Exact match
     if (cleanPath === routePath) {
       return ROUTE_DEPARTMENT_MAP[routePath];
     }
-    
     // Check if path is a sub-route (e.g., /tensile/123 matches /tensile)
     // But ensure we're matching at a path segment boundary
     if (cleanPath.startsWith(routePath + '/')) {
@@ -83,17 +66,10 @@ function getRequiredDepartment(pathname) {
   return null;
 }
 
-/**
- * Check if user has access to the required department
- * @param {Object} user - The user object
- * @param {string} requiredDepartment - The required department
- * @returns {boolean} - True if user has access
- */
 function hasDepartmentAccess(user, requiredDepartment) {
   if (!user) {
     return false;
   }
-  
   // Admin users have access to everything
   if (user.role === 'admin' || user.department === 'Admin') {
     return true;
@@ -103,11 +79,6 @@ function hasDepartmentAccess(user, requiredDepartment) {
   return user.department === requiredDepartment;
 }
 
-/**
- * Department Route Guard Component
- * Protects routes based on user's department
- * Redirects users to their department's default page if they try to access other departments' routes
- */
 const DepartmentRouteGuard = ({ children }) => {
   const { user, isAdmin } = useContext(AuthContext);
   const location = useLocation();

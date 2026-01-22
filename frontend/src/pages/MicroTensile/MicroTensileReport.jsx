@@ -20,7 +20,6 @@ const MicroTensileReport = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [showEditedPopup, setShowEditedPopup] = useState(false);
   const disaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
 
   const toggle = (key) => setShow((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -37,8 +36,9 @@ const MicroTensileReport = () => {
     if (!row?._id) return;
     setDeleteLoading(true);
     try {
-      const resp = await fetch(`/v1/micro-tensile-tests/${row._id}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/${row._id}`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -150,8 +150,9 @@ const MicroTensileReport = () => {
       const payload = { ...editForm, item: itemObj };
       delete payload.itemSecond;
 
-      const resp = await fetch(`/v1/micro-tensile-tests/${row._id}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/${row._id}`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -164,7 +165,6 @@ const MicroTensileReport = () => {
         setEntries((prev) => prev.map((e) => (e._id === row._id ? { ...e, ...updated, _id: row._id } : e)));
         setEditModal({ open: false, row: null });
         setSaveConfirm({ open: false });
-        setShowEditedPopup(true);
       }
     } catch (e) {
       setSaveError(e.message || 'Failed to update the record');
@@ -195,8 +195,9 @@ const MicroTensileReport = () => {
     try {
       const start = selectedDate;
       const end = selectedDate;
-      const resp = await fetch(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -223,6 +224,7 @@ const MicroTensileReport = () => {
   };
 
   const loadRecent = async () => {
+    setLoading(true);
     try {
       const today = new Date();
       const year = today.getFullYear();
@@ -230,8 +232,9 @@ const MicroTensileReport = () => {
       const day = String(today.getDate()).padStart(2, '0');
       const todayString = `${year}-${month}-${day}`;
       
-      const resp = await fetch(`/v1/micro-tensile-tests?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(todayString)}&endDate=${encodeURIComponent(todayString)}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -263,18 +266,17 @@ const MicroTensileReport = () => {
       }
     } catch (e) {
       setEntries([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleClearFilter = () => {
     setSelectedDate(null);
     setError('');
+    setEntries([]);
     loadRecent();
   };
-
-  useEffect(() => {
-    setEntries([]);
-  }, [selectedDate]);
 
   useEffect(() => {
     loadRecent();
@@ -365,7 +367,7 @@ const MicroTensileReport = () => {
                   ))}
 
                   <td>
-                    <div className="microtensile-actions">
+                    <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '64px', margin: '0 auto' }}>
                       <EditButton onClick={() => requestEdit(row)} />
                       <DeleteButton onClick={() => requestDelete(row)} />
                     </div>
@@ -531,14 +533,30 @@ const MicroTensileReport = () => {
         </div>
       </EditCard>
 
-      <ConfirmSave
-        isOpen={saveConfirm.open}
-        onClose={closeSaveConfirm}
-        title="Confirm Save"
-        message="Do you want to save the changes to this Micro Tensile test?"
-        onConfirm={performSave}
-        loading={saveLoading}
-      />
+      {saveConfirm.open && (
+        <div className="impact-modal-overlay" onClick={closeSaveConfirm}>
+          <div className="impact-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Confirm Save</h3>
+            <p>Do you want to save the changes to this Micro Tensile test?</p>
+            <div className="impact-modal-actions">
+              <button 
+                className="impact-modal-btn cancel-btn" 
+                onClick={closeSaveConfirm}
+                disabled={saveLoading}
+              >
+                Cancel
+              </button>
+              <button 
+                className="impact-modal-btn save-btn" 
+                onClick={performSave}
+                disabled={saveLoading}
+              >
+                {saveLoading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {remarkModal.open && (
         <div onClick={() => setRemarkModal({ open: false, text: '' })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80 }}>
@@ -548,14 +566,6 @@ const MicroTensileReport = () => {
           </div>
         </div>
       )}
-
-      <EditedPopup
-        isOpen={showEditedPopup}
-        onClose={() => setShowEditedPopup(false)}
-        departmentName="Micro Tensile"
-        autoClose={true}
-        autoCloseDelay={3000}
-      />
     </>
   );
 };

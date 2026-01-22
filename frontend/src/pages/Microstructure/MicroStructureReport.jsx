@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton } from '../../Components/Buttons';
+import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
 import Loader from '../../Components/Loader';
 import "../../styles/PageStyles/MicroStructure/MicroStructureReport.css";
 
@@ -258,33 +258,10 @@ const MicroStructureReport = () => {
                       <td>{item.pearlite !== undefined && item.pearlite !== null ? item.pearlite : '-'}</td>
                       <td>{item.carbide !== undefined && item.carbide !== null ? item.carbide : '-'}</td>
                       <td>{item.remarks || '-'}</td>
-                      <td style={{ minWidth: '100px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => handleEdit(item)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #fecaca',
-                              background: '#fee2e2',
-                              color: '#b91c1c',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Delete
-                          </button>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+                          <EditButton onClick={() => handleEdit(item)} />
+                          <DeleteButton onClick={() => handleDelete(item._id)} />
                         </div>
                       </td>
                     </tr>

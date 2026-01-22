@@ -86,42 +86,47 @@
 /* Table Container */
 .impact-table-container {
   overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+  max-width: 100%;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background-color: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .impact-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.875rem;
+  font-size: 14px;
+  background-color: white;
+  min-width: 1000px;
 }
 
 .impact-table th,
 .impact-table td {
   border-left: none !important;
+  border-right: 1px solid #e5e7eb !important;
+}
+
+.impact-table th:last-child,
+.impact-table td:last-child {
   border-right: none !important;
 }
 
 .impact-table thead tr {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background-color: #f9fafb;
 }
 
 .impact-table th {
-  padding: 1rem 1.25rem;
-  text-align: left;
-  font-weight: 700;
-  color: #1e293b;
+  padding: 12px 16px;
+  text-align: center;
+  font-weight: 600;
+  color: #374151;
   white-space: nowrap;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: transparent;
-  border-bottom: 2px solid #cbd5e1;
-  border-left: none;
-  border-right: none;
+  font-size: 14px;
+  background-color: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  border-right: 1px solid #d1d5db;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -130,73 +135,64 @@
 
 .impact-table th:first-child {
   border-top-left-radius: 8px;
-  padding-left: 1.5rem;
+  padding-left: 16px;
 }
 
 .impact-table th:last-child {
   border-top-right-radius: 8px;
-  padding-right: 1.5rem;
+  padding-right: 16px;
+  border-right: none;
 }
 
 /* Date column */
 .impact-table th:nth-child(1) {
-  min-width: 100px;
-  width: 10%;
-  text-align: center;
+  width: 3% !important;
 }
 
-/* Part Name column - holds up to 15 characters */
+/* Part Name column */
 .impact-table th:nth-child(2) {
-  min-width: 180px;
-  width: 20%;
-  text-align: center;
+  min-width: 140px;
 }
 
-/* Date Code column - 4 characters */
+/* Date Code column */
 .impact-table th:nth-child(3) {
-  min-width: 80px;
-  width: 8%;
-  text-align: center;
-}
-
-/* Specification column - larger */
-.impact-table th:nth-child(4) {
-  min-width: 200px;
-  width: 25%;
-  text-align: center;
-}
-
-/* Observed Value column - up to 5 digits */
-.impact-table th:nth-child(5) {
   min-width: 100px;
-  width: 10%;
-  text-align: center;
+}
+
+/* Specification Value column */
+.impact-table th:nth-child(4) {
+  min-width: 140px;
+}
+
+/* Specification Constraint column */
+.impact-table th:nth-child(5) {
+  min-width: 160px;
+}
+
+/* Observed Value column */
+.impact-table th:nth-child(6) {
+  min-width: 120px;
 }
 
 /* Remarks column */
-.impact-table th:nth-child(6) {
+.impact-table th:nth-child(7) {
   min-width: 150px;
-  width: 17%;
-  text-align: center;
 }
 
 /* Actions column */
-.impact-table th:nth-child(7) {
-  min-width: 20px;
-  width: 8%;
-  text-align: right;
-  padding-right: 2.2rem;
+.impact-table th:nth-child(8) {
+  min-width: 120px;
+  text-align: center;
 }
 
 .impact-table tbody tr {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #f3f4f6;
   background-color: white;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .impact-table tbody tr:hover {
-  background-color: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background-color: #e0f2fe;
 }
 
 .impact-table tbody tr:last-child td:first-child {
@@ -207,122 +203,56 @@
   border-bottom-right-radius: 8px;
 }
 
-.impact-table tbody tr:nth-child(even) {
-  background-color: #f9fafb;
-}
-
-.impact-table tbody tr:nth-child(even):hover {
-  background-color: #f1f5f9;
+.impact-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .impact-table td {
-  padding: 1.125rem 1.25rem;
-  color: #475569;
-  white-space: normal;
+  padding: 12px 16px;
+  color: #1f2937;
+  white-space: nowrap;
   vertical-align: middle;
   text-align: center;
-  word-wrap: break-word;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  border-left: none;
-  border-right: none;
+  font-size: 14px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .impact-table td:first-child {
-  padding-left: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
-  text-align: center;
+  padding-left: 16px;
 }
 
 .impact-table td:last-child {
-  padding-right: 1.5rem;
-}
-
-/* Date column */
-.impact-table td:nth-child(1) {
+  padding-right: 16px;
+  border-right: none;
   text-align: center;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-/* Part Name column */
-.impact-table td:nth-child(2) {
-  text-align: center;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-/* Date Code column */
-.impact-table td:nth-child(3) {
-  text-align: center;
-  font-weight: 600;
-  font-family: monospace;
-  color: #1e293b;
-}
-
-/* Specification column */
-.impact-table td:nth-child(4) {
-  text-align: center;
-  color: #5B9AA9;
-  font-weight: 500;
-}
-
-/* Observed Value column */
-.impact-table td:nth-child(5) {
-  text-align: center;
-  font-weight: 600;
-  color: #1e293b;
-  font-family: monospace;
-}
-
-/* Remarks column */
-.impact-table td:nth-child(6) {
-  text-align: center;
-  color: #64748b;
-  font-size: 0.8125rem;
-}
-
-/* Actions column */
-.impact-table td:nth-child(7) {
-  text-align: center;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding-right: 0.2rem;
-}
-
-/* Ensure action buttons are visually aligned and same size */
-.impact-table td:nth-child(7) .edit,
-.impact-table td:nth-child(7) .delete {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 6px;
-  margin: 0;
-  box-sizing: border-box;
-}
-
-.impact-table td:nth-child(7) .edit {
-  border-radius: 6px;
-}
-
-.impact-table td:nth-child(7) .delete {
-  border-radius: 6px;
 }
 
 .impact-no-records {
-  padding: 3rem;
   text-align: center;
-  color: #94a3b8;
+  padding: 40px 20px;
+  color: #6b7280;
   font-style: italic;
-  font-size: 0.9375rem;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Scrollbar Styling */
+.impact-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.impact-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.impact-table-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.impact-table-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 /* Form Grid for Modal */

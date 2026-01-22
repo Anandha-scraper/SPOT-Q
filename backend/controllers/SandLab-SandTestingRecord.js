@@ -57,28 +57,53 @@ exports.getEntriesByDate = async (req, res) => {
 
 exports.createTableEntry = async (req, res) => {
     try {
-        // Get tableNum from either URL param or request body
-        const tableNum = req.params.tableNum || req.body.tableNum;
+        // Get tableNum from either URL param or request body and convert to number
+        const tableNum = Number(req.params.tableNum || req.body.tableNum);
         const data = req.body.data || req.body;
         const targetDate = data.date || getCurrentDate();
         
-        // Map UI Table Numbers to Schema Fields
-        const tableMap = {
-            1: { sandShifts: data },
-            2: { clayShifts: data },
-            3: { mixshifts: data },
-            4: { sandLump: data.sandLump, newSandWt: data.newSandWt, sandFriability: data.sandFriability },
-            5: { testParameter: data }
-        };
-
-        const updateData = tableMap[tableNum];
-        if (!updateData) return res.status(400).json({ success: false, message: 'Invalid Table Number' });
-
         // Batch Update: Find or Create for this day
         const document = await ensureDateDocument(SandTestingRecord, targetDate);
         
-        // Apply the specific table update
-        Object.assign(document, updateData);
+        // Deep merge helper for nested objects and arrays
+        const deepMerge = (target, source) => {
+            Object.keys(source).forEach(key => {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                    if (!target[key] || typeof target[key] !== 'object') {
+                        target[key] = {};
+                    }
+                    deepMerge(target[key], source[key]);
+                } else {
+                    // For arrays and primitive values, directly assign
+                    target[key] = source[key];
+                }
+            });
+        };
+        
+        // Apply table-specific updates with deep merge
+        if (tableNum === 1) {
+            if (!document.sandShifts) document.sandShifts = {};
+            deepMerge(document.sandShifts, data);
+        } else if (tableNum === 2) {
+            if (!document.clayShifts) document.clayShifts = {};
+            deepMerge(document.clayShifts, data);
+        } else if (tableNum === 3) {
+            if (!document.mixshifts) document.mixshifts = {};
+            deepMerge(document.mixshifts, data);
+        } else if (tableNum === 4) {
+            if (data.sandLump !== undefined) document.sandLump = data.sandLump;
+            if (data.newSandWt !== undefined) document.newSandWt = data.newSandWt;
+            if (data.sandFriability !== undefined) document.sandFriability = data.sandFriability;
+        } else if (tableNum === 5) {
+            if (!document.testParameter) document.testParameter = [];
+            // Add new entry to array
+            if (data && typeof data === 'object') {
+                document.testParameter.push(data);
+            }
+        } else {
+            return res.status(400).json({ success: false, message: 'Invalid Table Number' });
+        }
+        
         await document.save();
 
         res.status(200).json({ 

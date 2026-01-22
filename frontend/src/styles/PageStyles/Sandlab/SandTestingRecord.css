@@ -338,19 +338,10 @@
 
 .sand-shift-table th {
   padding: 0.75rem 0.75rem;
-  text-align: left;
   font-weight: 600;
   color: #334155;
   border-bottom: 2px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;
-}
-
-.sand-shift-table th:first-child {
-  width: 30%;
-}
-
-.sand-shift-table th:not(:first-child) {
-  width: 23.33%;
 }
 
 .sand-shift-table th:last-child {
@@ -379,6 +370,52 @@
 
 .sand-shift-table td:last-child {
   border-right: none;
+}
+
+/* Table 3 Specific Styles */
+.sand-shift-table.table-3 th {
+  text-align: center;
+  font-size: 0.875rem;
+  padding: 0.625rem 0.5rem;
+}
+
+.sand-shift-table.table-3 th:first-child {
+  width: 80px;
+  min-width: 80px;
+}
+
+/* Mix No. column (colspan=3) - larger width */
+.sand-shift-table.table-3 thead tr:first-child th:nth-child(2) {
+  width: 45%;
+}
+
+/* No. Of Mix Rejected - smaller width */
+.sand-shift-table.table-3 thead tr:first-child th:nth-child(3) {
+  width: 20%;
+}
+
+/* Return Sand Hopper Level - smaller width */
+.sand-shift-table.table-3 thead tr:first-child th:nth-child(4) {
+  width: 20%;
+}
+
+/* Start, End, Total columns - equal widths */
+.sand-shift-table.table-3 thead tr:nth-child(2) th:nth-child(1),
+.sand-shift-table.table-3 thead tr:nth-child(2) th:nth-child(2),
+.sand-shift-table.table-3 thead tr:nth-child(2) th:nth-child(3) {
+  width: 15%;
+}
+
+.sand-shift-table.table-3 thead tr:first-child th {
+  font-weight: 700;
+  background-color: #f8fafc;
+}
+
+.sand-shift-table.table-3 thead tr:nth-child(2) th {
+  font-weight: 600;
+  background-color: #ffffff;
+  font-size: 0.8125rem;
+  padding: 0.5rem;
 }
 
 .sand-table-input {

@@ -9,119 +9,85 @@ const SandTestingRecordSchema = new mongoose.Schema({
   sandShifts : {
     shiftI: {
       rSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       nSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       mixingMode: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       bentonite: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       coalDustPremix: {
-        type: String,
-        trim: true,
-        default: "",
-      },
-      batchNo: {
-        bentonite: {
-          type: String,
-          trim: true,
-          default: "",
-        },
-        coalDustPremix: {
-          type: String,
-          trim: true,
-          default: "",
-        }
+        type: [String],
+        default: [],
       }
     },
     shiftII: {
       rSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       nSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       mixingMode: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       bentonite: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       coalDustPremix: {
-        type: String,
-        trim: true,
-        default: "",
-      },
-      batchNo: {
-        bentonite: {
-          type: String,
-          trim: true,
-          default: "",
-        },
-        coalDustPremix: {
-          type: String,
-          trim: true,
-          default: "",
-        }
+        type: [String],
+        default: [],
       }
     },
     shiftIII: {
       rSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       nSand: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       mixingMode: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
+      bentonite: {
+        type: [String],
+        default: [],
+      },
+      coalDustPremix: {
+        type: [String],
+        default: [],
+      }
+    },
+    batchNo: {
       bentonite: {
         type: String,
         trim: true,
         default: "",
       },
-      coalDustPremix: {
+      coalDust: {
         type: String,
         trim: true,
         default: "",
       },
-      batchNo: {
-        bentonite: {
-          type: String,
-          trim: true,
-          default: "",
-        },
-        coalDustPremix: {
-          type: String,
-          trim: true,
-          default: "",
-        }
+      premix: {
+        type: String,
+        trim: true,
+        default: "",
       }
     }
   },
@@ -243,83 +209,73 @@ const SandTestingRecordSchema = new mongoose.Schema({
   ShiftI: {
     mixno:{
     start: {
-      type: String,
-      trim: true,
-      default: "",
+      type: [String],
+      default: [],
     },
     end: {
-      type: String,
-      trim: true,
-      default: "",
+      type: [String],
+      default: [],
     },
     total: {
-      type: String,
-      trim: true,
-      default: "",
+      type: [String],
+      default: [],
     }
   },
     numberOfMixRejected: {
-      type: Number,
-      default: 0,
+      type: [String],
+      default: [],
     },
     returnSandHopperLevel: {
-      type: Number,
-      default: 0,
+      type: [String],
+      default: [],
     }
   },
   ShiftII: {
     mixno:{
       start: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       end: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       total: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       }
     },
     numberOfMixRejected: {
-      type: String,
-      trim: true,
-      default: "",
+      type: [String],
+      default: [],
     },
     returnSandHopperLevel: {
-      type: Number,
-      default: 0,
+      type: [String],
+      default: [],
     },
   },
   ShiftIII: {
     mixno:{
       start: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       end: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       },
       total: {
-        type: String,
-        trim: true,
-        default: "",
+        type: [String],
+        default: [],
       }
     },
     numberOfMixRejected: {
-      type: Number,
-      default: 0,
+      type: [String],
+      default: [],
     },
     returnSandHopperLevel: {
-      type: Number,
-      default: 0,
+      type: [String],
+      default: [],
     }
   }
 },
@@ -351,7 +307,7 @@ const SandTestingRecordSchema = new mongoose.Schema({
       default: "",
     }
 },
-testParameter: {
+testParameter: [{
   sno:{
     type: Number,
     default: 0,
@@ -489,7 +445,7 @@ coalDust:{
       trim: true,
       default: "",
     },
-  },
+  }],
 }, {
     timestamps: true,
     collection: 'sand_testing_record'

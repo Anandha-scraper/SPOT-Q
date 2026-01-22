@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Settings, Filter, X, Pencil, Trash2 } from 'lucide-react';
+import { Settings, Filter, X, Pencil, Trash2, Plus, Minus } from 'lucide-react';
 import CustomDatePicker from './CustomDatePicker';
 import '../styles/ComponentStyles/Buttons.css';
 
@@ -140,6 +140,30 @@ export const SettingsButton = ({ onClick }) => (
       <Settings size={18} />
     </button>
   </div>
+);
+
+export const PlusButton = ({ onClick, disabled = false, title = "Add entry" }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="plus-button"
+    title={title}
+  >
+    <Plus size={14} />
+  </button>
+);
+
+export const MinusButton = ({ onClick, disabled = false, title = "Remove entry" }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="minus-button"
+    title={title}
+  >
+    <Minus size={14} />
+  </button>
 );
 
 // ===========================

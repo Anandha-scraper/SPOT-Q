@@ -91,9 +91,9 @@ const SandTestingRecordReport = () => {
 
   const [t1EditModalOpen, setT1EditModalOpen] = useState(false);
   const [t1EditForm, setT1EditForm] = useState({
-    shiftI: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-    shiftII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-    shiftIII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' }
+    shiftI: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''], batchNoBentonite: '', batchNoCoalDustPremix: '' },
+    shiftII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''], batchNoBentonite: '', batchNoCoalDustPremix: '' },
+    shiftIII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''], batchNoBentonite: '', batchNoCoalDustPremix: '' }
   });
   const [t1EditMeta, setT1EditMeta] = useState({ id: null, date: null });
 
@@ -451,31 +451,32 @@ const SandTestingRecordReport = () => {
       if (key === 'bentonite') return bn.bentonite || bn.Bentonite || '';
       return bn.coalDustPremix || bn.coalDust || bn.premix || bn.CoalDust || bn.Premix || '';
     };
+    const toArray = (val) => Array.isArray(val) ? val : (val ? [val] : ['']);
     setT1EditForm({
       shiftI: {
-        rSand: s1.rSand || '',
-        nSand: s1.nSand || '',
-        mixingMode: s1.mixingMode || '',
-        bentonite: s1.bentonite || '',
-        coalDustPremix: s1.coalDustPremix || '',
+        rSand: toArray(s1.rSand),
+        nSand: toArray(s1.nSand),
+        mixingMode: toArray(s1.mixingMode),
+        bentonite: toArray(s1.bentonite),
+        coalDustPremix: toArray(s1.coalDustPremix),
         batchNoBentonite: pickBn(s1, 'bentonite') || '',
         batchNoCoalDustPremix: pickBn(s1, 'coal') || ''
       },
       shiftII: {
-        rSand: s2.rSand || '',
-        nSand: s2.nSand || '',
-        mixingMode: s2.mixingMode || '',
-        bentonite: s2.bentonite || '',
-        coalDustPremix: s2.coalDustPremix || '',
+        rSand: toArray(s2.rSand),
+        nSand: toArray(s2.nSand),
+        mixingMode: toArray(s2.mixingMode),
+        bentonite: toArray(s2.bentonite),
+        coalDustPremix: toArray(s2.coalDustPremix),
         batchNoBentonite: pickBn(s2, 'bentonite') || '',
         batchNoCoalDustPremix: pickBn(s2, 'coal') || ''
       },
       shiftIII: {
-        rSand: s3.rSand || '',
-        nSand: s3.nSand || '',
-        mixingMode: s3.mixingMode || '',
-        bentonite: s3.bentonite || '',
-        coalDustPremix: s3.coalDustPremix || '',
+        rSand: toArray(s3.rSand),
+        nSand: toArray(s3.nSand),
+        mixingMode: toArray(s3.mixingMode),
+        bentonite: toArray(s3.bentonite),
+        coalDustPremix: toArray(s3.coalDustPremix),
         batchNoBentonite: pickBn(s3, 'bentonite') || '',
         batchNoCoalDustPremix: pickBn(s3, 'coal') || ''
       }
@@ -877,15 +878,24 @@ const SandTestingRecordReport = () => {
   const buildAllHeaders = () => {
     const headers = [{ label: 'Date', get: rec => formatDateDMY(rec.date) || '' }];
 
+    // Helper to format array values
+    const formatArrayVal = (val) => {
+      if (Array.isArray(val)) {
+        return val.filter(v => v && String(v).trim() !== '').join(', ');
+      }
+      return val || '';
+    };
+
     // Table1 fields (no "Table1 -" prefix)
     SHIFTS.forEach(shift => {
       const key = shift.key; // shiftI/shiftII/shiftIII
       const altKey = key === 'shiftI' ? 'ShiftI' : (key === 'shiftII' ? 'ShiftII' : 'ShiftIII');
       headers.push(
-        { label: `R. Sand (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.rSand`) || getAt(rec, `sandShifts.${altKey}.rSand`) || '' },
-        { label: `N. Sand (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.nSand`) || getAt(rec, `sandShifts.${altKey}.nSand`) || '' },
-        { label: `Mixing Mode (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.mixingMode`) || getAt(rec, `sandShifts.${altKey}.mixingMode`) || '' },
-        { label: `Bentonite (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.bentonite`) || getAt(rec, `sandShifts.${altKey}.bentonite`) || '' },
+        { label: `R. Sand (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.rSand`) || getAt(rec, `sandShifts.${altKey}.rSand`)) },
+        { label: `N. Sand (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.nSand`) || getAt(rec, `sandShifts.${altKey}.nSand`)) },
+        { label: `Mixing Mode (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.mixingMode`) || getAt(rec, `sandShifts.${altKey}.mixingMode`)) },
+        { label: `Bentonite (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.bentonite`) || getAt(rec, `sandShifts.${altKey}.bentonite`)) },
+        { label: `Coal Dust / Premix (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.coalDustPremix`) || getAt(rec, `sandShifts.${altKey}.coalDustPremix`)) },
       );
       if (key === 'shiftI') {
         headers.push({ label: `Batch NO (Bentonite) (${shift.label})`, get: rec => getBatchNoBentonite(rec, key) });
@@ -1097,14 +1107,24 @@ const SandTestingRecordReport = () => {
   // Inline renderers for Table 1–4 (columnar tables like Table 5)
   const buildTable1Headers = () => {
     const headers = [{ label: 'Date', get: rec => formatDateDMY(rec.date) || '' }];
+    
+    // Helper to format array values
+    const formatArrayVal = (val) => {
+      if (Array.isArray(val)) {
+        return val.filter(v => v && String(v).trim() !== '').join(', ');
+      }
+      return val || '';
+    };
+    
     SHIFTS.forEach(shift => {
       const key = shift.key;
       const altKey = key === 'shiftI' ? 'ShiftI' : (key === 'shiftII' ? 'ShiftII' : 'ShiftIII');
       headers.push(
-        { label: `R. Sand (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.rSand`) || getAt(rec, `sandShifts.${altKey}.rSand`) || '' },
-        { label: `N. Sand (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.nSand`) || getAt(rec, `sandShifts.${altKey}.nSand`) || '' },
-        { label: `Mixing Mode (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.mixingMode`) || getAt(rec, `sandShifts.${altKey}.mixingMode`) || '' },
-        { label: `Bentonite (${shift.label})`, get: rec => getAt(rec, `sandShifts.${key}.bentonite`) || getAt(rec, `sandShifts.${altKey}.bentonite`) || '' },
+        { label: `R. Sand (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.rSand`) || getAt(rec, `sandShifts.${altKey}.rSand`)) },
+        { label: `N. Sand (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.nSand`) || getAt(rec, `sandShifts.${altKey}.nSand`)) },
+        { label: `Mixing Mode (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.mixingMode`) || getAt(rec, `sandShifts.${altKey}.mixingMode`)) },
+        { label: `Bentonite (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.bentonite`) || getAt(rec, `sandShifts.${altKey}.bentonite`)) },
+        { label: `Coal Dust / Premix (${shift.label})`, get: rec => formatArrayVal(getAt(rec, `sandShifts.${key}.coalDustPremix`) || getAt(rec, `sandShifts.${altKey}.coalDustPremix`)) },
       );
       if (key === 'shiftI') {
         headers.push({ label: `Batch NO (Bentonite) (${shift.label})`, get: rec => getBatchNoBentonite(rec, key) });
@@ -1202,8 +1222,15 @@ const SandTestingRecordReport = () => {
                         { label: 'N. Sand ( Kgs/Mix )', key: 'nSand' },
                         { label: 'Mixing Mode', key: 'mixingMode' },
                         { label: 'Bentonite ( Kgs/Mix )', key: 'bentonite' },
+                        { label: 'Coal Dust / Premix ( Kgs / Mix )', key: 'coalDustPremix' },
                       ];
-                      const readVal = (k, field) => getAt(rec, `sandShifts.${k}.${field}`) || getAt(rec, `sandShifts.${k === 'shiftI' ? 'ShiftI' : k === 'shiftII' ? 'ShiftII' : 'ShiftIII'}.${field}`) || '';
+                      const readVal = (k, field) => {
+                        const val = getAt(rec, `sandShifts.${k}.${field}`) || getAt(rec, `sandShifts.${k === 'shiftI' ? 'ShiftI' : k === 'shiftII' ? 'ShiftII' : 'ShiftIII'}.${field}`);
+                        if (Array.isArray(val)) {
+                          return val.filter(v => v && String(v).trim() !== '').join(', ');
+                        }
+                        return val || '';
+                      };
                       return rows.map((row) => (
                         <tr key={row.label}>
                           <td style={{ padding: '8px 10px', borderBottom: '1px solid #eef2f7', whiteSpace: 'nowrap' }}>{row.label}</td>
@@ -1212,11 +1239,20 @@ const SandTestingRecordReport = () => {
                               {!isEditing ? (
                                 String(readVal(sk, row.key) ?? '')
                               ) : (
-                                <input
-                                  value={t1EditForm[sk][row.key] ?? ''}
-                                  onChange={(e) => setT1EditForm(p => ({ ...p, [sk]: { ...p[sk], [row.key]: e.target.value } }))}
-                                  style={inputStyle}
-                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                  {(t1EditForm[sk][row.key] || ['']).map((val, idx) => (
+                                    <input
+                                      key={idx}
+                                      value={val ?? ''}
+                                      onChange={(e) => {
+                                        const newArr = [...(t1EditForm[sk][row.key] || [''])];
+                                        newArr[idx] = e.target.value;
+                                        setT1EditForm(p => ({ ...p, [sk]: { ...p[sk], [row.key]: newArr } }));
+                                      }}
+                                      style={inputStyle}
+                                    />
+                                  ))}
+                                </div>
                               )}
                             </td>
                           ))}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
-import CustomDatePicker from '../../Components/CustomDatePicker';
+import { PlusButton, MinusButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 const SandTestingRecord = () => {
@@ -9,43 +9,33 @@ const SandTestingRecord = () => {
   
   // Primary: Date
   const [primaryData, setPrimaryData] = useState({ date: '' });
-  const [primaryLoading, setPrimaryLoading] = useState(false);
   
-  // Table 1: Shift Data
+  // Table 1: Shift Data (arrays for multiple entries)
   const [table1, setTable1] = useState({
     shiftI: {
-      rSand: '',
-      nSand: '',
-      mixingMode: '',
-      bentonite: '',
-      coalDustPremix: '',
-      checkpointBentonite: '',
-      checkpointCoalDustPremix: '',
-      batchNoBentonite: '',
-      batchNoCoalDustPremix: ''
+      rSand: [''],
+      nSand: [''],
+      mixingMode: [''],
+      bentonite: [''],
+      coalDustPremix: ['']
     },
     shiftII: {
-      rSand: '',
-      nSand: '',
-      mixingMode: '',
-      bentonite: '',
-      coalDustPremix: '',
-      checkpointBentonite: '',
-      checkpointCoalDustPremix: '',
-      batchNoBentonite: '',
-      batchNoCoalDustPremix: ''
+      rSand: [''],
+      nSand: [''],
+      mixingMode: [''],
+      bentonite: [''],
+      coalDustPremix: ['']
     },
     shiftIII: {
-      rSand: '',
-      nSand: '',
-      mixingMode: '',
-      bentonite: '',
-      coalDustPremix: '',
-      checkpointBentonite: '',
-      checkpointCoalDustPremix: '',
-      batchNoBentonite: '',
-      batchNoCoalDustPremix: ''
-    }
+      rSand: [''],
+      nSand: [''],
+      mixingMode: [''],
+      bentonite: [''],
+      coalDustPremix: ['']
+    },
+    checkpointCoalDustPremix: '',
+    batchNoBentonite: '',
+    batchNoCoalDustPremix: ''
   });
   
   // Table 2: Clay Parameters
@@ -79,28 +69,28 @@ const SandTestingRecord = () => {
     }
   });
   
-  // Table 3: Mix Data
+  // Table 3: Mix Data (arrays for multiple entries)
   const [table3, setTable3] = useState({
     shiftI: {
-      mixNoStart: '',
-      mixNoEnd: '',
-      mixNoTotal: '',
-      noOfMixRejected: '',
-      returnSandHopperLevel: ''
+      mixNoStart: [''],
+      mixNoEnd: [''],
+      mixNoTotal: [''],
+      noOfMixRejected: [''],
+      returnSandHopperLevel: ['']
     },
     shiftII: {
-      mixNoStart: '',
-      mixNoEnd: '',
-      mixNoTotal: '',
-      noOfMixRejected: '',
-      returnSandHopperLevel: ''
+      mixNoStart: [''],
+      mixNoEnd: [''],
+      mixNoTotal: [''],
+      noOfMixRejected: [''],
+      returnSandHopperLevel: ['']
     },
     shiftIII: {
-      mixNoStart: '',
-      mixNoEnd: '',
-      mixNoTotal: '',
-      noOfMixRejected: '',
-      returnSandHopperLevel: ''
+      mixNoStart: [''],
+      mixNoEnd: [''],
+      mixNoTotal: [''],
+      noOfMixRejected: [''],
+      returnSandHopperLevel: ['']
     },
     total: {
       mixNoEnd: '',
@@ -120,10 +110,10 @@ const SandTestingRecord = () => {
     }
   });
   
-  // Table 5: Sand Properties & Test Parameters
+  // Table 5: Sand Properties & Test Parameters (single form)
   const [table5, setTable5] = useState({
-    sno: '',
-    time: '',
+    timeHour: '',
+    timeMinute: '',
     mixNo: '',
     permeability: '',
     gcsCheckpoint: '',
@@ -152,6 +142,9 @@ const SandTestingRecord = () => {
     remarks: ''
   });
 
+  // Track current S.No for Table 5 based on existing database entries
+  const [currentSNo, setCurrentSNo] = useState(1);
+
   const [loadingStates, setLoadingStates] = useState({
     table1: false,
     table2: false,
@@ -159,7 +152,6 @@ const SandTestingRecord = () => {
     table4: false,
     table5: false
   });
-  const [savingAll, setSavingAll] = useState(false);
 
   // Field locks for each table
   const [tableLocks, setTableLocks] = useState({
@@ -170,6 +162,101 @@ const SandTestingRecord = () => {
     table5: {}
   });
 
+  // Set current date on mount and fetch existing data
+  useEffect(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const currentDate = `${y}-${m}-${d}`;
+    setPrimaryData(prev => ({
+      ...prev,
+      date: currentDate
+    }));
+    // Fetch existing data for today's date
+    checkExistingData(currentDate);
+  }, []);
+
+  // Helper functions for array-based Table 1 fields
+  const handleTable1ArrayChange = (shift, field, index, value) => {
+    setTable1(prev => {
+      const updated = {
+        ...prev,
+        [shift]: {
+          ...prev[shift],
+          [field]: prev[shift][field].map((item, i) => i === index ? value : item)
+        }
+      };
+
+      
+      return updated;
+    });
+  };
+
+  const addTable1ArrayEntry = (shift, field) => {
+    setTable1(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        [field]: [...prev[shift][field], '']
+      }
+    }));
+  };
+
+  const removeTable1ArrayEntry = (shift, field, index) => {
+    setTable1(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        [field]: prev[shift][field].filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  // Table 3 Array Helper Functions
+  const handleTable3ArrayChange = (shift, field, index, value) => {
+    setTable3(prev => {
+      const newArray = [...prev[shift][field]];
+      newArray[index] = value;
+ 
+      return {
+        ...prev,
+        [shift]: {
+          ...prev[shift],
+          [field]: newArray
+        }
+      };
+    });
+  };
+
+  const addTable3ArrayEntry = (shift, field) => {
+    setTable3(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        [field]: [...prev[shift][field], '']
+      }
+    }));
+  };
+
+  const removeTable3ArrayEntry = (shift, field, index) => {
+    setTable3(prev => ({
+      ...prev,
+      [shift]: {
+        ...prev[shift],
+        [field]: prev[shift][field].filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  // Handler for Table 5 single form
+  const handleTable5Change = (field, value) => {
+    setTable5(prev => ({
+      ...prev,
+      [field]: ['permeability', 'gcsValue', 'wts', 'moisture', 'compactability', 'compressability', 'waterLitrePerKgMix', 'sandTempBC', 'sandTempWU', 'sandTempSSU', 'newSandKgsPerMould', 'bentoniteWithPremix', 'bentoniteOnly', 'premixKgsMix', 'coalDustKgsMix', 'lcScmCompactabilityValue', 'mouldStrengthShearValue', 'preparedSandLumpsPerKg'].includes(field) ? (value === '' ? '' : Number(value)) : value
+    }));
+  };
+
   const handleTableChange = (tableNum, field, value, nestedField = null) => {
     const setters = {
       1: setTable1,
@@ -179,7 +266,13 @@ const SandTestingRecord = () => {
       5: setTable5
     };
     
-    if ((tableNum === 1 || tableNum === 2 || tableNum === 3) && nestedField) {
+    if (tableNum === 1 && !nestedField) {
+      // For table 1 top-level fields (batchNo, checkpointCoalDustPremix)
+      setters[tableNum](prev => ({
+        ...prev,
+        [field]: value
+      }));
+    } else if ((tableNum === 1 || tableNum === 2 || tableNum === 3) && nestedField) {
       // For table 1, 2, and 3, handle nested shift structure
       setters[tableNum](prev => ({
           ...prev,
@@ -223,90 +316,124 @@ const SandTestingRecord = () => {
         const filtered = {
           shiftI: {},
           shiftII: {},
-          shiftIII: {}
+          shiftIII: {},
+          batchNo: {}
         };
         ['shiftI', 'shiftII', 'shiftIII'].forEach(shift => {
           const shiftData = tableData[shift] || {};
           Object.keys(shiftData).forEach(field => {
-            if (field === 'batchNoBentonite' || field === 'batchNoCoalDustPremix') {
-              // Handle batchNo fields - transform to nested structure
-              if (!filtered[shift].batchNo) {
-                filtered[shift].batchNo = {};
-              }
-              const lockKey = field === 'batchNoBentonite' 
-                ? `${shift}.batchNo.bentonite` 
-                : `${shift}.batchNo.coalDustPremix`;
-              if (!locks[lockKey] && shiftData[field]) {
-                if (field === 'batchNoBentonite') {
-                  filtered[shift].batchNo.bentonite = shiftData[field];
-                } else {
-                  filtered[shift].batchNo.coalDustPremix = shiftData[field];
-                }
-              }
-            } else if (field !== 'checkpointBentonite' && field !== 'checkpointCoalDustPremix') {
-              // Skip checkpoint fields (they're just UI state, not stored)
-              const lockKey = `${shift}.${field}`;
-              if (!locks[lockKey] && shiftData[field]) {
-                filtered[shift][field] = shiftData[field];
+            // For array fields (rSand, nSand, mixingMode, bentonite, coalDustPremix), filter out locked indices
+            const arrayFields = ['rSand', 'nSand', 'mixingMode', 'bentonite', 'coalDustPremix'];
+            if (arrayFields.includes(field) && Array.isArray(shiftData[field])) {
+              const unlockedValues = shiftData[field].filter((val, idx) => {
+                const indexLockKey = `${shift}.${field}.${idx}`;
+                return !locks[indexLockKey] && val && String(val).trim() !== '';
+              });
+              if (unlockedValues.length > 0) {
+                filtered[shift][field] = unlockedValues;
               }
             }
           });
         });
+        
+        // Handle batchNo fields at table level
+        if (!locks['batchNo.bentonite'] && tableData.batchNoBentonite) {
+          filtered.batchNo.bentonite = tableData.batchNoBentonite;
+        }
+        // Store based on checkpoint selection (coalDust or premix)
+        if (tableData.checkpointCoalDustPremix === 'coalDust' && !locks['batchNo.coalDust'] && tableData.batchNoCoalDustPremix) {
+          filtered.batchNo.coalDust = tableData.batchNoCoalDustPremix;
+        } else if (tableData.checkpointCoalDustPremix === 'premix' && !locks['batchNo.premix'] && tableData.batchNoCoalDustPremix) {
+          filtered.batchNo.premix = tableData.batchNoCoalDustPremix;
+        }
+        
         dataToSend = filtered;
       } else if (tableNum === 5) {
-        // Build backend testParameter structure from flat table5 data
-        const tp = {};
-        tp.sno = tableData.sno;
-        if (tableData.time) {
-          const tstr = String(tableData.time).trim();
-          const hhmm = tstr.includes(':') ? tstr.replace(':', '') : tstr;
-          const tnum = Number(hhmm);
-          if (!Number.isNaN(tnum)) {
-            tp.time = tnum;
+        // Table 5 is now an array of entries - submit each entry
+        setLoadingStates(prev => ({ ...prev, [`table${tableNum}`]: true }));
+        
+        try {
+          const entry = tableData;
+          // Build backend testParameter structure
+          const tp = {};
+          tp.sno = currentSNo; // Use current S.No from state
+          if (table5.timeHour && table5.timeMinute) {
+            const hh = String(table5.timeHour).padStart(2, '0');
+            const mm = String(table5.timeMinute).padStart(2, '0');
+            const tnum = Number(hh + mm);
+            if (!Number.isNaN(tnum)) {
+              tp.time = tnum;
+            }
           }
+          tp.mixno = table5.mixNo;
+          tp.permeability = table5.permeability;
+          // GCS: send numeric value to the selected checkpoint field only
+          if (table5.gcsCheckpoint === 'fdyA' && table5.gcsValue !== '' && !Number.isNaN(Number(table5.gcsValue))) {
+            tp.gcsFdyA = Number(table5.gcsValue);
+          } else if (table5.gcsCheckpoint === 'fdyB' && table5.gcsValue !== '' && !Number.isNaN(Number(table5.gcsValue))) {
+            tp.gcsFdyB = Number(table5.gcsValue);
+          }
+          tp.wts = table5.wts;
+          tp.moisture = table5.moisture;
+          tp.compactability = table5.compactability;
+          tp.compressibility = table5.compressability;
+          tp.waterLitre = table5.waterLitrePerKgMix;
+          // sand temp nested
+          tp.sandTemp = {
+            BC: table5.sandTempBC,
+            WU: table5.sandTempWU,
+            SSUmax: table5.sandTempSSU
+          };
+          tp.newSandKgs = table5.newSandKgsPerMould;
+          // nested materials
+          tp.bentoniteWithPremix = { Kgs: table5.bentoniteWithPremix };
+          tp.bentonite = { Kgs: table5.bentoniteOnly };
+          tp.premix = { Kgs: table5.premixKgsMix };
+          tp.coalDust = { Kgs: table5.coalDustKgsMix };
+          // numeric settings and values only
+          if (table5.lcScmCompactabilityValue !== '' && !Number.isNaN(Number(table5.lcScmCompactabilityValue))) {
+            tp.CompactabilitySettings = Number(table5.lcScmCompactabilityValue);
+          }
+          if (table5.mouldStrengthShearValue !== '' && !Number.isNaN(Number(table5.mouldStrengthShearValue))) {
+            tp.mouldStrength = Number(table5.mouldStrengthShearValue);
+          }
+          tp.lc = table5.lcScmCompactabilityValue;
+          tp.preparedSandlumps = table5.preparedSandLumpsPerKg;
+          tp.itemName = table5.itemName;
+          tp.remarks = table5.remarks;
+
+          // Submit the entry
+          const res = await fetch(`http://localhost:5000/api/v1/sand-testing-records/table${tableNum}`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            credentials: 'include', 
+            body: JSON.stringify({
+              tableNum,
+              data: {
+                ...tp,
+                date: primaryData.date
+              }
+            }) 
+          });
+          const response = await res.json();
+          
+          setLoadingStates(prev => ({ ...prev, [`table${tableNum}`]: false }));
+          
+          if (response.success) {
+            if (!silent) alert(`Table ${tableNum} entry S.No ${currentSNo} saved successfully!`);
+            // Increment S.No for next entry and clear form
+            setCurrentSNo(prev => prev + 1);
+            resetTable5();
+          } else {
+            if (!silent) alert('Error: ' + response.message);
+          }
+          return;
+        } catch (error) {
+          console.error(`Error saving table ${tableNum}:`, error);
+          setLoadingStates(prev => ({ ...prev, [`table${tableNum}`]: false }));
+          if (!silent) alert(`Failed to save table ${tableNum}: ${error.message || 'Please try again.'}`);
+          return;
         }
-        tp.mixno = tableData.mixNo;
-        tp.permeability = tableData.permeability;
-        // GCS: send numeric value to the selected checkpoint field only
-        if (tableData.gcsCheckpoint === 'fdyA' && tableData.gcsValue !== '' && !Number.isNaN(Number(tableData.gcsValue))) {
-          tp.gcsFdyA = Number(tableData.gcsValue);
-        } else if (tableData.gcsCheckpoint === 'fdyB' && tableData.gcsValue !== '' && !Number.isNaN(Number(tableData.gcsValue))) {
-          tp.gcsFdyB = Number(tableData.gcsValue);
-        }
-        tp.wts = tableData.wts;
-        tp.moisture = tableData.moisture;
-        tp.compactability = tableData.compactability;
-        tp.compressibility = tableData.compressability;
-        tp.waterLitre = tableData.waterLitrePerKgMix;
-        // sand temp nested
-        tp.sandTemp = {
-          BC: tableData.sandTempBC,
-          WU: tableData.sandTempWU,
-          SSUmax: tableData.sandTempSSU
-        };
-        tp.newSandKgs = tableData.newSandKgsPerMould;
-        // nested materials
-        tp.bentoniteWithPremix = { Kgs: tableData.bentoniteWithPremix };
-        tp.bentonite = { Kgs: tableData.bentoniteOnly };
-        tp.premix = { Kgs: tableData.premixKgsMix };
-        tp.coalDust = { Kgs: tableData.coalDustKgsMix };
-        // numeric settings and values only
-        if (tableData.lcScmCompactabilityValue !== '' && !Number.isNaN(Number(tableData.lcScmCompactabilityValue))) {
-          tp.CompactabilitySettings = Number(tableData.lcScmCompactabilityValue);
-        }
-        if (tableData.mouldStrengthShearValue !== '' && !Number.isNaN(Number(tableData.mouldStrengthShearValue))) {
-          // do not send checkpoint string to numeric field; omit shearStrengthSetting entirely
-          // backend will use mouldStrength as the measured value
-        }
-        tp.lc = tableData.lcScmCompactabilityValue;
-        tp.mouldStrength = tableData.mouldStrengthShearValue;
-        // additional checkpoints
-        tp.bentoniteCheckpoint = tableData.bentoniteCheckpoint;
-        tp.premixCoalDustCheckpoint = tableData.premixCoalDustCheckpoint;
-        tp.preparedSandlumps = tableData.preparedSandLumpsPerKg;
-        tp.itemName = tableData.itemName;
-        tp.remarks = tableData.remarks;
-        dataToSend = tp;
       } else if (tableNum === 2) {
         const filtered = {
           shiftI: {},
@@ -325,7 +452,7 @@ const SandTestingRecord = () => {
         });
         dataToSend = filtered;
       } else if (tableNum === 3) {
-        // Transform mixNo fields to nested structure for backend
+        // Transform mixNo fields to nested structure for backend with array support
         const filtered = {
           ShiftI: {},
           ShiftII: {},
@@ -335,23 +462,45 @@ const SandTestingRecord = () => {
           const backendShiftKey = idx === 0 ? 'ShiftI' : idx === 1 ? 'ShiftII' : 'ShiftIII';
           const shiftData = tableData[shift] || {};
           Object.keys(shiftData).forEach(field => {
-            const lockKey = `${shift}.${field}`;
-            if (!locks[lockKey] && shiftData[field]) {
-              // Transform mixNo fields to nested structure
-              if (field === 'mixNoStart' || field === 'mixNoEnd' || field === 'mixNoTotal') {
+            // Handle array fields
+            const arrayFields = ['mixNoStart', 'mixNoEnd', 'noOfMixRejected', 'returnSandHopperLevel'];
+            if (arrayFields.includes(field) && Array.isArray(shiftData[field])) {
+              // Filter out locked indices
+              const unlockedValues = shiftData[field].filter((val, idx) => {
+                const indexLockKey = `${shift}.${field}.${idx}`;
+                return !locks[indexLockKey] && val && String(val).trim() !== '';
+              });
+              
+              if (unlockedValues.length > 0) {
+                if (field === 'mixNoStart') {
+                  if (!filtered[backendShiftKey].mixno) {
+                    filtered[backendShiftKey].mixno = {};
+                  }
+                  filtered[backendShiftKey].mixno.start = unlockedValues;
+                } else if (field === 'mixNoEnd') {
+                  if (!filtered[backendShiftKey].mixno) {
+                    filtered[backendShiftKey].mixno = {};
+                  }
+                  filtered[backendShiftKey].mixno.end = unlockedValues;
+                } else if (field === 'noOfMixRejected') {
+                  filtered[backendShiftKey].numberOfMixRejected = unlockedValues;
+                } else if (field === 'returnSandHopperLevel') {
+                  filtered[backendShiftKey].returnSandHopperLevel = unlockedValues;
+                }
+              }
+            } else if (field === 'mixNoTotal') {
+              // Handle single value field (mixNoTotal)
+              const lockKey = `${shift}.${field}`;
+              if (!locks[lockKey] && shiftData[field]) {
                 if (!filtered[backendShiftKey].mixno) {
                   filtered[backendShiftKey].mixno = {};
                 }
-                if (field === 'mixNoStart') {
-                  filtered[backendShiftKey].mixno.start = shiftData[field];
-                } else if (field === 'mixNoEnd') {
-                  filtered[backendShiftKey].mixno.end = shiftData[field];
-                } else if (field === 'mixNoTotal') {
-                  filtered[backendShiftKey].mixno.total = shiftData[field];
-                }
-              } else if (field === 'noOfMixRejected') {
-                filtered[backendShiftKey].numberOfMixRejected = shiftData[field];
-              } else {
+                filtered[backendShiftKey].mixno.total = shiftData[field];
+              }
+            } else if (!arrayFields.includes(field)) {
+              // Handle other non-array fields
+              const lockKey = `${shift}.${field}`;
+              if (!locks[lockKey] && shiftData[field]) {
                 filtered[backendShiftKey][field] = shiftData[field];
               }
             }
@@ -436,43 +585,12 @@ const SandTestingRecord = () => {
     }
   };
 
-  const handleSaveAll = async () => {
-    if (!primaryData.date) {
-      alert('Please enter a date first.');
-      return;
-    }
-    setSavingAll(true);
-    try {
-      for (let t = 1; t <= 5; t++) {
-        await handleTableSubmit(t, true);
-      }
-      alert('All tables saved successfully!');
-      navigate('/sand-lab/sand-testing-record/report');
-    } catch (e) {
-      console.error('Save all error', e);
-      alert('Some sections may not have saved. Please review and try again.');
-    } finally {
-      setSavingAll(false);
-    }
-  };
 
-  const handlePrimaryChange = (field, value) => {
-    setPrimaryData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    
-    // When date changes, automatically check for existing data
-    if (field === 'date' && value) {
-      checkExistingData(value);
-    } else if (field === 'date' && !value) {
-      // Clear all data when date is cleared
-      resetAllTables();
-    }
-  };
+
+
 
   // Check for existing data when date is entered
-  const checkExistingData = async (date) => {
+  const   checkExistingData = async (date) => {
     if (!date) return;
     
     try {
@@ -488,39 +606,57 @@ const SandTestingRecord = () => {
         if (record.sandShifts) {
           const table1Locks = {};
           const table1Data = {
-            shiftI: {},
-            shiftII: {},
-            shiftIII: {}
+            shiftI: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+            shiftII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+            shiftIII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+            checkpointCoalDustPremix: '',
+            batchNoBentonite: '',
+            batchNoCoalDustPremix: ''
           };
+          
+          const arrayFields = ['rSand', 'nSand', 'mixingMode', 'bentonite', 'coalDustPremix'];
+          
+          // Handle batchNo fields at table level
+          if (record.sandShifts.batchNo) {
+            if (record.sandShifts.batchNo.bentonite) {
+              table1Locks['batchNo.bentonite'] = true;
+              table1Data.batchNoBentonite = record.sandShifts.batchNo.bentonite;
+            }
+            if (record.sandShifts.batchNo.coalDust) {
+              table1Locks['batchNo.coalDust'] = true;
+              table1Data.batchNoCoalDustPremix = record.sandShifts.batchNo.coalDust;
+              table1Data.checkpointCoalDustPremix = 'coalDust';
+            }
+            if (record.sandShifts.batchNo.premix) {
+              table1Locks['batchNo.premix'] = true;
+              table1Data.batchNoCoalDustPremix = record.sandShifts.batchNo.premix;
+              table1Data.checkpointCoalDustPremix = 'premix';
+            }
+          }
           
           ['shiftI', 'shiftII', 'shiftIII'].forEach(shift => {
             const shiftData = record.sandShifts[shift] || {};
-            Object.keys(shiftData).forEach(field => {
-              if (field === 'batchNo') {
-                if (shiftData.batchNo) {
-                  if (shiftData.batchNo.bentonite) {
-                    table1Locks[`${shift}.batchNo.bentonite`] = true;
-                    table1Data[shift].batchNoBentonite = shiftData.batchNo.bentonite;
-                  }
-                  if (shiftData.batchNo.coalDustPremix) {
-                    table1Locks[`${shift}.batchNo.coalDustPremix`] = true;
-                    table1Data[shift].batchNoCoalDustPremix = shiftData.batchNo.coalDustPremix;
-                  }
+            
+            // Handle array fields with index-based locking
+            arrayFields.forEach(field => {
+              if (shiftData[field]) {
+                const values = Array.isArray(shiftData[field]) ? shiftData[field] : [shiftData[field]];
+                const nonEmptyValues = values.filter(v => v && String(v).trim() !== '');
+                
+                if (nonEmptyValues.length > 0) {
+                  // Add locked values plus one empty entry for new input
+                  table1Data[shift][field] = [...nonEmptyValues, ''];
+                  // Lock each saved value index
+                  nonEmptyValues.forEach((_, idx) => {
+                    table1Locks[`${shift}.${field}.${idx}`] = true;
+                  });
+                  // Don't lock the last empty entry
                 }
-              } else if (shiftData[field]) {
-                table1Locks[`${shift}.${field}`] = true;
-                table1Data[shift][field] = shiftData[field];
               }
             });
           });
           
-          setTable1(prev => {
-            const updated = { ...prev };
-            Object.keys(table1Data).forEach(shift => {
-              updated[shift] = { ...prev[shift], ...table1Data[shift] };
-            });
-            return updated;
-          });
+          setTable1(table1Data);
           setTableLocks(prev => ({
             ...prev,
             table1: table1Locks
@@ -564,46 +700,68 @@ const SandTestingRecord = () => {
         if (record.mixshifts) {
           const table3Locks = {};
           const table3Data = {
-            shiftI: {},
-            shiftII: {},
-            shiftIII: {},
+            shiftI: {
+              mixNoStart: [''],
+              mixNoEnd: [''],
+              mixNoTotal: [''],
+              noOfMixRejected: [''],
+              returnSandHopperLevel: ['']
+            },
+            shiftII: {
+              mixNoStart: [''],
+              mixNoEnd: [''],
+              mixNoTotal: [''],
+              noOfMixRejected: [''],
+              returnSandHopperLevel: ['']
+            },
+            shiftIII: {
+              mixNoStart: [''],
+              mixNoEnd: [''],
+              mixNoTotal: [''],
+              noOfMixRejected: [''],
+              returnSandHopperLevel: ['']
+            },
             total: {}
           };
           
           ['ShiftI', 'ShiftII', 'ShiftIII'].forEach((shift, idx) => {
             const shiftKey = idx === 0 ? 'shiftI' : idx === 1 ? 'shiftII' : 'shiftIII';
             const shiftData = record.mixshifts[shift] || {};
-            if (shiftData.mixno) {
-              if (shiftData.mixno.start) {
-                table3Locks[`${shiftKey}.mixNoStart`] = true;
-                table3Data[shiftKey].mixNoStart = shiftData.mixno.start;
+            
+            // Handle array fields (mixNoStart, mixNoEnd, mixNoTotal, noOfMixRejected, returnSandHopperLevel)
+            const arrayFields = [
+              { frontend: 'mixNoStart', backend: 'mixno.start' },
+              { frontend: 'mixNoEnd', backend: 'mixno.end' },
+              { frontend: 'mixNoTotal', backend: 'mixno.total' },
+              { frontend: 'noOfMixRejected', backend: 'numberOfMixRejected' },
+              { frontend: 'returnSandHopperLevel', backend: 'returnSandHopperLevel' }
+            ];
+            
+            arrayFields.forEach(({ frontend, backend }) => {
+              let backendValue;
+              if (backend.includes('.')) {
+                const parts = backend.split('.');
+                backendValue = shiftData[parts[0]]?.[parts[1]];
+              } else {
+                backendValue = shiftData[backend];
               }
-              if (shiftData.mixno.end) {
-                table3Locks[`${shiftKey}.mixNoEnd`] = true;
-                table3Data[shiftKey].mixNoEnd = shiftData.mixno.end;
+              
+              if (Array.isArray(backendValue) && backendValue.length > 0) {
+                const nonEmptyValues = backendValue.filter(v => v !== null && v !== undefined && v !== '');
+                if (nonEmptyValues.length > 0) {
+                  nonEmptyValues.forEach((val, index) => {
+                    table3Locks[`${shiftKey}.${frontend}.${index}`] = true;
+                  });
+                  table3Data[shiftKey][frontend] = [...nonEmptyValues, ''];
+                }
               }
-              if (shiftData.mixno.total) {
-                table3Locks[`${shiftKey}.mixNoTotal`] = true;
-                table3Data[shiftKey].mixNoTotal = shiftData.mixno.total;
-              }
-            }
-            if (shiftData.numberOfMixRejected !== undefined && shiftData.numberOfMixRejected !== null && shiftData.numberOfMixRejected !== '' && shiftData.numberOfMixRejected !== 0) {
-              table3Locks[`${shiftKey}.noOfMixRejected`] = true;
-              table3Data[shiftKey].noOfMixRejected = shiftData.numberOfMixRejected;
-            }
-            if (shiftData.returnSandHopperLevel !== undefined && shiftData.returnSandHopperLevel !== null && shiftData.returnSandHopperLevel !== '' && shiftData.returnSandHopperLevel !== 0) {
-              table3Locks[`${shiftKey}.returnSandHopperLevel`] = true;
-              table3Data[shiftKey].returnSandHopperLevel = shiftData.returnSandHopperLevel;
-            }
+            });
           });
           
-          setTable3(prev => {
-            const updated = { ...prev };
-            Object.keys(table3Data).forEach(shift => {
-              updated[shift] = { ...prev[shift], ...table3Data[shift] };
-            });
-            return updated;
-          });
+          setTable3(prev => ({
+            ...prev,
+            ...table3Data
+          }));
           setTableLocks(prev => ({
             ...prev,
             table3: table3Locks
@@ -642,65 +800,37 @@ const SandTestingRecord = () => {
             table4: table4Locks
           }));
         }
+        
+        // Set current S.No for Table 5 based on existing testParameter entries
+        if (record.testParameter && Array.isArray(record.testParameter)) {
+          setCurrentSNo(record.testParameter.length + 1);
+        } else {
+          setCurrentSNo(1);
+        }
       } else {
-        // No data found, clear all locks
+        // No data found, clear all locks and reset S.No
         resetAllTables();
+        setCurrentSNo(1);
       }
     } catch (error) {
       console.error('Error checking existing data:', error);
       resetAllTables();
+      setCurrentSNo(1);
     }
   };
 
-  const resetAllTables = () => {
-    setTable1({
-      shiftI: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-      shiftII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-      shiftIII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' }
-    });
-    setTable2({
-      shiftI: { totalClay: '', activeClay: '', deadClay: '', vcm: '', loi: '', afsNo: '', fines: '' },
-      shiftII: { totalClay: '', activeClay: '', deadClay: '', vcm: '', loi: '', afsNo: '', fines: '' },
-      shiftIII: { totalClay: '', activeClay: '', deadClay: '', vcm: '', loi: '', afsNo: '', fines: '' }
-    });
-    setTable3({
-      shiftI: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
-      shiftII: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
-      shiftIII: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
-      total: { mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '' }
-    });
-    setTable4({
-      sandLump: '',
-      newSandWt: '',
-      friability: {
-        shiftI: '',
-        shiftII: '',
-        shiftIII: ''
-      }
-    });
-    setTableLocks({
-      table1: {},
-      table2: {},
-      table3: {},
-      table4: {}
-    });
-  };
-
-
   // Separate reset functions for each table
-  const resetPrimaryData = () => {
-    if (!window.confirm('Are you sure you want to reset Primary data?')) return;
-    setPrimaryData({ date: '' });
-    resetAllTables();
-  };
-
   const resetTable1 = () => {
     if (!window.confirm('Are you sure you want to reset Table 1?')) return;
     setTable1({
-      shiftI: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-      shiftII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' },
-      shiftIII: { rSand: '', nSand: '', mixingMode: '', bentonite: '', coalDustPremix: '', checkpointBentonite: '', checkpointCoalDustPremix: '', batchNoBentonite: '', batchNoCoalDustPremix: '' }
+      shiftI: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+      shiftII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+      shiftIII: { rSand: [''], nSand: [''], mixingMode: [''], bentonite: [''], coalDustPremix: [''] },
+      checkpointCoalDustPremix: '',
+      batchNoBentonite: '',
+      batchNoCoalDustPremix: ''
     });
+    setTableLocks(prev => ({ ...prev, table1: {} }));
   };
 
   const resetTable2 = () => {
@@ -710,16 +840,36 @@ const SandTestingRecord = () => {
       shiftII: { totalClay: '', activeClay: '', deadClay: '', vcm: '', loi: '', afsNo: '', fines: '' },
       shiftIII: { totalClay: '', activeClay: '', deadClay: '', vcm: '', loi: '', afsNo: '', fines: '' }
     });
+    setTableLocks(prev => ({ ...prev, table2: {} }));
   };
 
   const resetTable3 = () => {
     if (!window.confirm('Are you sure you want to reset Table 3?')) return;
     setTable3({
-      shiftI: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
-      shiftII: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
-      shiftIII: { mixNoStart: '', mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '', returnSandHopperLevel: '' },
+      shiftI: { 
+        mixNoStart: [''], 
+        mixNoEnd: [''], 
+        mixNoTotal: [''], 
+        noOfMixRejected: [''], 
+        returnSandHopperLevel: [''] 
+      },
+      shiftII: { 
+        mixNoStart: [''], 
+        mixNoEnd: [''], 
+        mixNoTotal: [''], 
+        noOfMixRejected: [''], 
+        returnSandHopperLevel: [''] 
+      },
+      shiftIII: { 
+        mixNoStart: [''], 
+        mixNoEnd: [''], 
+        mixNoTotal: [''], 
+        noOfMixRejected: [''], 
+        returnSandHopperLevel: [''] 
+      },
       total: { mixNoEnd: '', mixNoTotal: '', noOfMixRejected: '' }
     });
+    setTableLocks(prev => ({ ...prev, table3: {} }));
   };
 
   const resetTable4 = () => {
@@ -733,13 +883,13 @@ const SandTestingRecord = () => {
         shiftIII: ''
       }
     });
+    setTableLocks(prev => ({ ...prev, table4: {} }));
   };
 
   const resetTable5 = () => {
-    if (!window.confirm('Are you sure you want to reset Table 5?')) return;
     setTable5({
-      sno: '',
-      time: '',
+      timeHour: '',
+      timeMinute: '',
       mixNo: '',
       permeability: '',
       gcsCheckpoint: '',
@@ -792,57 +942,18 @@ const SandTestingRecord = () => {
     }
   };
 
-  const renderTableRow = (tableNum, field, label, type = "text") => (
-    <tr>
-      <td>{label}</td>
-      <td>
-        {type === "textarea" ? (
-          <textarea
-            value={tableNum === 1 ? (table1[field] || '') : tableNum === 2 ? (table2[field] || '') : tableNum === 3 ? (table3[field] || '') : tableNum === 4 ? (table4[field] || '') : (table5[field] || '')}
-            onChange={(e) => handleTableChange(tableNum, field, e.target.value)}
-            rows="4"
-            placeholder={`Enter ${label.toLowerCase()}`}
-            className="sand-table-input"
-          />
-        ) : (
-      <input
-        type={type}
-            value={tableNum === 1 ? (table1[field] || '') : tableNum === 2 ? (table2[field] || '') : tableNum === 3 ? (table3[field] || '') : tableNum === 4 ? (table4[field] || '') : (table5[field] || '')}
-            onChange={(e) => handleTableChange(tableNum, field, e.target.value)}
-            placeholder={`Enter ${label.toLowerCase()}`}
-            className="sand-table-input"
-          />
-        )}
-      </td>
-    </tr>
-  );
-
   return (
     <>
       {/* Header */}
-      <div className="sand-header">
+      <div className="sand-header">     
         <div className="sand-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Sand Testing Record
           </h2>
         </div>
-      </div>
-
-      {/* Primary Data Section */}
-      <div className="sand-primary-container" onKeyDown={handleEnterToNext}>
-        <div className="sand-section-header">
-          <h3 className="primary-data-title">Primary Data :</h3>
-        </div>
-        <div className="sand-primary-row">
-          <div className="sand-primary-form-group">
-            <label>Date</label>
-            <CustomDatePicker
-              value={primaryData.date}
-              onChange={(e) => handlePrimaryChange('date', e.target.value)}
-              name="date"
-            />
-          </div>
+        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
+          DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Loading...'}
         </div>
       </div>
 
@@ -850,7 +961,7 @@ const SandTestingRecord = () => {
       <div className="sand-section-header">
         <h3>Table 1</h3>
             </div>
-      <table className="sand-shift-table" onKeyDown={handleEnterToNext}>
+      <table className="sand-shift-table table-1" onKeyDown={handleEnterToNext}>
         <thead>
           <tr>
             <th>Shift</th>
@@ -863,269 +974,515 @@ const SandTestingRecord = () => {
           <tr key="r-sand">
             <td>R. Sand ( Kgs/Mix )</td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftI.rSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'rSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftI.rSand')}
-                readOnly={isFieldLocked(1, 'shiftI.rSand')}
-                style={{
-                  backgroundColor: isFieldLocked(1, 'shiftI.rSand') ? '#f1f5f9' : '#ffffff',
-                  cursor: isFieldLocked(1, 'shiftI.rSand') ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftI.rSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftI', 'rSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftI.rSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftI.rSand.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftI.rSand.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftI.rSand.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftI.rSand.length - 1 && !isFieldLocked(1, `shiftI.rSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftI', 'rSand')} />
+                    )}
+                    {index === table1.shiftI.rSand.length - 1 && table1.shiftI.rSand.length > 1 && !isFieldLocked(1, `shiftI.rSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftI', 'rSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftII.rSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftII', e.target.value, 'rSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftII.rSand')}
-                readOnly={isFieldLocked(1, 'shiftII.rSand')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftII.rSand')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftII.rSand')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftII.rSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftII', 'rSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftII.rSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftII.rSand.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(1, `shiftII.rSand.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(1, `shiftII.rSand.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftII.rSand.length - 1 && !isFieldLocked(1, `shiftII.rSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftII', 'rSand')} />
+                    )}
+                    {index === table1.shiftII.rSand.length - 1 && table1.shiftII.rSand.length > 1 && !isFieldLocked(1, `shiftII.rSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftII', 'rSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftIII.rSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftIII', e.target.value, 'rSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftIII.rSand')}
-                readOnly={isFieldLocked(1, 'shiftIII.rSand')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftIII.rSand')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftIII.rSand')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftIII.rSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftIII', 'rSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftIII.rSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftIII.rSand.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(1, `shiftIII.rSand.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(1, `shiftIII.rSand.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftIII.rSand.length - 1 && !isFieldLocked(1, `shiftIII.rSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftIII', 'rSand')} />
+                    )}
+                    {index === table1.shiftIII.rSand.length - 1 && table1.shiftIII.rSand.length > 1 && !isFieldLocked(1, `shiftIII.rSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftIII', 'rSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr key="n-sand">
             <td>N. Sand ( Kgs/Mix )</td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftI.nSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'nSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftI.nSand')}
-                readOnly={isFieldLocked(1, 'shiftI.nSand')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftI.nSand')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftI.nSand')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftI.nSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftI', 'nSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftI.nSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftI.nSand.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftI.nSand.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftI.nSand.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftI.nSand.length - 1 && !isFieldLocked(1, `shiftI.nSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftI', 'nSand')} />
+                    )}
+                    {index === table1.shiftI.nSand.length - 1 && table1.shiftI.nSand.length > 1 && !isFieldLocked(1, `shiftI.nSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftI', 'nSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftII.nSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftII', e.target.value, 'nSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftII.nSand')}
-                readOnly={isFieldLocked(1, 'shiftII.nSand')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftII.nSand')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftII.nSand')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftII.nSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftII', 'nSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftII.nSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftII.nSand.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftII.nSand.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftII.nSand.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftII.nSand.length - 1 && !isFieldLocked(1, `shiftII.nSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftII', 'nSand')} />
+                    )}
+                    {index === table1.shiftII.nSand.length - 1 && table1.shiftII.nSand.length > 1 && !isFieldLocked(1, `shiftII.nSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftII', 'nSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftIII.nSand || ''}
-                onChange={(e) => handleTableChange(1, 'shiftIII', e.target.value, 'nSand')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftIII.nSand')}
-                readOnly={isFieldLocked(1, 'shiftIII.nSand')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftIII.nSand')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftIII.nSand')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftIII.nSand.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftIII', 'nSand', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftIII.nSand.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftIII.nSand.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftIII.nSand.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftIII.nSand.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftIII.nSand.length - 1 && !isFieldLocked(1, `shiftIII.nSand.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftIII', 'nSand')} />
+                    )}
+                    {index === table1.shiftIII.nSand.length - 1 && table1.shiftIII.nSand.length > 1 && !isFieldLocked(1, `shiftIII.nSand.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftIII', 'nSand', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr key="mixing-mode">
             <td>Mixing Mode</td>
             <td>
-              <input
-                type="text"
-                value={table1.shiftI.mixingMode || ''}
-                onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'mixingMode')}
-                placeholder="Enter mode"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftI.mixingMode')}
-                readOnly={isFieldLocked(1, 'shiftI.mixingMode')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftI.mixingMode')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftI.mixingMode')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftI.mixingMode.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftI', 'mixingMode', index, e.target.value)}
+                      placeholder="Enter mode"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftI.mixingMode.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftI.mixingMode.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftI.mixingMode.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftI.mixingMode.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftI.mixingMode.length - 1 && !isFieldLocked(1, `shiftI.mixingMode.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftI', 'mixingMode')} />
+                    )}
+                    {index === table1.shiftI.mixingMode.length - 1 && table1.shiftI.mixingMode.length > 1 && !isFieldLocked(1, `shiftI.mixingMode.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftI', 'mixingMode', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="text"
-                value={table1.shiftII.mixingMode || ''}
-                onChange={(e) => handleTableChange(1, 'shiftII', e.target.value, 'mixingMode')}
-                placeholder="Enter mode"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftII.mixingMode')}
-                readOnly={isFieldLocked(1, 'shiftII.mixingMode')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftII.mixingMode')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftII.mixingMode')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftII.mixingMode.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftII', 'mixingMode', index, e.target.value)}
+                      placeholder="Enter mode"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftII.mixingMode.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftII.mixingMode.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftII.mixingMode.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftII.mixingMode.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftII.mixingMode.length - 1 && !isFieldLocked(1, `shiftII.mixingMode.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftII', 'mixingMode')} />
+                    )}
+                    {index === table1.shiftII.mixingMode.length - 1 && table1.shiftII.mixingMode.length > 1 && !isFieldLocked(1, `shiftII.mixingMode.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftII', 'mixingMode', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="text"
-                value={table1.shiftIII.mixingMode || ''}
-                onChange={(e) => handleTableChange(1, 'shiftIII', e.target.value, 'mixingMode')}
-                placeholder="Enter mode"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftIII.mixingMode')}
-                readOnly={isFieldLocked(1, 'shiftIII.mixingMode')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftIII.mixingMode')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftIII.mixingMode')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftIII.mixingMode.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftIII', 'mixingMode', index, e.target.value)}
+                      placeholder="Enter mode"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftIII.mixingMode.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftIII.mixingMode.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftIII.mixingMode.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftIII.mixingMode.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftIII.mixingMode.length - 1 && !isFieldLocked(1, `shiftIII.mixingMode.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftIII', 'mixingMode')} />
+                    )}
+                    {index === table1.shiftIII.mixingMode.length - 1 && table1.shiftIII.mixingMode.length > 1 && !isFieldLocked(1, `shiftIII.mixingMode.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftIII', 'mixingMode', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr key="bentonite">
             <td>Bentonite ( Kgs/Mix )</td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftI.bentonite || ''}
-                onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'bentonite')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftI.bentonite')}
-                readOnly={isFieldLocked(1, 'shiftI.bentonite')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftI.bentonite')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftI.bentonite')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftI.bentonite.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftI', 'bentonite', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftI.bentonite.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftI.bentonite.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftI.bentonite.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftI.bentonite.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftI.bentonite.length - 1 && !isFieldLocked(1, `shiftI.bentonite.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftI', 'bentonite')} />
+                    )}
+                    {index === table1.shiftI.bentonite.length - 1 && table1.shiftI.bentonite.length > 1 && !isFieldLocked(1, `shiftI.bentonite.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftI', 'bentonite', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftII.bentonite || ''}
-                onChange={(e) => handleTableChange(1, 'shiftII', e.target.value, 'bentonite')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftII.bentonite')}
-                readOnly={isFieldLocked(1, 'shiftII.bentonite')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftII.bentonite')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftII.bentonite')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftII.bentonite.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftII', 'bentonite', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftII.bentonite.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftII.bentonite.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftII.bentonite.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftII.bentonite.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftII.bentonite.length - 1 && !isFieldLocked(1, `shiftII.bentonite.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftII', 'bentonite')} />
+                    )}
+                    {index === table1.shiftII.bentonite.length - 1 && table1.shiftII.bentonite.length > 1 && !isFieldLocked(1, `shiftII.bentonite.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftII', 'bentonite', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table1.shiftIII.bentonite || ''}
-                onChange={(e) => handleTableChange(1, 'shiftIII', e.target.value, 'bentonite')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(1, 'shiftIII.bentonite')}
-                readOnly={isFieldLocked(1, 'shiftIII.bentonite')}
-                style={{
-                  backgroundColor: (isFieldLocked(1, 'shiftIII.bentonite')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(1, 'shiftIII.bentonite')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftIII.bentonite.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftIII', 'bentonite', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftIII.bentonite.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftIII.bentonite.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftIII.bentonite.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftIII.bentonite.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftIII.bentonite.length - 1 && !isFieldLocked(1, `shiftIII.bentonite.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftIII', 'bentonite')} />
+                    )}
+                    {index === table1.shiftIII.bentonite.length - 1 && table1.shiftIII.bentonite.length > 1 && !isFieldLocked(1, `shiftIII.bentonite.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftIII', 'bentonite', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+          </tr>
+          <tr key="coal-dust-premix">
+            <td>Coal Dust / Premix ( Kgs / Mix )</td>
+            <td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftI.coalDustPremix.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftI', 'coalDustPremix', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftI.coalDustPremix.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftI.coalDustPremix.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftI.coalDustPremix.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftI.coalDustPremix.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftI.coalDustPremix.length - 1 && !isFieldLocked(1, `shiftI.coalDustPremix.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftI', 'coalDustPremix')} />
+                    )}
+                    {index === table1.shiftI.coalDustPremix.length - 1 && table1.shiftI.coalDustPremix.length > 1 && !isFieldLocked(1, `shiftI.coalDustPremix.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftI', 'coalDustPremix', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftII.coalDustPremix.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftII', 'coalDustPremix', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftII.coalDustPremix.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftII.coalDustPremix.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftII.coalDustPremix.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftII.coalDustPremix.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftII.coalDustPremix.length - 1 && !isFieldLocked(1, `shiftII.coalDustPremix.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftII', 'coalDustPremix')} />
+                    )}
+                    {index === table1.shiftII.coalDustPremix.length - 1 && table1.shiftII.coalDustPremix.length > 1 && !isFieldLocked(1, `shiftII.coalDustPremix.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftII', 'coalDustPremix', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table1.shiftIII.coalDustPremix.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable1ArrayChange('shiftIII', 'coalDustPremix', index, e.target.value)}
+                      placeholder="Enter value"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(1, `shiftIII.coalDustPremix.${index}`)}
+                      readOnly={isFieldLocked(1, `shiftIII.coalDustPremix.${index}`)}
+                      style={{
+                        backgroundColor: isFieldLocked(1, `shiftIII.coalDustPremix.${index}`) ? '#f1f5f9' : '#ffffff',
+                        cursor: isFieldLocked(1, `shiftIII.coalDustPremix.${index}`) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table1.shiftIII.coalDustPremix.length - 1 && !isFieldLocked(1, `shiftIII.coalDustPremix.${index}`) && (
+                      <PlusButton onClick={() => addTable1ArrayEntry('shiftIII', 'coalDustPremix')} />
+                    )}
+                    {index === table1.shiftIII.coalDustPremix.length - 1 && table1.shiftIII.coalDustPremix.length > 1 && !isFieldLocked(1, `shiftIII.coalDustPremix.${index}`) && (
+                      <MinusButton onClick={() => removeTable1ArrayEntry('shiftIII', 'coalDustPremix', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr key="batch-no">
             <td>Batch NO...</td>
-            <td>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
-                    <input
-                      type="radio"
-                      name="checkpoint-shiftI"
-                      value="bentonite"
-                      checked={table1.shiftI.checkpointBentonite === 'bentonite'}
-                      onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'checkpointBentonite')}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <span>Bentonite</span>
-                  </label>
-          </div>
-                <input
-                  type="text"
-                  value={table1.shiftI.batchNoBentonite || ''}
-                  onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'batchNoBentonite')}
-                  placeholder="Enter batch no"
-                  className="sand-table-input"
-                  disabled={isFieldLocked(1, 'shiftI.batchNo.bentonite')}
-                  readOnly={isFieldLocked(1, 'shiftI.batchNo.bentonite')}
-                  style={{
-                    backgroundColor: (isFieldLocked(1, 'shiftI.batchNo.bentonite')) ? '#f1f5f9' : '#ffffff',
-                    cursor: (isFieldLocked(1, 'shiftI.batchNo.bentonite')) ? 'not-allowed' : 'text'
-                  }}
-                />
-            </div>
-            </td>
-            <td colSpan={2}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isFieldLocked(1, 'shiftI.batchNo.coalDustPremix') ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')) ? 0.6 : 1 }}>
-                    <input
-                      type="radio"
-                      name="checkpoint-shiftIIIII"
-                      value="coalDust"
-                      checked={table1.shiftI.checkpointCoalDustPremix === 'coalDust'}
-                      onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'checkpointCoalDustPremix')}
-                      disabled={isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')}
-                      style={{ cursor: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')) ? 'not-allowed' : 'pointer' }}
-                    />
-                    <span>Coal dust</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: isFieldLocked(1, 'shiftI.batchNo.coalDustPremix') ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')) ? 0.6 : 1 }}>
-                    <input
-                      type="radio"
-                      name="checkpoint-shiftIIIII"
-                      value="premix"
-                      checked={table1.shiftI.checkpointCoalDustPremix === 'premix'}
-                      onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'checkpointCoalDustPremix')}
-                      disabled={isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')}
-                      style={{ cursor: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')) ? 'not-allowed' : 'pointer' }}
-                    />
-                    <span>Premix</span>
-                  </label>
-          </div>
-                <input
-                  type="text"
-                  value={table1.shiftI.batchNoCoalDustPremix || ''}
-                  onChange={(e) => handleTableChange(1, 'shiftI', e.target.value, 'batchNoCoalDustPremix')}
-                  placeholder="Enter batch no"
-                  className="sand-table-input"
-                  disabled={isFieldLocked(1, 'shiftI.batchNo.coalDustPremix') || !table1.shiftI.checkpointCoalDustPremix}
-                  readOnly={isFieldLocked(1, 'shiftI.batchNo.coalDustPremix')}
-                  style={{
-                    backgroundColor: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix') || !table1.shiftI.checkpointCoalDustPremix) ? '#f1f5f9' : '#ffffff',
-                    cursor: (isFieldLocked(1, 'shiftI.batchNo.coalDustPremix') || !table1.shiftI.checkpointCoalDustPremix) ? 'not-allowed' : 'text'
-                  }}
-                />
-            </div>
+            <td colSpan={3}>
+              <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '200px' }}>
+                  <label style={{ fontSize: '0.875rem', fontWeight: '500' }}>Bentonite</label>
+                  <input
+                    type="text"
+                    value={table1.batchNoBentonite || ''}
+                    onChange={(e) => handleTableChange(1, 'batchNoBentonite', e.target.value)}
+                    placeholder="Enter batch no"
+                    className="sand-table-input"
+                    disabled={isFieldLocked(1, 'batchNo.bentonite')}
+                    readOnly={isFieldLocked(1, 'batchNo.bentonite')}
+                    style={{
+                      backgroundColor: (isFieldLocked(1, 'batchNo.bentonite')) ? '#f1f5f9' : '#ffffff',
+                      cursor: (isFieldLocked(1, 'batchNo.bentonite')) ? 'not-allowed' : 'text'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: '200px' }}>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 0.6 : 1 }}>
+                      <input
+                        type="radio"
+                        name="checkpoint-coalDustPremix"
+                        value="coalDust"
+                        checked={table1.checkpointCoalDustPremix === 'coalDust'}
+                        onChange={(e) => handleTableChange(1, 'checkpointCoalDustPremix', e.target.value)}
+                        disabled={isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')}
+                        style={{ cursor: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 'not-allowed' : 'pointer' }}
+                      />
+                      <span>Coal dust</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 0.6 : 1 }}>
+                      <input
+                        type="radio"
+                        name="checkpoint-coalDustPremix"
+                        value="premix"
+                        checked={table1.checkpointCoalDustPremix === 'premix'}
+                        onChange={(e) => handleTableChange(1, 'checkpointCoalDustPremix', e.target.value)}
+                        disabled={isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')}
+                        style={{ cursor: (isFieldLocked(1, 'batchNo.coalDust') || isFieldLocked(1, 'batchNo.premix')) ? 'not-allowed' : 'pointer' }}
+                      />
+                      <span>Premix</span>
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={table1.batchNoCoalDustPremix || ''}
+                    onChange={(e) => handleTableChange(1, 'batchNoCoalDustPremix', e.target.value)}
+                    placeholder="Enter batch no"
+                    className="sand-table-input"
+                    disabled={(table1.checkpointCoalDustPremix === 'coalDust' && isFieldLocked(1, 'batchNo.coalDust')) || (table1.checkpointCoalDustPremix === 'premix' && isFieldLocked(1, 'batchNo.premix')) || !table1.checkpointCoalDustPremix}
+                    readOnly={(table1.checkpointCoalDustPremix === 'coalDust' && isFieldLocked(1, 'batchNo.coalDust')) || (table1.checkpointCoalDustPremix === 'premix' && isFieldLocked(1, 'batchNo.premix'))}
+                    style={{
+                      backgroundColor: ((table1.checkpointCoalDustPremix === 'coalDust' && isFieldLocked(1, 'batchNo.coalDust')) || (table1.checkpointCoalDustPremix === 'premix' && isFieldLocked(1, 'batchNo.premix')) || !table1.checkpointCoalDustPremix) ? '#f1f5f9' : '#ffffff',
+                      cursor: ((table1.checkpointCoalDustPremix === 'coalDust' && isFieldLocked(1, 'batchNo.coalDust')) || (table1.checkpointCoalDustPremix === 'premix' && isFieldLocked(1, 'batchNo.premix')) || !table1.checkpointCoalDustPremix) ? 'not-allowed' : 'text'
+                    }}
+                  />
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -1139,13 +1496,22 @@ const SandTestingRecord = () => {
           <RotateCcw size={16} />
           Reset
         </button>
+        <button
+          className="sand-submit-btn"
+          onClick={() => handleTableSubmit(1)}
+          disabled={loadingStates.table1}
+          type="button"
+        >
+          {loadingStates.table1 ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+          {loadingStates.table1 ? 'Saving...' : 'Save Table 1'}
+        </button>
       </div>
 
       {/* Table 2 */}
       <div className="sand-section-header">
         <h3>Table 2</h3>
             </div>
-      <table className="sand-shift-table" onKeyDown={handleEnterToNext}>
+      <table className="sand-shift-table table-2" onKeyDown={handleEnterToNext}>
         <thead>
           <tr>
             <th>Shift</th>
@@ -1502,276 +1868,479 @@ const SandTestingRecord = () => {
           <RotateCcw size={16} />
           Reset
         </button>
+        <button
+          className="sand-submit-btn"
+          onClick={() => handleTableSubmit(2)}
+          disabled={loadingStates.table2}
+          type="button"
+        >
+          {loadingStates.table2 ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+          {loadingStates.table2 ? 'Saving...' : 'Save Table 2'}
+        </button>
       </div>
 
       {/* Table 3 */}
       <div className="sand-section-header">
         <h3>Table 3</h3>
-            </div>
-      <table className="sand-shift-table" onKeyDown={handleEnterToNext}>
+      </div>
+      <table className="sand-shift-table table-3">
         <thead>
           <tr>
-            <th rowSpan={2} style={{ width: '60px', minWidth: '60px' }}>Shift</th>
-            <th colSpan={3} style={{ textAlign: 'center', width: '35%' }}>Mix No.</th>
-            <th rowSpan={2} style={{ width: '20%' }}>No. Of Mix Rejected</th>
-            <th rowSpan={2} style={{ width: '25%' }}>Return Sand Hopper Level</th>
+            <th rowSpan="2">Shift</th>
+            <th colSpan="3">Mix No.</th>
+            <th rowSpan="2">No. Of Mix Rejected</th>
+            <th rowSpan="2">Return Sand Hopper Level</th>
           </tr>
           <tr>
-            <th style={{ borderRight: '1px solid #e2e8f0', width: '11.67%' }}>Start</th>
-            <th style={{ borderRight: '1px solid #e2e8f0', width: '11.67%' }}>End</th>
-            <th style={{ width: '11.67%' }}>Total</th>
+            <th>Start</th>
+            <th>End</th>
+            <th style={{ borderRight: '2px solid #cbd5e1' }}>Total</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>I</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftI.mixNoStart || ''}
-                onChange={(e) => handleTableChange(3, 'shiftI', e.target.value, 'mixNoStart')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftI.mixNoStart')}
-                readOnly={isFieldLocked(3, 'shiftI.mixNoStart')}
-              />
-            </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftI.mixNoEnd || ''}
-                onChange={(e) => handleTableChange(3, 'shiftI', e.target.value, 'mixNoEnd')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftI.mixNoEnd')}
-                readOnly={isFieldLocked(3, 'shiftI.mixNoEnd')}
-              />
-            </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
-              <input
-                type="number"
-                value={table3.shiftI.mixNoTotal || ''}
-                onChange={(e) => handleTableChange(3, 'shiftI', e.target.value, 'mixNoTotal')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftI.mixNoTotal')}
-                readOnly={isFieldLocked(3, 'shiftI.mixNoTotal')}
-              />
+            <td style={{ textAlign: 'center' }}>I</td>
+            <td>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftI.mixNoStart.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftI', 'mixNoStart', index, e.target.value)}
+                      placeholder="Start"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftI.mixNoStart.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftI.mixNoStart.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftI.mixNoStart.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftI.mixNoStart.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftI.mixNoStart.length - 1 && !isFieldLocked(3, `shiftI.mixNoStart.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftI', 'mixNoStart')} />
+                    )}
+                    {index === table3.shiftI.mixNoStart.length - 1 && table3.shiftI.mixNoStart.length > 1 && !isFieldLocked(3, `shiftI.mixNoStart.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftI', 'mixNoStart', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftI.noOfMixRejected || ''}
-                onChange={(e) => handleTableChange(3, 'shiftI', e.target.value, 'noOfMixRejected')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftI.noOfMixRejected')}
-                readOnly={isFieldLocked(3, 'shiftI.noOfMixRejected')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftI.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftI.noOfMixRejected')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftI.mixNoEnd.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftI', 'mixNoEnd', index, e.target.value)}
+                      placeholder="End"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftI.mixNoEnd.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftI.mixNoEnd.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftI.mixNoEnd.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftI.mixNoEnd.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftI.mixNoEnd.length - 1 && !isFieldLocked(3, `shiftI.mixNoEnd.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftI', 'mixNoEnd')} />
+                    )}
+                    {index === table3.shiftI.mixNoEnd.length - 1 && table3.shiftI.mixNoEnd.length > 1 && !isFieldLocked(3, `shiftI.mixNoEnd.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftI', 'mixNoEnd', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td style={{ borderRight: '2px solid #cbd5e1' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftI.mixNoTotal.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftI', 'mixNoTotal', index, e.target.value)}
+                      placeholder="Total"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftI.mixNoTotal.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftI.mixNoTotal.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftI.mixNoTotal.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftI.mixNoTotal.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftI.mixNoTotal.length - 1 && !isFieldLocked(3, `shiftI.mixNoTotal.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftI', 'mixNoTotal')} />
+                    )}
+                    {index === table3.shiftI.mixNoTotal.length - 1 && table3.shiftI.mixNoTotal.length > 1 && !isFieldLocked(3, `shiftI.mixNoTotal.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftI', 'mixNoTotal', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftI.returnSandHopperLevel || ''}
-                onChange={(e) => handleTableChange(3, 'shiftI', e.target.value, 'returnSandHopperLevel')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftI.returnSandHopperLevel')}
-                readOnly={isFieldLocked(3, 'shiftI.returnSandHopperLevel')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftI.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftI.returnSandHopperLevel')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftI.noOfMixRejected.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftI', 'noOfMixRejected', index, e.target.value)}
+                      placeholder="Rejected"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftI.noOfMixRejected.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftI.noOfMixRejected.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftI.noOfMixRejected.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftI.noOfMixRejected.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftI.noOfMixRejected.length - 1 && !isFieldLocked(3, `shiftI.noOfMixRejected.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftI', 'noOfMixRejected')} />
+                    )}
+                    {index === table3.shiftI.noOfMixRejected.length - 1 && table3.shiftI.noOfMixRejected.length > 1 && !isFieldLocked(3, `shiftI.noOfMixRejected.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftI', 'noOfMixRejected', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftI.returnSandHopperLevel.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftI', 'returnSandHopperLevel', index, e.target.value)}
+                      placeholder="Level"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftI.returnSandHopperLevel.length - 1 && !isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftI', 'returnSandHopperLevel')} />
+                    )}
+                    {index === table3.shiftI.returnSandHopperLevel.length - 1 && table3.shiftI.returnSandHopperLevel.length > 1 && !isFieldLocked(3, `shiftI.returnSandHopperLevel.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftI', 'returnSandHopperLevel', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr>
-            <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>II</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftII.mixNoStart || ''}
-                onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'mixNoStart')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftII.mixNoStart')}
-                readOnly={isFieldLocked(3, 'shiftII.mixNoStart')}
-              />
-            </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftII.mixNoEnd || ''}
-                onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'mixNoEnd')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftII.mixNoEnd')}
-                readOnly={isFieldLocked(3, 'shiftII.mixNoEnd')}
-              />
-            </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
-              <input
-                type="number"
-                value={table3.shiftII.mixNoTotal || ''}
-                onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'mixNoTotal')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftII.mixNoTotal')}
-                readOnly={isFieldLocked(3, 'shiftII.mixNoTotal')}
-              />
+            <td style={{ textAlign: 'center' }}>II</td>
+            <td>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftII.mixNoStart.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftII', 'mixNoStart', index, e.target.value)}
+                      placeholder="Start"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftII.mixNoStart.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftII.mixNoStart.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftII.mixNoStart.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftII.mixNoStart.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftII.mixNoStart.length - 1 && !isFieldLocked(3, `shiftII.mixNoStart.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftII', 'mixNoStart')} />
+                    )}
+                    {index === table3.shiftII.mixNoStart.length - 1 && table3.shiftII.mixNoStart.length > 1 && !isFieldLocked(3, `shiftII.mixNoStart.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftII', 'mixNoStart', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftII.noOfMixRejected || ''}
-                onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'noOfMixRejected')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftII.noOfMixRejected')}
-                readOnly={isFieldLocked(3, 'shiftII.noOfMixRejected')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftII.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftII.noOfMixRejected')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftII.mixNoEnd.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftII', 'mixNoEnd', index, e.target.value)}
+                      placeholder="End"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftII.mixNoEnd.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftII.mixNoEnd.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftII.mixNoEnd.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftII.mixNoEnd.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftII.mixNoEnd.length - 1 && !isFieldLocked(3, `shiftII.mixNoEnd.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftII', 'mixNoEnd')} />
+                    )}
+                    {index === table3.shiftII.mixNoEnd.length - 1 && table3.shiftII.mixNoEnd.length > 1 && !isFieldLocked(3, `shiftII.mixNoEnd.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftII', 'mixNoEnd', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td style={{ borderRight: '2px solid #cbd5e1' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftII.mixNoTotal.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftII', 'mixNoTotal', index, e.target.value)}
+                      placeholder="Total"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftII.mixNoTotal.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftII.mixNoTotal.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftII.mixNoTotal.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftII.mixNoTotal.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftII.mixNoTotal.length - 1 && !isFieldLocked(3, `shiftII.mixNoTotal.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftII', 'mixNoTotal')} />
+                    )}
+                    {index === table3.shiftII.mixNoTotal.length - 1 && table3.shiftII.mixNoTotal.length > 1 && !isFieldLocked(3, `shiftII.mixNoTotal.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftII', 'mixNoTotal', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftII.returnSandHopperLevel || ''}
-                onChange={(e) => handleTableChange(3, 'shiftII', e.target.value, 'returnSandHopperLevel')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftII.returnSandHopperLevel')}
-                readOnly={isFieldLocked(3, 'shiftII.returnSandHopperLevel')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftII.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftII.returnSandHopperLevel')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftII.noOfMixRejected.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftII', 'noOfMixRejected', index, e.target.value)}
+                      placeholder="Rejected"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftII.noOfMixRejected.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftII.noOfMixRejected.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftII.noOfMixRejected.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftII.noOfMixRejected.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftII.noOfMixRejected.length - 1 && !isFieldLocked(3, `shiftII.noOfMixRejected.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftII', 'noOfMixRejected')} />
+                    )}
+                    {index === table3.shiftII.noOfMixRejected.length - 1 && table3.shiftII.noOfMixRejected.length > 1 && !isFieldLocked(3, `shiftII.noOfMixRejected.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftII', 'noOfMixRejected', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftII.returnSandHopperLevel.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftII', 'returnSandHopperLevel', index, e.target.value)}
+                      placeholder="Level"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftII.returnSandHopperLevel.length - 1 && !isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftII', 'returnSandHopperLevel')} />
+                    )}
+                    {index === table3.shiftII.returnSandHopperLevel.length - 1 && table3.shiftII.returnSandHopperLevel.length > 1 && !isFieldLocked(3, `shiftII.returnSandHopperLevel.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftII', 'returnSandHopperLevel', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
           </tr>
           <tr>
-            <td style={{ width: '60px', minWidth: '60px', textAlign: 'center', fontWeight: 600 }}>III</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftIII.mixNoStart || ''}
-                onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'mixNoStart')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftIII.mixNoStart')}
-                readOnly={isFieldLocked(3, 'shiftIII.mixNoStart')}
-              />
-            </td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.shiftIII.mixNoEnd || ''}
-                onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'mixNoEnd')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftIII.mixNoEnd')}
-                readOnly={isFieldLocked(3, 'shiftIII.mixNoEnd')}
-              />
-            </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
-              <input
-                type="number"
-                value={table3.shiftIII.mixNoTotal || ''}
-                onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'mixNoTotal')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'shiftIII.mixNoTotal')}
-                readOnly={isFieldLocked(3, 'shiftIII.mixNoTotal')}
-              />
+            <td style={{ textAlign: 'center' }}>III</td>
+            <td>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftIII.mixNoStart.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftIII', 'mixNoStart', index, e.target.value)}
+                      placeholder="Start"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftIII.mixNoStart.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftIII.mixNoStart.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftIII.mixNoStart.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftIII.mixNoStart.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftIII.mixNoStart.length - 1 && !isFieldLocked(3, `shiftIII.mixNoStart.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftIII', 'mixNoStart')} />
+                    )}
+                    {index === table3.shiftIII.mixNoStart.length - 1 && table3.shiftIII.mixNoStart.length > 1 && !isFieldLocked(3, `shiftIII.mixNoStart.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftIII', 'mixNoStart', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftIII.noOfMixRejected || ''}
-                onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'noOfMixRejected')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftIII.noOfMixRejected')}
-                readOnly={isFieldLocked(3, 'shiftIII.noOfMixRejected')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftIII.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftIII.noOfMixRejected')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftIII.mixNoEnd.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftIII', 'mixNoEnd', index, e.target.value)}
+                      placeholder="End"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftIII.mixNoEnd.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftIII.mixNoEnd.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftIII.mixNoEnd.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftIII.mixNoEnd.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftIII.mixNoEnd.length - 1 && !isFieldLocked(3, `shiftIII.mixNoEnd.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftIII', 'mixNoEnd')} />
+                    )}
+                    {index === table3.shiftIII.mixNoEnd.length - 1 && table3.shiftIII.mixNoEnd.length > 1 && !isFieldLocked(3, `shiftIII.mixNoEnd.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftIII', 'mixNoEnd', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+            <td style={{ borderRight: '2px solid #cbd5e1' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {table3.shiftIII.mixNoTotal.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftIII', 'mixNoTotal', index, e.target.value)}
+                      placeholder="Total"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftIII.mixNoTotal.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftIII.mixNoTotal.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftIII.mixNoTotal.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftIII.mixNoTotal.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftIII.mixNoTotal.length - 1 && !isFieldLocked(3, `shiftIII.mixNoTotal.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftIII', 'mixNoTotal')} />
+                    )}
+                    {index === table3.shiftIII.mixNoTotal.length - 1 && table3.shiftIII.mixNoTotal.length > 1 && !isFieldLocked(3, `shiftIII.mixNoTotal.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftIII', 'mixNoTotal', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.shiftIII.returnSandHopperLevel || ''}
-                onChange={(e) => handleTableChange(3, 'shiftIII', e.target.value, 'returnSandHopperLevel')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'shiftIII.returnSandHopperLevel')}
-                readOnly={isFieldLocked(3, 'shiftIII.returnSandHopperLevel')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'shiftIII.returnSandHopperLevel')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'shiftIII.returnSandHopperLevel')) ? 'not-allowed' : 'text'
-                }}
-              />
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={2} style={{ fontWeight: 600, textAlign: 'center' }}>Total</td>
-            <td style={{ borderRight: '1px solid #e2e8f0', width: '11.67%', padding: '0.4rem' }}>
-              <input
-                type="number"
-                value={table3.total.mixNoEnd || ''}
-                onChange={(e) => handleTableChange(3, 'total', e.target.value, 'mixNoEnd')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'total.mixNoEnd')}
-                readOnly={isFieldLocked(3, 'total.mixNoEnd')}
-              />
-            </td>
-            <td style={{ width: '11.67%', padding: '0.4rem', borderRight: '1px solid #e2e8f0' }}>
-              <input
-                type="number"
-                value={table3.total.mixNoTotal || ''}
-                onChange={(e) => handleTableChange(3, 'total', e.target.value, 'mixNoTotal')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                style={{ padding: '0.3rem 0.4rem', fontSize: '0.8125rem', width: '100%' }}
-                disabled={isFieldLocked(3, 'total.mixNoTotal')}
-                readOnly={isFieldLocked(3, 'total.mixNoTotal')}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftIII.noOfMixRejected.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftIII', 'noOfMixRejected', index, e.target.value)}
+                      placeholder="Rejected"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftIII.noOfMixRejected.length - 1 && !isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftIII', 'noOfMixRejected')} />
+                    )}
+                    {index === table3.shiftIII.noOfMixRejected.length - 1 && table3.shiftIII.noOfMixRejected.length > 1 && !isFieldLocked(3, `shiftIII.noOfMixRejected.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftIII', 'noOfMixRejected', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
             <td>
-              <input
-                type="number"
-                value={table3.total.noOfMixRejected || ''}
-                onChange={(e) => handleTableChange(3, 'total', e.target.value, 'noOfMixRejected')}
-                placeholder="Enter value"
-                className="sand-table-input"
-                disabled={isFieldLocked(3, 'total.noOfMixRejected')}
-                readOnly={isFieldLocked(3, 'total.noOfMixRejected')}
-                style={{
-                  backgroundColor: (isFieldLocked(3, 'total.noOfMixRejected')) ? '#f1f5f9' : '#ffffff',
-                  cursor: (isFieldLocked(3, 'total.noOfMixRejected')) ? 'not-allowed' : 'text'
-                }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                {table3.shiftIII.returnSandHopperLevel.map((value, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleTable3ArrayChange('shiftIII', 'returnSandHopperLevel', index, e.target.value)}
+                      placeholder="Level"
+                      className="sand-table-input"
+                      disabled={isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`)}
+                      readOnly={isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`)}
+                      style={{
+                        backgroundColor: (isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`)) ? '#f1f5f9' : '#ffffff',
+                        cursor: (isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`)) ? 'not-allowed' : 'text',
+                        flex: 1,
+                        minWidth: '80px'
+                      }}
+                    />
+                    {index === table3.shiftIII.returnSandHopperLevel.length - 1 && !isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`) && (
+                      <PlusButton onClick={() => addTable3ArrayEntry('shiftIII', 'returnSandHopperLevel')} />
+                    )}
+                    {index === table3.shiftIII.returnSandHopperLevel.length - 1 && table3.shiftIII.returnSandHopperLevel.length > 1 && !isFieldLocked(3, `shiftIII.returnSandHopperLevel.${index}`) && (
+                      <MinusButton onClick={() => removeTable3ArrayEntry('shiftIII', 'returnSandHopperLevel', index)} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </td>
-            <td></td>
           </tr>
         </tbody>
       </table>
@@ -1783,6 +2352,15 @@ const SandTestingRecord = () => {
         >
           <RotateCcw size={16} />
           Reset
+        </button>
+        <button
+          className="sand-submit-btn"
+          onClick={() => handleTableSubmit(3)}
+          disabled={loadingStates.table3}
+          type="button"
+        >
+          {loadingStates.table3 ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+          {loadingStates.table3 ? 'Saving...' : 'Save Table 3'}
         </button>
       </div>
 
@@ -1831,7 +2409,7 @@ const SandTestingRecord = () => {
             </tr>
           </tbody>
         </table>
-        <table className="sand-shift-table" onKeyDown={handleEnterToNext}>
+        <table className="sand-shift-table table-4" onKeyDown={handleEnterToNext}>
           <thead>
             <tr>
               <th>Shift</th>
@@ -1901,41 +2479,60 @@ const SandTestingRecord = () => {
           <RotateCcw size={16} />
           Reset
         </button>
+        <button
+          className="sand-submit-btn"
+          onClick={() => handleTableSubmit(4)}
+          disabled={loadingStates.table4}
+          type="button"
+        >
+          {loadingStates.table4 ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+          {loadingStates.table4 ? 'Saving...' : 'Save Table 4'}
+        </button>
       </div>
 
       {/* Table 5 */}
       <div className="sand-table5-main-card">
         <h4 className="sand-table5-main-card-title">Sand Properties & Test Parameters</h4>
 
-        <div className="sand-table5-form-grid" onKeyDown={handleEnterToNext}>
-          <div className="sand-table5-form-group">
-            <label>Sno</label>
-            <input 
-              type="text" 
-              name="sno" 
-              value={table5.sno || ''} 
-              onChange={(e) => handleTableChange(5, 'sno', e.target.value)} 
-              placeholder="Enter Sno"
-              className="sand-table5-input"
-            />
-          </div>
-          <div className="sand-table5-form-group">
-            <label>Time</label>
-            <input 
-              type="time" 
-              name="time" 
-              value={table5.time || ''} 
-              onChange={(e) => handleTableChange(5, 'time', e.target.value)} 
-              className="sand-table5-input"
-            />
-          </div>
-          <div className="sand-table5-form-group">
-            <label>Mix No</label>
-            <input 
-              type="text" 
-              name="mixNo" 
-              value={table5.mixNo || ''} 
-              onChange={(e) => handleTableChange(5, 'mixNo', e.target.value)} 
+        <div style={{ padding: '1rem' }}>
+          <h5 style={{ marginBottom: '1rem', color: '#374151', fontWeight: '600' }}>S.No: {currentSNo}</h5>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }} onKeyDown={handleEnterToNext}>
+            <div className="sand-table5-form-group">
+              <label>Time</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input 
+                  type="number" 
+                  name="timeHour" 
+                  value={table5.timeHour || ''} 
+                  onChange={(e) => handleTable5Change('timeHour', e.target.value)} 
+                      placeholder="HH"
+                      min="0"
+                      max="23"
+                      className="sand-table5-input"
+                      style={{ width: '70px' }}
+                    />
+                  <span>:</span>
+                  <input 
+                    type="number" 
+                    name="timeMinute" 
+                    value={table5.timeMinute || ''} 
+                    onChange={(e) => handleTable5Change('timeMinute', e.target.value)} 
+                    placeholder="MM"
+                    min="0"
+                    max="59"
+                    className="sand-table5-input"
+                    style={{ width: '70px' }}
+                  />
+                </div>
+              </div>
+              <div className="sand-table5-form-group">
+                <label>Mix No</label>
+                <input 
+                  type="text" 
+                  name="mixNo" 
+                  value={table5.mixNo || ''} 
+                  onChange={(e) => handleTable5Change('mixNo', e.target.value)} 
               placeholder="Enter Mix No"
               className="sand-table5-input"
             />
@@ -1946,7 +2543,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="permeability" 
               value={table5.permeability || ''} 
-              onChange={(e) => handleTableChange(5, 'permeability', e.target.value)} 
+              onChange={(e) => handleTable5Change('permeability', e.target.value)} 
               placeholder="Enter value"
               step="0.01"
               className="sand-table5-input"
@@ -1958,7 +2555,7 @@ const SandTestingRecord = () => {
               <select
                 name="gcs-checkpoint"
                 value={table5.gcsCheckpoint || ''}
-                onChange={(e) => handleTableChange(5, 'gcsCheckpoint', e.target.value)}
+                onChange={(e) => handleTable5Change('gcsCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select checkpoint</option>
@@ -1969,7 +2566,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="gcsValue" 
                 value={table5.gcsValue || ''} 
-                onChange={(e) => handleTableChange(5, 'gcsValue', e.target.value)} 
+                onChange={(e) => handleTable5Change('gcsValue', e.target.value)} 
                 placeholder={table5.gcsCheckpoint === 'fdyA' ? 'FDY-A value' : table5.gcsCheckpoint === 'fdyB' ? 'FDY-B value' : 'Enter value'}
                 step="0.01"
                 className="sand-table5-input"
@@ -1982,7 +2579,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="wts" 
               value={table5.wts || ''} 
-              onChange={(e) => handleTableChange(5, 'wts', e.target.value)} 
+              onChange={(e) => handleTable5Change('wts', e.target.value)} 
               placeholder="Enter value"
               step="0.01"
               className="sand-table5-input"
@@ -1994,7 +2591,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="moisture" 
               value={table5.moisture || ''} 
-              onChange={(e) => handleTableChange(5, 'moisture', e.target.value)} 
+              onChange={(e) => handleTable5Change('moisture', e.target.value)} 
               placeholder="Enter %"
               step="0.01"
               className="sand-table5-input"
@@ -2006,7 +2603,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="compactability" 
               value={table5.compactability || ''} 
-              onChange={(e) => handleTableChange(5, 'compactability', e.target.value)} 
+              onChange={(e) => handleTable5Change('compactability', e.target.value)} 
               placeholder="Enter %"
               step="0.01"
               className="sand-table5-input"
@@ -2018,7 +2615,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="compressability" 
               value={table5.compressability || ''} 
-              onChange={(e) => handleTableChange(5, 'compressability', e.target.value)} 
+              onChange={(e) => handleTable5Change('compressability', e.target.value)} 
               placeholder="Enter %"
               step="0.01"
               className="sand-table5-input"
@@ -2030,7 +2627,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="waterLitrePerKgMix" 
               value={table5.waterLitrePerKgMix || ''} 
-              onChange={(e) => handleTableChange(5, 'waterLitrePerKgMix', e.target.value)} 
+              onChange={(e) => handleTable5Change('waterLitrePerKgMix', e.target.value)} 
               placeholder="Enter value"
               step="0.01"
               className="sand-table5-input"
@@ -2043,7 +2640,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="sandTempBC" 
                 value={table5.sandTempBC || ''} 
-                onChange={(e) => handleTableChange(5, 'sandTempBC', e.target.value)} 
+                onChange={(e) => handleTable5Change('sandTempBC', e.target.value)} 
                 placeholder="BC"
                 step="0.01"
                 className="sand-table5-input"
@@ -2052,7 +2649,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="sandTempWU" 
                 value={table5.sandTempWU || ''} 
-                onChange={(e) => handleTableChange(5, 'sandTempWU', e.target.value)} 
+                onChange={(e) => handleTable5Change('sandTempWU', e.target.value)} 
                 placeholder="WU"
                 step="0.01"
                 className="sand-table5-input"
@@ -2061,7 +2658,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="sandTempSSU" 
                 value={table5.sandTempSSU || ''} 
-                onChange={(e) => handleTableChange(5, 'sandTempSSU', e.target.value)} 
+                onChange={(e) => handleTable5Change('sandTempSSU', e.target.value)} 
                 placeholder="SSU"
                 step="0.01"
                 className="sand-table5-input"
@@ -2074,7 +2671,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="newSandKgsPerMould" 
               value={table5.newSandKgsPerMould || ''} 
-              onChange={(e) => handleTableChange(5, 'newSandKgsPerMould', e.target.value)} 
+              onChange={(e) => handleTable5Change('newSandKgsPerMould', e.target.value)} 
               placeholder="Enter value"
               step="0.01"
               className="sand-table5-input"
@@ -2086,7 +2683,7 @@ const SandTestingRecord = () => {
               <select
                 name="bentonite-checkpoint"
                 value={table5.bentoniteCheckpoint || ''}
-                onChange={(e) => handleTableChange(5, 'bentoniteCheckpoint', e.target.value)}
+                onChange={(e) => handleTable5Change('bentoniteCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select type</option>
@@ -2097,7 +2694,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="bentoniteWithPremix" 
                 value={table5.bentoniteWithPremix || ''} 
-                onChange={(e) => handleTableChange(5, 'bentoniteWithPremix', e.target.value)} 
+                onChange={(e) => handleTable5Change('bentoniteWithPremix', e.target.value)} 
                 placeholder="Kgs"
                 step="0.01"
                 className="sand-table5-input"
@@ -2106,7 +2703,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="bentoniteOnly" 
                 value={table5.bentoniteOnly || ''} 
-                onChange={(e) => handleTableChange(5, 'bentoniteOnly', e.target.value)} 
+                onChange={(e) => handleTable5Change('bentoniteOnly', e.target.value)} 
                 placeholder="%"
                 step="0.01"
                 className="sand-table5-input"
@@ -2119,7 +2716,7 @@ const SandTestingRecord = () => {
               <select
                 name="premix-coaldust-checkpoint"
                 value={table5.premixCoalDustCheckpoint || ''}
-                onChange={(e) => handleTableChange(5, 'premixCoalDustCheckpoint', e.target.value)}
+                onChange={(e) => handleTable5Change('premixCoalDustCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select material</option>
@@ -2130,7 +2727,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="premixKgsMix" 
                 value={table5.premixKgsMix || ''} 
-                onChange={(e) => handleTableChange(5, 'premixKgsMix', e.target.value)} 
+                onChange={(e) => handleTable5Change('premixKgsMix', e.target.value)} 
                 placeholder="Kgs"
                 step="0.01"
                 className="sand-table5-input"
@@ -2139,7 +2736,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="coalDustKgsMix" 
                 value={table5.coalDustKgsMix || ''} 
-                onChange={(e) => handleTableChange(5, 'coalDustKgsMix', e.target.value)} 
+                onChange={(e) => handleTable5Change('coalDustKgsMix', e.target.value)} 
                 placeholder="%"
                 step="0.01"
                 className="sand-table5-input"
@@ -2152,7 +2749,7 @@ const SandTestingRecord = () => {
               <select
                 name="lcscm-compactability-checkpoint"
                 value={table5.lcScmCompactabilityCheckpoint || ''}
-                onChange={(e) => handleTableChange(5, 'lcScmCompactabilityCheckpoint', e.target.value)}
+                onChange={(e) => handleTable5Change('lcScmCompactabilityCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select option</option>
@@ -2163,7 +2760,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="lcScmCompactabilityValue" 
                 value={table5.lcScmCompactabilityValue || ''} 
-                onChange={(e) => handleTableChange(5, 'lcScmCompactabilityValue', e.target.value)} 
+                onChange={(e) => handleTable5Change('lcScmCompactabilityValue', e.target.value)} 
                 placeholder={table5.lcScmCompactabilityCheckpoint === 'lcScm' ? 'LC SCM value' : table5.lcScmCompactabilityCheckpoint === 'compactabilitySetting' ? 'Compactability value' : 'Enter value'}
                 step="0.01"
                 className="sand-table5-input"
@@ -2176,7 +2773,7 @@ const SandTestingRecord = () => {
               <select
                 name="mouldstrength-shear-checkpoint"
                 value={table5.mouldStrengthShearCheckpoint || ''}
-                onChange={(e) => handleTableChange(5, 'mouldStrengthShearCheckpoint', e.target.value)}
+                onChange={(e) => handleTable5Change('mouldStrengthShearCheckpoint', e.target.value)}
                 className="sand-table5-input"
               >
                 <option value="" disabled>Select option</option>
@@ -2187,7 +2784,7 @@ const SandTestingRecord = () => {
                 type="number" 
                 name="mouldStrengthShearValue" 
                 value={table5.mouldStrengthShearValue || ''} 
-                onChange={(e) => handleTableChange(5, 'mouldStrengthShearValue', e.target.value)} 
+                onChange={(e) => handleTable5Change('mouldStrengthShearValue', e.target.value)} 
                 placeholder={table5.mouldStrengthShearCheckpoint === 'mouldStrength' ? 'Mould strength value' : table5.mouldStrengthShearCheckpoint === 'shearStrength' ? 'Shear strength value' : 'Enter value'}
                 step="0.01"
                 className="sand-table5-input"
@@ -2200,7 +2797,7 @@ const SandTestingRecord = () => {
               type="number" 
               name="preparedSandLumpsPerKg" 
               value={table5.preparedSandLumpsPerKg || ''} 
-              onChange={(e) => handleTableChange(5, 'preparedSandLumpsPerKg', e.target.value)} 
+              onChange={(e) => handleTable5Change('preparedSandLumpsPerKg', e.target.value)} 
               placeholder="Enter value"
               step="0.01"
               className="sand-table5-input"
@@ -2212,7 +2809,7 @@ const SandTestingRecord = () => {
               type="text" 
               name="itemName" 
               value={table5.itemName || ''} 
-              onChange={(e) => handleTableChange(5, 'itemName', e.target.value)} 
+              onChange={(e) => handleTable5Change('itemName', e.target.value)} 
               placeholder="Enter item name"
               className="sand-table5-input"
             />
@@ -2223,7 +2820,7 @@ const SandTestingRecord = () => {
               type="text"
               name="remarks" 
               value={table5.remarks || ''} 
-              onChange={(e) => handleTableChange(5, 'remarks', e.target.value)} 
+              onChange={(e) => handleTable5Change('remarks', e.target.value)} 
               placeholder="Enter any additional notes..."
               maxLength={80}
               style={{
@@ -2234,6 +2831,7 @@ const SandTestingRecord = () => {
               className="sand-table5-input"
             />
           </div>
+        </div>
         </div>
 
         <div className="sand-table-submit" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2247,12 +2845,12 @@ const SandTestingRecord = () => {
           </button>
           <button
             className="sand-submit-btn"
-            onClick={handleSaveAll}
-            disabled={savingAll}
-            title="Save All Tables"
+            onClick={() => handleTableSubmit(5)}
+            disabled={loadingStates.table5}
+            type="button"
           >
-            {savingAll ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
-            {savingAll ? 'Saving...' : 'Save All'}
+            {loadingStates.table5 ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
+            {loadingStates.table5 ? 'Saving...' : 'Save Table 5'}
           </button>
         </div>
       </div>
@@ -2262,3 +2860,5 @@ const SandTestingRecord = () => {
 };
 
 export default SandTestingRecord;
+
+

@@ -196,7 +196,6 @@ const MeltingLogSheetReport = () => {
       cu: row.cu ?? '',
       cr: row.cr ?? '',
       pureMg: row.pureMg ?? '',
-      ironPyrite: row.ironPyrite ?? '',
       labCoinTime: row.labCoinTime ?? '',
       labCoinTempC: row.labCoinTempC ?? '',
       deslagingTimeFrom: row.deslagingTimeFrom ?? '',
@@ -216,12 +215,6 @@ const MeltingLogSheetReport = () => {
       furnace1Kw: row.furnace1Kw ?? '',
       furnace1A: row.furnace1A ?? '',
       furnace1V: row.furnace1V ?? '',
-      furnace2Kw: row.furnace2Kw ?? '',
-      furnace2A: row.furnace2A ?? '',
-      furnace2V: row.furnace2V ?? '',
-      furnace3Kw: row.furnace3Kw ?? '',
-      furnace3A: row.furnace3A ?? '',
-      furnace3V: row.furnace3V ?? '',
       furnace4Hz: row.furnace4Hz ?? '',
       furnace4Gld: row.furnace4Gld ?? '',
       furnace4KwHr: row.furnace4KwHr ?? ''
@@ -299,89 +292,82 @@ const MeltingLogSheetReport = () => {
 
     if (show.table0) {
       columns.push(
-        { key: 'cumulativeLiquidMetal', label: 'Cumulative Liquid Metal', render: (r) => r.cumulativeLiquidMetal ?? '-' },
-        { key: 'finalKWHr', label: 'Final KWHr', render: (r) => r.finalKWHr ?? '-' },
-        { key: 'initialKWHr', label: 'Initial KWHr', render: (r) => r.initialKWHr ?? '-' },
-        { key: 'totalUnits', label: 'Total Units', render: (r) => r.totalUnits ?? '-' },
-        { key: 'cumulativeUnits', label: 'Cumulative Units', render: (r) => r.cumulativeUnits ?? '-' },
+        { key: 'finalKWHr', label: 'Final KW/Hr', get: (r) => r.finalKWHr ?? '-' },
+        { key: 'initialKWHr', label: 'Initial KW/Hr', get: (r) => r.initialKWHr ?? '-' },
+        { key: 'totalUnits', label: 'Total Units', get: (r) => r.totalUnits ?? '-' },
+        { key: 'cumulativeUnits', label: 'Cumulative Units', get: (r) => r.cumulativeUnits ?? '-' },
+        { key: 'cumulativeLiquidMetal', label: 'Cumulative Liquid Metal (kgs)', get: (r) => r.cumulativeLiquidMetal ?? '-' }
       );
     }
 
     if (show.table1) {
       columns.push(
-        { key: 'heatNo', label: 'Heat No', render: (r) => r.heatNo ?? '-' },
-        { key: 'grade', label: 'Grade', render: (r) => r.grade ?? '-' },
-        { key: 'chargingTime', label: 'Charging Time', render: (r) => r.chargingTime ?? '-' },
-        { key: 'ifBath', label: 'If Bath', render: (r) => r.ifBath ?? '-' },
-        { key: 'liquidMetalPressPour', label: 'Press Pour (kgs)', render: (r) => r.liquidMetalPressPour ?? '-' },
-        { key: 'liquidMetalHolder', label: 'Holder (kgs)', render: (r) => r.liquidMetalHolder ?? '-' },
-        { key: 'sgMsSteel', label: 'SG-MS Steel', render: (r) => r.sgMsSteel ?? '-' },
-        { key: 'greyMsSteel', label: 'Grey MS Steel', render: (r) => r.greyMsSteel ?? '-' },
-        { key: 'returnsSg', label: 'Returns SG', render: (r) => r.returnsSg ?? '-' },
-        { key: 'gl', label: 'GL', render: (r) => r.gl ?? '-' },
-        { key: 'pigIron', label: 'Pig Iron', render: (r) => r.pigIron ?? '-' },
-        { key: 'borings', label: 'Borings', render: (r) => r.borings ?? '-' },
-        { key: 'finalBath', label: 'Final Bath', render: (r) => r.finalBath ?? '-' },
+        { key: 'heatNo', label: 'Heat No', get: (r) => r.heatNo ?? '-' },
+        { key: 'grade', label: 'Grade', get: (r) => r.grade ?? '-' },
+        { key: 'chargingTime', label: 'Time', get: (r) => r.chargingTime ?? '-' },
+        { key: 'liquidMetalHolder', label: 'Holder (kgs)', get: (r) => r.liquidMetalHolder ?? '-' },
+        { key: 'liquidMetalPressPour', label: 'Liquid Metal (kgs)', get: (r) => r.liquidMetalPressPour ?? '-' },
+        { key: 'sgMsSteel', label: 'SG-MS Steel', get: (r) => r.sgMsSteel ?? '-' },
+        { key: 'greyMsSteel', label: 'MS Steel (100% Grey)', get: (r) => r.greyMsSteel ?? '-' },
+        { key: 'returnsSg', label: 'Pig Iron (100% SG)', get: (r) => r.returnsSg ?? '-' },
+        { key: 'pigIron', label: 'Pig Iron', get: (r) => r.pigIron ?? '-' },
+        { key: 'borings', label: 'Borings', get: (r) => r.borings ?? '-' },
+        { key: 'gl', label: 'GL', get: (r) => r.gl ?? '-' },
+        { key: 'ifBath', label: 'If Bath', get: (r) => r.ifBath ?? '-' },
+        { key: 'finalBath', label: 'Final (Kgs)', get: (r) => r.finalBath ?? '-' }
       );
     }
 
     if (show.table2) {
       columns.push(
-        { key: 'charCoal', label: 'CharCoal', render: (r) => r.charCoal ?? '-' },
-        { key: 'cpcFur', label: 'CPC (Fur)', render: (r) => r.cpcFur ?? '-' },
-        { key: 'cpcLc', label: 'CPC (LC)', render: (r) => r.cpcLc ?? '-' },
-        { key: 'siliconCarbideFur', label: 'Silicon Carbide (Fur)', render: (r) => r.siliconCarbideFur ?? '-' },
-        { key: 'ferrosiliconFur', label: 'Ferrosilicon (Fur)', render: (r) => r.ferrosiliconFur ?? '-' },
-        { key: 'ferrosiliconLc', label: 'Ferrosilicon (LC)', render: (r) => r.ferrosiliconLc ?? '-' },
-        { key: 'ferroManganeseFur', label: 'Fe Mn (Fur)', render: (r) => r.ferroManganeseFur ?? '-' },
-        { key: 'ferroManganeseLc', label: 'Fe Mn (LC)', render: (r) => r.ferroManganeseLc ?? '-' },
-        { key: 'cu', label: 'Cu', render: (r) => r.cu ?? '-' },
-        { key: 'cr', label: 'Cr', render: (r) => r.cr ?? '-' },
-        { key: 'pureMg', label: 'Pure Mg', render: (r) => r.pureMg ?? '-' },
-        { key: 'ironPyrite', label: 'Iron Pyrite', render: (r) => r.ironPyrite ?? '-' },
+        { key: 'charCoal', label: 'Char Coal', get: (r) => r.charCoal ?? '-' },
+        { key: 'cpcFur', label: 'CPC (Fur)', get: (r) => r.cpcFur ?? '-' },
+        { key: 'cpcLc', label: 'CPC (LC)', get: (r) => r.cpcLc ?? '-' },
+        { key: 'ferrosiliconFur', label: 'Ferro Silicon (Fur)', get: (r) => r.ferrosiliconFur ?? '-' },
+        { key: 'ferrosiliconLc', label: 'Ferro Silicon (LC)', get: (r) => r.ferrosiliconLc ?? '-' },
+        { key: 'ferroManganeseFur', label: 'Fe Mn (Fur)', get: (r) => r.ferroManganeseFur ?? '-' },
+        { key: 'ferroManganeseLc', label: 'Fe Mn (LC)', get: (r) => r.ferroManganeseLc ?? '-' },
+        { key: 'siliconCarbideFur', label: 'SIC', get: (r) => r.siliconCarbideFur ?? '-' },
+        { key: 'pureMg', label: 'Pure Mg', get: (r) => r.pureMg ?? '-' },
+        { key: 'cu', label: 'Cu', get: (r) => r.cu ?? '-' },
+        { key: 'cr', label: 'FE-Cr', get: (r) => r.cr ?? '-' }
       );
     }
 
     if (show.table3) {
       columns.push(
-        { key: 'labCoinTime', label: 'Lab Coin Time', render: (r) => r.labCoinTime ?? '-' },
-        { key: 'labCoinTempC', label: 'Lab Coin Temp (°C)', render: (r) => r.labCoinTempC ?? '-' },
-        { key: 'deslagingTimeFrom', label: 'Deslag From', render: (r) => r.deslagingTimeFrom ?? '-' },
-        { key: 'deslagingTimeTo', label: 'Deslag To', render: (r) => r.deslagingTimeTo ?? '-' },
-        { key: 'metalReadyTime', label: 'Metal Ready Time', render: (r) => r.metalReadyTime ?? '-' },
-        { key: 'waitingForTappingFrom', label: 'Wait Tap From', render: (r) => r.waitingForTappingFrom ?? '-' },
-        { key: 'waitingForTappingTo', label: 'Wait Tap To', render: (r) => r.waitingForTappingTo ?? '-' },
-        { key: 'reason', label: 'Reason', render: (r) => r.reason ?? '-' },
+        { key: 'labCoinTime', label: 'Lab Coin Time', get: (r) => r.labCoinTime ?? '-' },
+        { key: 'labCoinTempC', label: 'Temp (°C)', get: (r) => r.labCoinTempC ?? '-' },
+        { key: 'deslagingTimeFrom', label: 'Deslagging From', get: (r) => r.deslagingTimeFrom ?? '-' },
+        { key: 'deslagingTimeTo', label: 'Deslagging To', get: (r) => r.deslagingTimeTo ?? '-' },
+        { key: 'metalReadyTime', label: 'Metal Ready', get: (r) => r.metalReadyTime ?? '-' },
+        { key: 'waitingForTappingFrom', label: 'Wait for Tapping From', get: (r) => r.waitingForTappingFrom ?? '-' },
+        { key: 'waitingForTappingTo', label: 'Wait for Tapping To', get: (r) => r.waitingForTappingTo ?? '-' },
+        { key: 'reason', label: 'Reason', get: (r) => r.reason ?? '-' }
       );
     }
 
     if (show.table4) {
       columns.push(
-        { key: 'time', label: 'Time', render: (r) => r.time ?? '-' },
-        { key: 'tempCSg', label: 'Temp C (SG)', render: (r) => r.tempCSg ?? '-' },
-        { key: 'tempCGrey', label: 'Temp C (Grey)', render: (r) => r.tempCGrey ?? '-' },
-        { key: 'directFurnace', label: 'Direct Furnace', render: (r) => r.directFurnace ?? '-' },
-        { key: 'holderToFurnace', label: 'Holder to Furnace', render: (r) => r.holderToFurnace ?? '-' },
-        { key: 'furnaceToHolder', label: 'Furnace to Holder', render: (r) => r.furnaceToHolder ?? '-' },
-        { key: 'disaNo', label: 'DISA No', render: (r) => r.disaNo ?? '-' },
-        { key: 'item', label: 'Item', render: (r) => r.item ?? '-' },
+        { key: 'time', label: 'Time', get: (r) => r.time ?? '-' },
+        { key: 'tempCSg', label: 'Temp °C (Non-SG)', get: (r) => r.tempCSg ?? '-' },
+        { key: 'tempCGrey', label: 'Temp °C (Grey)', get: (r) => r.tempCGrey ?? '-' },
+        { key: 'directFurnace', label: 'Direct Furnace', get: (r) => r.directFurnace ?? '-' },
+        { key: 'holderToFurnace', label: 'Holder → Furnace', get: (r) => r.holderToFurnace ?? '-' },
+        { key: 'furnaceToHolder', label: 'Furnace → Holder', get: (r) => r.furnaceToHolder ?? '-' },
+        { key: 'disaNo', label: 'DISA No', get: (r) => r.disaNo ?? '-' },
+        { key: 'item', label: 'Item', get: (r) => r.item ?? '-' }
       );
     }
 
     if (show.table5) {
       columns.push(
-        { key: 'furnace1Kw', label: 'F1 kW', render: (r) => r.furnace1Kw ?? '-' },
-        { key: 'furnace1A', label: 'F1 A', render: (r) => r.furnace1A ?? '-' },
-        { key: 'furnace1V', label: 'F1 V', render: (r) => r.furnace1V ?? '-' },
-        { key: 'furnace2Kw', label: 'F2 kW', render: (r) => r.furnace2Kw ?? '-' },
-        { key: 'furnace2A', label: 'F2 A', render: (r) => r.furnace2A ?? '-' },
-        { key: 'furnace2V', label: 'F2 V', render: (r) => r.furnace2V ?? '-' },
-        { key: 'furnace3Kw', label: 'F3 kW', render: (r) => r.furnace3Kw ?? '-' },
-        { key: 'furnace3A', label: 'F3 A', render: (r) => r.furnace3A ?? '-' },
-        { key: 'furnace3V', label: 'F3 V', render: (r) => r.furnace3V ?? '-' },
-        { key: 'furnace4Hz', label: 'F4 Hz', render: (r) => r.furnace4Hz ?? '-' },
-        { key: 'furnace4Gld', label: 'F4 GLD', render: (r) => r.furnace4Gld ?? '-' },
-        { key: 'furnace4KwHr', label: 'F4 kWhr', render: (r) => r.furnace4KwHr ?? '-' },
+        { key: 'furnace1Kw', label: 'Furnace 1-2-3 kW', get: (r) => r.furnace1Kw ?? '-' },
+        { key: 'furnace1A', label: 'Furnace 1-2-3 A (2000-3500)', get: (r) => r.furnace1A ?? '-' },
+        { key: 'furnace1V', label: 'Furnace 1-2-3 V (500-1000)', get: (r) => r.furnace1V ?? '-' },
+        { key: 'furnace4Hz', label: 'F4 Hz', get: (r) => r.furnace4Hz ?? '-' },
+        { key: 'furnace4Gld', label: 'F4 GLD (0.6000-95.00)', get: (r) => r.furnace4Gld ?? '-' },
+        { key: 'furnace4KwHr', label: 'F4 kW/Hr', get: (r) => r.furnace4KwHr ?? '-' }
       );
     }
 
@@ -394,13 +380,34 @@ const MeltingLogSheetReport = () => {
 
     return (
       <div className="chr-primary-table-wrap">
-        <div className="chr-section-title">Primary Data</div>
-        <Table 
-          columns={columns} 
-          data={list} 
-          renderActions={renderActions}
-          noDataMessage="No records found for the selected date range."
-        />
+        <div className="chr-section-title">Melting Log Sheet Report</div>
+        <div className="chr-table-scroll">
+          <table className="chr-primary-table">
+            <thead>
+              <tr>
+                {columns.map((c) => (
+                  <th key={c.key}>{c.label}</th>
+                ))}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((row) => (
+                <tr key={`primary-${row._id}`}>
+                  {columns.map((c) => (
+                    <td key={`${row._id}-${c.key}`}>{c.get(row)}</td>
+                  ))}
+                  <td>
+                    <div className="chr-actions">
+                      <EditButton onClick={() => requestEdit(row)} />
+                      <DeleteButton onClick={() => requestDelete(row)} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
@@ -442,31 +449,31 @@ const MeltingLogSheetReport = () => {
       </div>
 
       <div className="chr-checklist-container">
-        <div className="chr-checklist-title">Checklist</div>
+        <div className="chr-checklist-title">Show/Hide Sections</div>
         <div className="chr-checklist">
           <label className="chr-check">
             <input type="checkbox" checked={show.table0} onChange={() => toggle('table0')} />
-            <span>Table 0 (Power & Metal)</span>
+            <span>Power & Cumulative</span>
           </label>
           <label className="chr-check">
             <input type="checkbox" checked={show.table1} onChange={() => toggle('table1')} />
-            <span>Table 1</span>
+            <span>Charging (kgs)</span>
           </label>
           <label className="chr-check">
             <input type="checkbox" checked={show.table2} onChange={() => toggle('table2')} />
-            <span>Table 2</span>
+            <span>Ferro Additions</span>
           </label>
           <label className="chr-check">
             <input type="checkbox" checked={show.table3} onChange={() => toggle('table3')} />
-            <span>Table 3</span>
+            <span>Lab Coin & Timing</span>
           </label>
           <label className="chr-check">
             <input type="checkbox" checked={show.table4} onChange={() => toggle('table4')} />
-            <span>Table 4</span>
+            <span>Metal Tapping</span>
           </label>
           <label className="chr-check">
             <input type="checkbox" checked={show.table5} onChange={() => toggle('table5')} />
-            <span>Table 5</span>
+            <span>Electrical Readings</span>
           </label>
         </div>
       </div>
@@ -719,42 +726,16 @@ const MeltingLogSheetReport = () => {
               </div>
 
               <div className="microtensile-form-group">
-                <label>F1 kW</label>
+                <label>Furnace 1-2-3 kW</label>
                 <input type="text" name="furnace1Kw" value={editForm.furnace1Kw ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
-                <label>F1 A</label>
+                <label>Furnace 1-2-3 A (2000-3500)</label>
                 <input type="text" name="furnace1A" value={editForm.furnace1A ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
-                <label>F1 V</label>
+                <label>Furnace 1-2-3 V (500-1000)</label>
                 <input type="text" name="furnace1V" value={editForm.furnace1V ?? ''} onChange={handleEditChange} />
-              </div>
-
-              <div className="microtensile-form-group">
-                <label>F2 kW</label>
-                <input type="text" name="furnace2Kw" value={editForm.furnace2Kw ?? ''} onChange={handleEditChange} />
-              </div>
-              <div className="microtensile-form-group">
-                <label>F2 A</label>
-                <input type="text" name="furnace2A" value={editForm.furnace2A ?? ''} onChange={handleEditChange} />
-              </div>
-              <div className="microtensile-form-group">
-                <label>F2 V</label>
-                <input type="text" name="furnace2V" value={editForm.furnace2V ?? ''} onChange={handleEditChange} />
-              </div>
-
-              <div className="microtensile-form-group">
-                <label>F3 kW</label>
-                <input type="text" name="furnace3Kw" value={editForm.furnace3Kw ?? ''} onChange={handleEditChange} />
-              </div>
-              <div className="microtensile-form-group">
-                <label>F3 A</label>
-                <input type="text" name="furnace3A" value={editForm.furnace3A ?? ''} onChange={handleEditChange} />
-              </div>
-              <div className="microtensile-form-group">
-                <label>F3 V</label>
-                <input type="text" name="furnace3V" value={editForm.furnace3V ?? ''} onChange={handleEditChange} />
               </div>
 
               <div className="microtensile-form-group">
@@ -762,11 +743,11 @@ const MeltingLogSheetReport = () => {
                 <input type="text" name="furnace4Hz" value={editForm.furnace4Hz ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
-                <label>F4 GLD</label>
+                <label>F4 GLD (0.6000-95.00)</label>
                 <input type="text" name="furnace4Gld" value={editForm.furnace4Gld ?? ''} onChange={handleEditChange} />
               </div>
               <div className="microtensile-form-group">
-                <label>F4 kWhr</label>
+                <label>F4 kW/Hr</label>
                 <input type="text" name="furnace4KwHr" value={editForm.furnace4KwHr ?? ''} onChange={handleEditChange} />
               </div>
             </div>

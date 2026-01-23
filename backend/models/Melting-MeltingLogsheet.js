@@ -100,6 +100,12 @@ const MeltingLogsheetSchema = new mongoose.Schema({
             type : Number,
             default: 0
         },
+
+        gl : {
+            type : Number,
+            default: 0
+        },
+
         pigiron : {
             type : Number,
             default: 0

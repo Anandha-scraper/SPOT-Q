@@ -22,8 +22,7 @@ const CupolaHolderLogSchema = new mongoose.Schema({
         type: String, 
         required: false, 
         trim: true, 
-        sparse: true,
-        unique: true 
+        sparse: false
     },
 
     additions: {

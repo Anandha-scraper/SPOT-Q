@@ -690,10 +690,6 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 disabled={isPrimaryFieldLocked('cumulativeLiquidMetal')}
                 readOnly={isPrimaryFieldLocked('cumulativeLiquidMetal')}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
 
@@ -707,10 +703,6 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 disabled={isPrimaryFieldLocked('finalKWHr')}
                 readOnly={isPrimaryFieldLocked('finalKWHr')}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('finalKWHr') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('finalKWHr') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
 
@@ -724,10 +716,6 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 disabled={isPrimaryFieldLocked('initialKWHr')}
                 readOnly={isPrimaryFieldLocked('initialKWHr')}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('initialKWHr') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('initialKWHr') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
 
@@ -741,10 +729,6 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 disabled={isPrimaryFieldLocked('totalUnits')}
                 readOnly={isPrimaryFieldLocked('totalUnits')}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('totalUnits') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('totalUnits') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
 
@@ -758,10 +742,6 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 disabled={isPrimaryFieldLocked('cumulativeUnits')}
                 readOnly={isPrimaryFieldLocked('cumulativeUnits')}
-                style={{
-                  backgroundColor: isPrimaryFieldLocked('cumulativeUnits') ? '#f1f5f9' : '#ffffff',
-                  cursor: isPrimaryFieldLocked('cumulativeUnits') ? 'not-allowed' : 'text'
-                }}
             />
           </div>
         </div>
@@ -1115,7 +1095,7 @@ const MeltingLogSheet = () => {
           </div>
 
           <div className="melting-log-form-group">
-            <label>Lab Coin - Temp (°C)</label>
+            <label>Lab Coin - Temp (°C) (0-2000)</label>
             <input
               type="number"
               value={table3.labCoinTempC || ''}
@@ -1207,27 +1187,23 @@ const MeltingLogSheet = () => {
         </div>
 
         <div className="melting-log-form-group">
-          <label>Temp C - SG (1460 - 1550 °C)</label>
+          <label>Temp C - SG (0-2000°C)</label>
           <input
                 type="number"
                 value={table4.tempCSg || ''}
                 onChange={(e) => handleTableChange(4, 'tempCSg', e.target.value)}
-                placeholder="Enter temperature (1460 - 1550)"
-                min="1460"
-                max="1550"
+                placeholder="Enter temperature"
                 step="0.01"
           />
         </div>
 
         <div className="melting-log-form-group">
-          <label>Temp C - Grey (1440 - 1550 °C)</label>
+          <label>Temp C - Grey (0-2000°C)</label>
           <input
                 type="number"
                 value={table4.tempCGrey || ''}
                 onChange={(e) => handleTableChange(4, 'tempCGrey', e.target.value)}
-                placeholder="Enter temperature (1440 - 1550)"
-                min="1440"
-                max="1550"
+                placeholder="Enter temperature"
                 step="0.01"
           />
         </div>
@@ -1308,7 +1284,7 @@ const MeltingLogSheet = () => {
           </div>
 
           <div className="melting-log-form-group">
-            <label>A</label>
+            <label>A (2000-3500)</label>
             <input
               type="number"
               value={table5.furnace1A || ''}
@@ -1319,7 +1295,7 @@ const MeltingLogSheet = () => {
           </div>
 
           <div className="melting-log-form-group">
-            <label>V</label>
+            <label>V (500-1000)</label>
             <input
               type="number"
               value={table5.furnace1V || ''}
@@ -1345,7 +1321,7 @@ const MeltingLogSheet = () => {
           </div>
 
           <div className="melting-log-form-group">
-            <label>GLD</label>
+            <label>GLD (0.6-95)</label>
             <input
               type="number"
               value={table5.furnace4Gld || ''}

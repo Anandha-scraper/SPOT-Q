@@ -29,6 +29,10 @@ exports.getPrimaryByDate = async (req, res) => {
                 furnaceNo: document.furnaceNo,
                 panel: document.panel,
                 cumulativeLiquidMetal: document.cumulativeLiquidMetal,
+                finalKWHr: document.finalkwhr,
+                initialKWHr: document.initialkwhr,
+                totalUnits: document.totoalunits,
+                cumulativeUnits: document.cumulativeunits,
                 isLocked: document.isLocked
             }
         });
@@ -104,18 +108,15 @@ exports.filterByDateRange = async (req, res) => {
             time: doc.metalTapping?.time,
             tempCSg: doc.metalTapping?.tempCSg,
             tempCGrey: doc.metalTapping?.tempCGrey,
+            directFurnace: doc.directFurnace,
+            holderToFurnace: doc.holderToFurnace,
+            furnaceToHolder: doc.furnaceToHolder,
             disaNo: doc.disaNo,
             item: doc.item,
             // Table 5 - Electrical Readings
             furnace1Kw: doc.electricalReadings?.furnace1?.kw,
             furnace1A: doc.electricalReadings?.furnace1?.a,
             furnace1V: doc.electricalReadings?.furnace1?.v,
-            furnace2Kw: doc.electricalReadings?.furnace2?.kw,
-            furnace2A: doc.electricalReadings?.furnace2?.a,
-            furnace2V: doc.electricalReadings?.furnace2?.v,
-            furnace3Kw: doc.electricalReadings?.furnace3?.kw,
-            furnace3A: doc.electricalReadings?.furnace3?.a,
-            furnace3V: doc.electricalReadings?.furnace3?.v,
             furnace4Hz: doc.electricalReadings?.furnace4?.hz,
             furnace4Gld: doc.electricalReadings?.furnace4?.gld,
             furnace4KwHr: doc.electricalReadings?.furnace4?.kwhr
@@ -136,7 +137,17 @@ exports.createTableEntry = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Table number, data, and date are required.' });
         }
 
-        const document = await ensureDateDocument(MeltingLogsheet, primaryData.date);
+        // Normalize the date
+        const [year, month, day] = primaryData.date.split('-').map(Number);
+        const dateObj = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+        // Find existing document by date - should only have one per date
+        let document = await MeltingLogsheet.findOne({ date: dateObj });
+        
+        if (!document) {
+            // Create new document with date only if it doesn't exist
+            document = await MeltingLogsheet.create({ date: dateObj });
+        }
 
         // Map Table Numbers to Model Schema Paths
         const updateMap = {
@@ -150,6 +161,7 @@ exports.createTableEntry = async (req, res) => {
                     sqmssteel: data.sgMsSteel,
                     greymssteel: data.greyMsSteel,
                     returnSg: data.returnsSg,
+                    gl: data.gl,
                     pigiron: data.pigIron,
                     borings: data.borings,
                     finalbath: data.finalBath
@@ -172,14 +184,15 @@ exports.createTableEntry = async (req, res) => {
             },
             4: { // Metal Tapping
                 metalTapping: { time: data.time, tempCSg: data.tempCSg, tempCGrey: data.tempCGrey },
+                directFurnace: data.directFurnace,
+                holderToFurnace: data.holderToFurnace,
+                furnaceToHolder: data.furnaceToHolder,
                 disaNo: data.disaNo,
                 item: data.item
             },
             5: { // Electrical Readings
                 electricalReadings: {
                     furnace1: { kw: data.furnace1Kw, a: data.furnace1A, v: data.furnace1V },
-                    furnace2: { kw: data.furnace2Kw, a: data.furnace2A, v: data.furnace2V },
-                    furnace3: { kw: data.furnace3Kw, a: data.furnace3A, v: data.furnace3V },
                     furnace4: { hz: data.furnace4Hz, gld: data.furnace4Gld, kwhr: data.furnace4KwHr }
                 }
             }
@@ -208,8 +221,12 @@ exports.createOrUpdatePrimary = async (req, res) => {
         // Map primary fields (handling initial units and power metrics)
         document.shift = primaryData.shift || document.shift;
         document.furnaceNo = primaryData.furnaceNo || document.furnaceNo;
+        document.panel = primaryData.panel || document.panel;
+        document.cumulativeLiquidMetal = primaryData.cumulativeLiquidMetal !== undefined ? primaryData.cumulativeLiquidMetal : document.cumulativeLiquidMetal;
         document.initialkwhr = primaryData.initialKWHr || document.initialkwhr;
         document.finalkwhr = primaryData.finalKWHr || document.finalkwhr;
+        document.totoalunits = primaryData.totalUnits !== undefined ? primaryData.totalUnits : document.totoalunits;
+        document.cumulativeunits = primaryData.cumulativeUnits !== undefined ? primaryData.cumulativeUnits : document.cumulativeunits;
         document.isLocked = isLocked !== undefined ? isLocked : document.isLocked;
 
         await document.save();
@@ -319,16 +336,6 @@ exports.updateEntry = async (req, res) => {
         if (updateData.furnace1Kw !== undefined) document.electricalReadings.furnace1.kw = updateData.furnace1Kw;
         if (updateData.furnace1A !== undefined) document.electricalReadings.furnace1.a = updateData.furnace1A;
         if (updateData.furnace1V !== undefined) document.electricalReadings.furnace1.v = updateData.furnace1V;
-        
-        if (!document.electricalReadings.furnace2) document.electricalReadings.furnace2 = {};
-        if (updateData.furnace2Kw !== undefined) document.electricalReadings.furnace2.kw = updateData.furnace2Kw;
-        if (updateData.furnace2A !== undefined) document.electricalReadings.furnace2.a = updateData.furnace2A;
-        if (updateData.furnace2V !== undefined) document.electricalReadings.furnace2.v = updateData.furnace2V;
-        
-        if (!document.electricalReadings.furnace3) document.electricalReadings.furnace3 = {};
-        if (updateData.furnace3Kw !== undefined) document.electricalReadings.furnace3.kw = updateData.furnace3Kw;
-        if (updateData.furnace3A !== undefined) document.electricalReadings.furnace3.a = updateData.furnace3A;
-        if (updateData.furnace3V !== undefined) document.electricalReadings.furnace3.v = updateData.furnace3V;
         
         if (!document.electricalReadings.furnace4) document.electricalReadings.furnace4 = {};
         if (updateData.furnace4Hz !== undefined) document.electricalReadings.furnace4.hz = updateData.furnace4Hz;

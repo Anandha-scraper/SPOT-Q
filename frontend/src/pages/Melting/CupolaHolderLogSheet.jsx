@@ -73,11 +73,11 @@ const CupolaHolderLogSheet = () => {
     
     try {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
-      const response = await fetch(`/v1/cupola-holder-logs?startDate=${dateStr}&endDate=${dateStr}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/cupola-logs/filter?startDate=${dateStr}&endDate=${dateStr}`, {
         method: 'GET',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const data = await response.json();
@@ -196,12 +196,10 @@ const CupolaHolderLogSheet = () => {
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
       const encodedShift = encodeURIComponent(shift);
       const encodedHolder = encodeURIComponent(holderNumber);
-      const resp = await fetch(`/v1/cupola-holder-logs/primary/${dateStr}/${encodedShift}/${encodedHolder}`, {
+      const resp = await fetch(`http://localhost:5000/api/v1/cupola-logs/primary/${dateStr}/${encodedShift}/${encodedHolder}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
       const response = await resp.json();
       
@@ -285,20 +283,23 @@ const CupolaHolderLogSheet = () => {
     // Save primary data to database
     setPrimaryLoading(true);
     try {
-      const resp = await fetch('/v1/cupola-holder-logs/primary', {
+      const payload = {
+        primaryData: {
+          date: primaryData.date,
+          shift: primaryData.shift,
+          holderNumber: primaryData.holderNumber,
+          heatNo: primaryData.heatNo
+        }
+      };
+      console.log('Submitting primary data:', payload);
+      
+      const resp = await fetch('http://localhost:5000/api/v1/cupola-logs/primary', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          primaryData: {
-            date: primaryData.date,
-            shift: primaryData.shift,
-            holderNumber: primaryData.holderNumber,
-            heatNo: primaryData.heatNo
-          }
-        })
+        body: JSON.stringify(payload)
       });
       const response = await resp.json();
       
@@ -331,11 +332,12 @@ const CupolaHolderLogSheet = () => {
         
         alert('Primary data saved successfully.');
       } else {
-        alert('Error: ' + response.message);
+        alert('Error: ' + (response.message || 'Unknown error'));
+        console.error('Backend error response:', JSON.stringify(response, null, 2));
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
-      alert('Failed to save primary data. Please try again.');
+      alert('Failed to save primary data: ' + error.message);
     } finally {
       setPrimaryLoading(false);
     }
@@ -362,11 +364,11 @@ const CupolaHolderLogSheet = () => {
       
       // Send all data (primary + other fields) combined to backend
       // Backend will find existing document by date+shift+holderNumber and update it, or create new one
-      const response = await fetch('/v1/cupola-holder-logs', {
+      const response = await fetch('http://localhost:5000/api/v1/cupola-logs', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(allData)
       });

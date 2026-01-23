@@ -39,7 +39,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  background: linear-gradient(135deg, #5B9AA9 0%, #4a7d8a 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -53,7 +53,7 @@
 .process-entries-back-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(100, 116, 139, 0.4);
-  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  background: linear-gradient(135deg, #4a7d8a 0%, #3a6570 100%);
 }
 
 .process-entries-back-btn svg {
@@ -135,6 +135,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: #475569;
+  text-align: center !important;
 }
 
 .process-edit-field input,

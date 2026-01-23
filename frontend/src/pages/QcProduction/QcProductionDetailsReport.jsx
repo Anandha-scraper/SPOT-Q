@@ -6,6 +6,7 @@ import Table from '../../Components/Table';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 const QcProductionDetailsReport = () => {
+  const [currentDate, setCurrentDate] = useState('');
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [items, setItems] = useState([]);
@@ -26,12 +27,30 @@ const QcProductionDetailsReport = () => {
 
     try {
       setLoading(true);
+      
+      // Get today's date in local timezone (YYYY-MM-DD format)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      setCurrentDate(todayStr);
+      
       const response = await fetch('http://localhost:5000/api/v1/qc-reports', { credentials: 'include' });
       const data = await response.json();
 
       let serverItems = [];
       if (data.success) {
-        serverItems = data.data || [];
+        const allItems = data.data || [];
+        setItems(allItems);
+        
+        // Filter to show today's entries by default
+        const todaysEntries = allItems.filter(item => {
+          if (!item.date) return false;
+          const itemDate = new Date(item.date).toISOString().split('T')[0];
+          return itemDate === todayStr;
+        });
+        setFilteredItems(todaysEntries);
       }
 
       // Merge with locally stored QC entries (frontend-only fallback)
@@ -96,7 +115,7 @@ const QcProductionDetailsReport = () => {
   const handleUpdate = async () => {
     try {
       setEditLoading(true);
-      const response = await fetch(`http://localhost:5000/api/v1/qc-production-details/${editingItem._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(editFormData) });
+      const response = await fetch(`http://localhost:5000/api/v1/qc-reports/${editingItem._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(editFormData) });
       const data = await response.json();
       
       if (data.success) {
@@ -114,7 +133,7 @@ const QcProductionDetailsReport = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/v1/qc-production-details/${id}`, { method: 'DELETE', credentials: 'include' });
+        const response = await fetch(`http://localhost:5000/api/v1/qc-reports/${id}`, { method: 'DELETE', credentials: 'include' });
         const data = await response.json();
         
         if (data.success) {
@@ -157,7 +176,33 @@ const QcProductionDetailsReport = () => {
   const handleClearFilter = () => {
     setStartDate(null);
     setEndDate(null);
-    setFilteredItems(items);
+    
+    // Show today's entries again when clearing
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    
+    const todaysEntries = items.filter(item => {
+      if (!item.date) return false;
+      const itemDate = new Date(item.date).toISOString().split('T')[0];
+      return itemDate === todayStr;
+    });
+    setFilteredItems(todaysEntries);
+  };
+
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -168,6 +213,9 @@ const QcProductionDetailsReport = () => {
             <BookOpenCheck size={28} style={{ color: '#5B9AA9' }} />
             QC Production Details - Report
           </h2>
+        </div>
+        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
+          {loading ? 'Loading...' : `DATE : ${formatDateDisplay(currentDate)}`}
         </div>
       </div>
 
@@ -208,9 +256,9 @@ const QcProductionDetailsReport = () => {
               label: 'Date', 
               width: '120px',
               align: 'center',
-              render: (item) => item.date ? new Date(item.date).toLocaleDateString() : '-'
+              render: (item) => formatDateDisplay(item.date)
             },
-            { key: 'partName', label: 'Part Name', width: '180px' },
+            { key: 'partName', label: 'Part Name', width: '180px',align : "center"  },
             { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', align: 'center' },
             { 
               key: 'cPercent', 
@@ -303,6 +351,7 @@ const QcProductionDetailsReport = () => {
           data={filteredItems}
           minWidth={2000}
           defaultAlign="left"
+          groupByColumn="date"
           renderActions={(item) => (
             <>
               <EditButton onClick={() => handleEdit(item)} />
@@ -325,10 +374,11 @@ const QcProductionDetailsReport = () => {
             </div>
             
             <div className="modal-body">
-              <div className="qc-production-form-grid">
-                <div className="qc-production-form-group">
+              <div className="qc-form-grid">
+                <div className="qc-form-group">
                   <label>Date *</label>
-                  <DatePicker
+                  <input
+                    type="date"
                     name="date"
                     value={editFormData.date}
                     onChange={handleEditChange}
@@ -338,7 +388,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Part Name *</label>
                   <input
                     type="text"
@@ -349,7 +399,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>No. Of Moulds *</label>
                   <input
                     type="number"
@@ -360,7 +410,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>C % *</label>
                   <input
                     type="number"
@@ -372,7 +422,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Si % *</label>
                   <input
                     type="number"
@@ -384,7 +434,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Mn % *</label>
                   <input
                     type="number"
@@ -396,7 +446,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>P % *</label>
                   <input
                     type="number"
@@ -408,7 +458,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>S % *</label>
                   <input
                     type="number"
@@ -420,7 +470,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Mg % *</label>
                   <input
                     type="number"
@@ -432,7 +482,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Cu % *</label>
                   <input
                     type="number"
@@ -444,7 +494,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Cr % *</label>
                   <input
                     type="number"
@@ -456,7 +506,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Nodularity *</label>
                   <input
                     type="text"
@@ -467,7 +517,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Graphite Type *</label>
                   <input
                     type="text"
@@ -478,7 +528,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Pearlite Ferrite *</label>
                   <input
                     type="text"
@@ -489,7 +539,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>Hardness BHN *</label>
                   <input
                     type="number"
@@ -500,7 +550,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>TS *</label>
                   <input
                     type="number"
@@ -512,7 +562,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>YS *</label>
                   <input
                     type="number"
@@ -524,7 +574,7 @@ const QcProductionDetailsReport = () => {
                   />
                 </div>
 
-                <div className="qc-production-form-group">
+                <div className="qc-form-group">
                   <label>EL *</label>
                   <input
                     type="number"

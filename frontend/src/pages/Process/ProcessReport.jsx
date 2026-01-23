@@ -42,7 +42,15 @@ const ProcessReport = () => {
                  item.pouringTemperature;
         });
         setItems(entriesWithData);
-        setFilteredItems(entriesWithData);
+        
+        // Show today's entries by default (without setting startDate state)
+        const today = new Date().toISOString().split('T')[0];
+        const todaysEntries = entriesWithData.filter(item => {
+          if (!item.date) return false;
+          const itemDate = new Date(item.date).toISOString().split('T')[0];
+          return itemDate === today;
+        });
+        setFilteredItems(todaysEntries);
       }
     } catch (error) {
       console.error('Error fetching process records:', error);
@@ -51,25 +59,25 @@ const ProcessReport = () => {
     }
   };
 
-  const handleFilter = () => {
-    if (!startDate) {
-      setFilteredItems(items);
+  const filterItemsByDate = (itemsToFilter, start, end) => {
+    if (!start) {
+      setFilteredItems(itemsToFilter);
       return;
     }
 
-    const filtered = items.filter(item => {
+    const filtered = itemsToFilter.filter(item => {
       if (!item.date) return false;
       const itemDate = new Date(item.date);
       itemDate.setHours(0, 0, 0, 0);
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+      const startD = new Date(start);
+      startD.setHours(0, 0, 0, 0);
 
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        return itemDate >= start && itemDate <= end;
+      if (end) {
+        const endD = new Date(end);
+        endD.setHours(23, 59, 59, 999);
+        return itemDate >= startD && itemDate <= endD;
       } else {
-        return itemDate.getTime() === start.getTime();
+        return itemDate.getTime() === startD.getTime();
       }
     });
 
@@ -77,14 +85,29 @@ const ProcessReport = () => {
     setCurrentPage(1);
   };
 
+  const handleFilter = () => {
+    // Validate that end date is not before start date
+    if (endDate && startDate && new Date(endDate) < new Date(startDate)) {
+      alert('End date cannot be before start date');
+      return;
+    }
+    filterItemsByDate(items, startDate, endDate);
+  };
+
   const handleClearFilter = () => {
     setStartDate(null);
     setEndDate(null);
-    setFilteredItems(items);
+    
+    // Show today's entries again when clearing
+    const today = new Date().toISOString().split('T')[0];
+    const todaysEntries = items.filter(item => {
+      if (!item.date) return false;
+      const itemDate = new Date(item.date).toISOString().split('T')[0];
+      return itemDate === today;
+    });
+    setFilteredItems(todaysEntries);
     setCurrentPage(1);
   };
-
-  // Group items by date AND DISA (each DISA gets its own card)
   const groupedByDateAndDisa = filteredItems.reduce((acc, item) => {
     const date = item.date || 'No Date';
     const disa = item.disa || 'Unknown DISA';
@@ -176,6 +199,7 @@ const ProcessReport = () => {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Select end date"
+            min={startDate}
           />
         </div>
         <FilterButton onClick={handleFilter} disabled={!startDate}>

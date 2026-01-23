@@ -42,7 +42,25 @@ const QcProductionDetails = () => {
   });
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [validationErrors, setValidationErrors] = useState({});
+
+  // VALIDATION STATES (null = neutral/default, true = green/valid, false = red/invalid)
+  const [partNameValid, setPartNameValid] = useState(null);
+  const [noOfMouldsValid, setNoOfMouldsValid] = useState(null);
+  const [cPercentValid, setCPercentValid] = useState(null);
+  const [siPercentValid, setSiPercentValid] = useState(null);
+  const [mnPercentValid, setMnPercentValid] = useState(null);
+  const [pPercentValid, setPPercentValid] = useState(null);
+  const [sPercentValid, setSPercentValid] = useState(null);
+  const [mgPercentValid, setMgPercentValid] = useState(null);
+  const [cuPercentValid, setCuPercentValid] = useState(null);
+  const [crPercentValid, setCrPercentValid] = useState(null);
+  const [nodularityValid, setNodularityValid] = useState(null);
+  const [graphiteTypeValid, setGraphiteTypeValid] = useState(null);
+  const [pearliteFertiteValid, setPearliteFertiteValid] = useState(null);
+  const [hardnessBHNValid, setHardnessBHNValid] = useState(null);
+  const [tsValid, setTsValid] = useState(null);
+  const [ysValid, setYsValid] = useState(null);
+  const [elValid, setElValid] = useState(null);
 
   // Refs for navigation
   const submitButtonRef = useRef(null);
@@ -53,132 +71,141 @@ const QcProductionDetails = () => {
     // Prevent programmatic/user changes to date
     if (name === 'date') return;
 
-    // List of fields that require range format with decimals (e.g., 2.34-3.42)
-    const rangeFieldsWithDecimals = ['cPercent', 'siPercent', 'mnPercent', 'pPercent', 'sPercent', 'mgPercent', 'cuPercent', 'crPercent'];
-    
-    // List of fields that require range format with integers only (e.g., 23-45)
-    const rangeFieldsIntegersOnly = ['graphiteType', 'hardnessBHN'];
-    
-    // List of fields that require numbers only
-    const numberOnlyFields = ['noOfMoulds', 'nodularity'];
-
-    // List of fields that require a single decimal number (e.g., 254.23)
-    const decimalNumberOnlyFields = ['ts', 'ys', 'el'];
-    
-    // For range fields with decimals, validate and only allow range format
-    if (rangeFieldsWithDecimals.includes(name)) {
-      // First, remove all non-numeric, non-dot, non-hyphen characters
-      let filteredValue = value.replace(/[^0-9.\-]/g, '');
-      
-      // Remove multiple consecutive hyphens and keep only one
-      filteredValue = filteredValue.replace(/\-+/g, '-');
-      
-      // Ensure only one hyphen - keep only first two parts
-      let parts = filteredValue.split('-');
-      if (parts.length > 2) {
-        // More than 2 parts means more than 1 hyphen, reconstruct with only first two parts
-        parts = [parts[0], parts[1]];
+    // Validate Part Name
+    if (name === 'partName') {
+      if (value.trim() === '') {
+        setPartNameValid(null);
+      } else {
+        setPartNameValid(value.trim().length > 0);
       }
-      
-      // For each part, ensure only one dot
-      parts = parts.map(part => {
-        const dotParts = part.split('.');
-        if (dotParts.length > 2) {
-          // Multiple dots found, keep only first two parts (number.decimal)
-          return dotParts[0] + '.' + dotParts[1];
-        }
-        return part;
-      });
-      
-      filteredValue = parts.join('-');
-      
-      setFormData(prev => ({
-        ...prev,
-        [name]: filteredValue
-      }));
-    } else if (name === 'pearliteFerrite') {
-      // For pearliteFerrite, allow only NN-NNP format (digits, single hyphen, optional trailing P)
-      let upper = value.toUpperCase();
-      // Keep only digits, hyphen, and P
-      upper = upper.replace(/[^0-9P\-]/g, '');
-
-      // Extract and temporarily remove all P characters
-      const hasP = upper.includes('P');
-      let withoutP = upper.replace(/P/g, '');
-
-      // Remove multiple consecutive hyphens and keep only one
-      withoutP = withoutP.replace(/\-+/g, '-');
-
-      // Ensure only one hyphen - keep only first two parts
-      const partsPF = withoutP.split('-');
-      if (partsPF.length > 2) {
-        withoutP = partsPF[0] + '-' + partsPF[1];
-      }
-
-      // Reattach a single P at the end if user typed it anywhere
-      let finalValue = withoutP;
-      if (hasP && withoutP.length > 0) {
-        finalValue = withoutP + 'P';
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        [name]: finalValue
-      }));
-    } else if (rangeFieldsIntegersOnly.includes(name)) {
-      // For range fields with integers only (no decimals), remove non-numeric and non-hyphen characters
-      let filteredValue = value.replace(/[^0-9\-]/g, '');
-      
-      // Remove multiple consecutive hyphens and keep only one
-      filteredValue = filteredValue.replace(/\-+/g, '-');
-      
-      // Ensure only one hyphen - keep only first two parts
-      const parts = filteredValue.split('-');
-      if (parts.length > 2) {
-        // More than 2 parts means more than 1 hyphen, reconstruct with only first two parts
-        filteredValue = parts[0] + '-' + parts[1];
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        [name]: filteredValue
-      }));
-    } else if (numberOnlyFields.includes(name)) {
-      // For number-only fields, remove all non-numeric characters
-      const filteredValue = value.replace(/[^0-9]/g, '');
-      setFormData(prev => ({
-        ...prev,
-        [name]: filteredValue
-      }));
-    } else if (decimalNumberOnlyFields.includes(name)) {
-      // For decimal number-only fields, allow digits and a single dot
-      let filteredValue = value.replace(/[^0-9.]/g, '');
-
-      const parts = filteredValue.split('.');
-      if (parts.length > 2) {
-        // More than one dot: keep first dot and join the rest without dots
-        filteredValue = parts[0] + '.' + parts.slice(1).join('');
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        [name]: filteredValue
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
     }
 
-    // Clear validation error when user starts typing
-    if (validationErrors[name]) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
+    // Validate No. of Moulds (number >= 1)
+    if (name === 'noOfMoulds') {
+      if (value.trim() === '') {
+        setNoOfMouldsValid(null);
+      } else {
+        setNoOfMouldsValid(!isNaN(value) && parseFloat(value) >= 1);
+      }
     }
+
+    // Validate percentage fields (numbers >= 0)
+    if (name === 'cPercent') {
+      if (value.trim() === '') {
+        setCPercentValid(null);
+      } else {
+        setCPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'siPercent') {
+      if (value.trim() === '') {
+        setSiPercentValid(null);
+      } else {
+        setSiPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'mnPercent') {
+      if (value.trim() === '') {
+        setMnPercentValid(null);
+      } else {
+        setMnPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'pPercent') {
+      if (value.trim() === '') {
+        setPPercentValid(null);
+      } else {
+        setPPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'sPercent') {
+      if (value.trim() === '') {
+        setSPercentValid(null);
+      } else {
+        setSPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'mgPercent') {
+      if (value.trim() === '') {
+        setMgPercentValid(null);
+      } else {
+        setMgPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'cuPercent') {
+      if (value.trim() === '') {
+        setCuPercentValid(null);
+      } else {
+        setCuPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+    if (name === 'crPercent') {
+      if (value.trim() === '') {
+        setCrPercentValid(null);
+      } else {
+        setCrPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+      }
+    }
+
+    // Validate text fields
+    if (name === 'nodularity') {
+      if (value.trim() === '') {
+        setNodularityValid(null);
+      } else {
+        setNodularityValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'graphiteType') {
+      if (value.trim() === '') {
+        setGraphiteTypeValid(null);
+      } else {
+        setGraphiteTypeValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'pearliteFerrite') {
+      if (value.trim() === '') {
+        setPearliteFertiteValid(null);
+      } else {
+        setPearliteFertiteValid(value.trim().length > 0);
+      }
+    }
+
+    // Validate Hardness BHN (number > 0)
+    if (name === 'hardnessBHN') {
+      if (value.trim() === '') {
+        setHardnessBHNValid(null);
+      } else {
+        setHardnessBHNValid(!isNaN(value) && parseFloat(value) > 0);
+      }
+    }
+
+    // Validate TS, YS, EL (text fields)
+    if (name === 'ts') {
+      if (value.trim() === '') {
+        setTsValid(null);
+      } else {
+        setTsValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'ys') {
+      if (value.trim() === '') {
+        setYsValid(null);
+      } else {
+        setYsValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'el') {
+      if (value.trim() === '') {
+        setElValid(null);
+      } else {
+        setElValid(value.trim().length > 0);
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleBlur = (e) => {
@@ -221,24 +248,81 @@ const QcProductionDetails = () => {
   };
 
   const handleSubmit = async () => {
-    const required = ['partName', 'noOfMoulds', 'cPercent', 'siPercent', 'mnPercent',
-                     'pPercent', 'sPercent', 'mgPercent', 'cuPercent', 'crPercent',
-                     'nodularity', 'graphiteType', 'pearliteFerrite', 'hardnessBHN', 'ts', 'ys', 'el'];
-    const missing = required.filter(field => !formData[field]);
+    // Check all required fields and set validation states
+    let hasErrors = false;
 
-    // Set validation errors for missing fields
-    const errors = {};
-    missing.forEach(field => {
-      errors[field] = true;
-    });
-    setValidationErrors(errors);
-
-    if (missing.length > 0) {
-      return;
+    if (!formData.partName || formData.partName.trim() === '') {
+      setPartNameValid(false);
+      hasErrors = true;
+    }
+    if (!formData.noOfMoulds || isNaN(formData.noOfMoulds) || parseFloat(formData.noOfMoulds) < 1) {
+      setNoOfMouldsValid(false);
+      hasErrors = true;
+    }
+    if (!formData.cPercent || isNaN(formData.cPercent) || parseFloat(formData.cPercent) < 0) {
+      setCPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.siPercent || isNaN(formData.siPercent) || parseFloat(formData.siPercent) < 0) {
+      setSiPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.mnPercent || isNaN(formData.mnPercent) || parseFloat(formData.mnPercent) < 0) {
+      setMnPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.pPercent || isNaN(formData.pPercent) || parseFloat(formData.pPercent) < 0) {
+      setPPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.sPercent || isNaN(formData.sPercent) || parseFloat(formData.sPercent) < 0) {
+      setSPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.mgPercent || isNaN(formData.mgPercent) || parseFloat(formData.mgPercent) < 0) {
+      setMgPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.cuPercent || isNaN(formData.cuPercent) || parseFloat(formData.cuPercent) < 0) {
+      setCuPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.crPercent || isNaN(formData.crPercent) || parseFloat(formData.crPercent) < 0) {
+      setCrPercentValid(false);
+      hasErrors = true;
+    }
+    if (!formData.nodularity || formData.nodularity.trim() === '') {
+      setNodularityValid(false);
+      hasErrors = true;
+    }
+    if (!formData.graphiteType || formData.graphiteType.trim() === '') {
+      setGraphiteTypeValid(false);
+      hasErrors = true;
+    }
+    if (!formData.pearliteFerrite || formData.pearliteFerrite.trim() === '') {
+      setPearliteFertiteValid(false);
+      hasErrors = true;
+    }
+    if (!formData.hardnessBHN || isNaN(formData.hardnessBHN) || parseFloat(formData.hardnessBHN) <= 0) {
+      setHardnessBHNValid(false);
+      hasErrors = true;
+    }
+    if (!formData.ts || formData.ts.trim() === '') {
+      setTsValid(false);
+      hasErrors = true;
+    }
+    if (!formData.ys || formData.ys.trim() === '') {
+      setYsValid(false);
+      hasErrors = true;
+    }
+    if (!formData.el || formData.el.trim() === '') {
+      setElValid(false);
+      hasErrors = true;
     }
 
-    // Clear validation errors if all fields are valid
-    setValidationErrors({});
+    if (hasErrors) {
+      return;
+    }
 
     // Helper: save entry locally if backend fails
     const saveLocalEntry = () => {
@@ -262,9 +346,38 @@ const QcProductionDetails = () => {
       const response = await fetch('http://localhost:5000/api/v1/qc-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(formData) });
       const data = await response.json();
 
-      if (!data.success) {
-        console.warn('QC backend did not return success, storing entry locally.');
-        saveLocalEntry();
+      if (data.success) {
+        alert('QC Production report created successfully!');
+        // Reset form and validation states
+        setFormData({
+          date: getTodayDate(), partName: '', noOfMoulds: '', cPercent: '', siPercent: '', mnPercent: '',
+          pPercent: '', sPercent: '', mgPercent: '', cuPercent: '', crPercent: '',
+          nodularity: '', graphiteType: '', pearliteFerrite: '', hardnessBHN: '', ts: '', ys: '', el: ''
+        });
+        setPartNameValid(null);
+        setNoOfMouldsValid(null);
+        setCPercentValid(null);
+        setSiPercentValid(null);
+        setMnPercentValid(null);
+        setPPercentValid(null);
+        setSPercentValid(null);
+        setMgPercentValid(null);
+        setCuPercentValid(null);
+        setCrPercentValid(null);
+        setNodularityValid(null);
+        setGraphiteTypeValid(null);
+        setPearliteFertiteValid(null);
+        setHardnessBHNValid(null);
+        setTsValid(null);
+        setYsValid(null);
+        setElValid(null);
+        
+        // Focus first input after successful submission
+        setTimeout(() => {
+          if (firstInputRef.current && firstInputRef.current.focus) {
+            firstInputRef.current.focus();
+          }
+        }, 100);
       }
 
       setFormData({
@@ -293,7 +406,31 @@ const QcProductionDetails = () => {
       pPercent: '', sPercent: '', mgPercent: '', cuPercent: '', crPercent: '',
       nodularity: '', graphiteType: '', pearliteFerrite: '', hardnessBHN: '', ts: '', ys: '', el: ''
     });
-    setValidationErrors({});
+    // Reset all validation states
+    setPartNameValid(null);
+    setNoOfMouldsValid(null);
+    setCPercentValid(null);
+    setSiPercentValid(null);
+    setMnPercentValid(null);
+    setPPercentValid(null);
+    setSPercentValid(null);
+    setMgPercentValid(null);
+    setCuPercentValid(null);
+    setCrPercentValid(null);
+    setNodularityValid(null);
+    setGraphiteTypeValid(null);
+    setPearliteFertiteValid(null);
+    setHardnessBHNValid(null);
+    setTsValid(null);
+    setYsValid(null);
+    setElValid(null);
+  };
+
+  // Helper to get input style class based on validation state
+  const getInputStyle = (validState) => {
+    if (validState === true) return 'valid-input';
+    if (validState === false) return 'invalid-input';
+    return '';
   };
 
   return (
@@ -322,7 +459,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: Brake Disc"
-                className={validationErrors.partName ? 'invalid-input' : ''}
+                className={getInputStyle(partNameValid)}
               />
             </div>
 
@@ -336,7 +473,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 5"
-                className={validationErrors.noOfMoulds ? 'invalid-input' : ''}
+                className={getInputStyle(noOfMouldsValid)}
               />
             </div>
 

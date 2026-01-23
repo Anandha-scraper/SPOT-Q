@@ -8,13 +8,16 @@ import Table from '../../Components/Table';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
-  // Helper: display date in readable format (e.g., "22 Jan 2026")
-  const formatDateDisplay = (iso) => {
-    if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
-    const [y, m, d] = iso.split('-');
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = monthNames[parseInt(m) - 1];
-    return `${parseInt(d)} ${month} ${y}`;
+  // Helper: display date in readable format (e.g., "23/01/2026")
+  const formatDateDisplay = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const isoDate = typeof dateStr === 'string' ? dateStr.split('T')[0] : dateStr;
+      const [y, m, d] = isoDate.split('-');
+      return `${d}/${m}/${y}`;
+    } catch {
+      return dateStr;
+    }
   };
 
   const [currentDate, setCurrentDate] = useState('');
@@ -593,24 +596,32 @@ const TensileReport = () => {
               label: 'Date of Inspection', 
               width: '6%', 
               bold: true,
-              render: (item) => formatDateDisplay(item.date || currentDate)
+              align: 'center',
+              render: (item) => {
+                const dateToUse = item.date || currentDate;
+                if (!dateToUse) return '-';
+                const dateStr = typeof dateToUse === 'string' ? dateToUse : dateToUse.toString();
+                const isoDate = dateStr.split('T')[0];
+                return formatDateDisplay(isoDate);
+              }
             },
-            { key: 'item', label: 'Item', width: '4%' },
-            { key: 'dateCode', label: 'Date Code', width: '4%' },
-            { key: 'heatCode', label: 'Heat Code', width: '4%' },
-            { key: 'dia', label: 'Dia (mm)', width: '3%' },
-            { key: 'lo', label: 'Lo (mm)', width: '3%' },
-            { key: 'li', label: 'Li (mm)', width: '3%' },
-            { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '5%' },
-            { key: 'yieldLoad', label: 'Yield Load (kN)', width: '4%' },
-            { key: 'uts', label: 'UTS (N/mm²)', width: '3%' },
-            { key: 'ys', label: 'YS (N/mm²)', width: '3%' },
-            { key: 'elongation', label: 'Elongation (%)', width: '5%' },
-            { key: 'testedBy', label: 'Tested By', width: '4%' },
+            { key: 'item', label: 'Item', width: '4%', align: 'center' },
+            { key: 'dateCode', label: 'Date Code', width: '4%', align: 'center' },
+            { key: 'heatCode', label: 'Heat Code', width: '4%', align: 'center' },
+            { key: 'dia', label: 'Dia (mm)', width: '3%', align: 'center' },
+            { key: 'lo', label: 'Lo (mm)', width: '3%', align: 'center' },
+            { key: 'li', label: 'Li (mm)', width: '3%', align: 'center' },
+            { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '5%', align: 'center' },
+            { key: 'yieldLoad', label: 'Yield Load (kN)', width: '4%', align: 'center' },
+            { key: 'uts', label: 'UTS (N/mm²)', width: '3%', align: 'center' },
+            { key: 'ys', label: 'YS (N/mm²)', width: '3%', align: 'center' },
+            { key: 'elongation', label: 'Elongation (%)', width: '5%', align: 'center' },
+            { key: 'testedBy', label: 'Tested By', width: '4%', align: 'center' },
             { 
               key: 'remarks', 
               label: 'Remarks', 
               width: '4%',
+              align: 'center',
               render: (item) => {
                 const value = typeof item.remarks === 'string' ? item.remarks : '';
                 if (!value) return '-';
@@ -629,7 +640,7 @@ const TensileReport = () => {
             }
           ]}
           data={entries}
-          minWidth={2200} // Table width
+          groupByColumn="date"
           renderActions={(item) => (
             <>
               <EditButton onClick={() => handleEdit(item)} />

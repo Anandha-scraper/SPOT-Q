@@ -363,7 +363,7 @@ const ProcessReportEntries = () => {
 
       <Table
         columns={[
-          { key: 'partName', label: 'Part Name', width: '150px' },
+          { key: 'partName', label: 'Part Name', width: '150px',align:'center' },
           { key: 'datecode', label: 'Date Code', width: '100px', align: 'center' },
           { key: 'heatcode', label: 'Heat Code', width: '100px', align: 'center' },
           { key: 'quantityOfMoulds', label: 'Qty. Of Moulds', width: '120px', align: 'center' },
@@ -396,7 +396,7 @@ const ProcessReportEntries = () => {
           { key: 'recOfMg', label: 'Rec Of Mg', width: '100px', align: 'center' },
           { key: 'streamInoculant', label: 'Stream Inoculant', width: '140px', align: 'center' },
           { key: 'pTime', label: 'P Time', width: '80px', align: 'center' },
-          { key: 'remarks', label: 'Remarks', width: '200px' }
+          { key: 'remarks', label: 'Remarks', width: '200px',align: 'center' }
         ]}
         data={currentEntries}
         minWidth={3800} //Table width

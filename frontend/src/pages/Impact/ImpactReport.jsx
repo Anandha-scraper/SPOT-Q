@@ -12,7 +12,8 @@ const ImpactReport = () => {
   const [loading, setLoading] = useState(false);
 
   // Filter states
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [isFiltered, setIsFiltered] = useState(false);
 
   // Edit states
@@ -34,17 +35,13 @@ const ImpactReport = () => {
   const fetchCurrentDateAndEntries = async () => {
     setLoading(true);
     try {
-      // Get server date
-      let todayStr;
-      try {
-        const dateResponse = await fetch('http://localhost:5000/api/v1/impact-tests/current-date', {
-          credentials: 'include'
-        });
-        const dateData = await dateResponse.json();
-        todayStr = dateData.success && dateData.date ? dateData.date : new Date().toISOString().split('T')[0];
-      } catch {
-        todayStr = new Date().toISOString().split('T')[0];
-      }
+      // Get today's date in local timezone (YYYY-MM-DD format)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      
       setCurrentDate(todayStr);
 
       // Fetch entries for current date
@@ -59,7 +56,11 @@ const ImpactReport = () => {
       }
     } catch (error) {
       console.error('Error fetching entries:', error);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
       setCurrentDate(todayStr);
     } finally {
       setLoading(false);
@@ -194,22 +195,59 @@ const ImpactReport = () => {
   };
 
   const handleFilter = async () => {
-    if (!selectedDate) {
-      alert('Please select a date');
+    if (!startDate) {
+      alert('Please select a start date');
+      return;
+    }
+
+    // Validate that end date is not before start date
+    if (endDate && new Date(endDate) < new Date(startDate)) {
+      alert('End date cannot be before start date');
       return;
     }
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${selectedDate}`, {
+      const response = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${startDate}`, {
         credentials: 'include'
       });
       const data = await response.json();
 
       if (data.success) {
-        const list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: selectedDate })) : [];
+        let list = Array.isArray(data.data) ? data.data.map(item => ({ ...item, date: startDate })) : [];
+        
+        // If end date is provided and different from start date, fetch additional dates
+        if (endDate && endDate !== startDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const allEntries = [...list];
+          
+          // Fetch entries for each date in range
+          const currentDate = new Date(start);
+          currentDate.setDate(currentDate.getDate() + 1); // Start from day after start date
+          
+          while (currentDate <= end) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            try {
+              const dateResponse = await fetch(`http://localhost:5000/api/v1/impact-tests/by-date?date=${dateStr}`, {
+                credentials: 'include'
+              });
+              const dateData = await dateResponse.json();
+              if (dateData.success && Array.isArray(dateData.data)) {
+                const dateEntries = dateData.data.map(item => ({ ...item, date: dateStr }));
+                allEntries.push(...dateEntries);
+              }
+            } catch (err) {
+              console.error(`Error fetching entries for ${dateStr}:`, err);
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          list = allEntries;
+        }
+        
         setEntries(list);
-        setCurrentDate(selectedDate);
+        setCurrentDate(startDate);
         setIsFiltered(true);
       }
     } catch (error) {
@@ -221,7 +259,8 @@ const ImpactReport = () => {
   };
 
   const handleClearFilter = () => {
-    setSelectedDate(null);
+    setStartDate(null);
+    setEndDate(null);
     setIsFiltered(false);
     fetchCurrentDateAndEntries();
   };
@@ -255,17 +294,25 @@ const ImpactReport = () => {
 
       <div className="impact-filter-container">
         <div className="impact-filter-group">
-          <label>Date</label>
+          <label>Start Date</label>
           <CustomDatePicker
-            value={selectedDate || ''}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            placeholder="Select date"
+            value={startDate || ''}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder="Select start date"
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!selectedDate}>
-          Show
+        <div className="impact-filter-group">
+          <label>End Date</label>
+          <CustomDatePicker
+            value={endDate || ''}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder="Select end date"
+          />
+        </div>
+        <FilterButton onClick={handleFilter} disabled={!startDate}>
+      Filter
         </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!isFiltered}>
+        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
           Clear
         </ClearButton>
       </div>
@@ -288,7 +335,7 @@ const ImpactReport = () => {
                 return formatDateDisplay(isoDate);
               }
             },
-            { key: 'partName', label: 'Part Name', width: '200px' },
+            { key: 'partName', label: 'Part Name', width: '200px', align : 'center' },
             { key: 'dateCode', label: 'Date Code', width: '120px', align: 'center' },
             { 
               key: 'specification.val', 
@@ -316,6 +363,7 @@ const ImpactReport = () => {
           data={entries}
           minWidth={1400}
           defaultAlign="left"
+          groupByColumn="date"
           renderActions={(item) => (
             <>
               <EditButton onClick={() => handleEdit(item)} />

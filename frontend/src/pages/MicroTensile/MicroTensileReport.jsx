@@ -8,7 +8,8 @@ import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 
 
 const MicroTensileReport = () => {
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [entries, setEntries] = useState([]);
@@ -191,12 +192,19 @@ const MicroTensileReport = () => {
   };
 
   const handleFilter = async () => {
-    if (!selectedDate) return;
+    if (!startDate) return;
+    
+    // Validate that end date is not before start date
+    if (endDate && new Date(endDate) < new Date(startDate)) {
+      alert('End date cannot be before start date');
+      return;
+    }
+    
     setLoading(true);
     setError('');
     try {
-      const start = selectedDate;
-      const end = selectedDate;
+      const start = startDate;
+      const end = endDate || startDate;
       const resp = await fetch(`http://localhost:5000/api/v1/micro-tensile/filter?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`, {
         method: 'GET',
         credentials: 'include',
@@ -274,7 +282,8 @@ const MicroTensileReport = () => {
   };
 
   const handleClearFilter = () => {
-    setSelectedDate(null);
+    setStartDate(null);
+    setEndDate(null);
     setError('');
     setEntries([]);
     loadRecent();
@@ -304,21 +313,21 @@ const MicroTensileReport = () => {
       { 
         key: 'dateOfInspection', 
         label: 'Date of Inspection', 
-        width: '140px',
+        width: '10%',
         align: 'center',
         render: (r) => formatDate(r.dateOfInspection || r.date || r.dateOfInspection)
       },
       { 
         key: 'disa', 
         label: 'DISA', 
-        width: '100px',
+        width: '8%',
         align: 'center',
         render: (r) => Array.isArray(r.disa) ? r.disa.join(', ') : (r.disa || '-')
       },
       { 
         key: 'item', 
         label: 'Item', 
-        width: '180px',
+        width: show.table1 ? '10%' : '15%',
         render: (r) => {
           if (!r.item) return '-';
           if (typeof r.item === 'string') return r.item;
@@ -330,20 +339,20 @@ const MicroTensileReport = () => {
           return String(r.item);
         }
       },
-      { key: 'dateCode', label: 'Date Code', width: '110px', align: 'center' },
-      { key: 'heatCode', label: 'Heat Code', width: '110px', align: 'center' },
+      { key: 'dateCode', label: 'Date Code', width: show.table1 ? '8%' : '12%', align: 'center' },
+      { key: 'heatCode', label: 'Heat Code', width: show.table1 ? '8%' : '12%', align: 'center' },
     ];
 
     if (show.table1) {
       columns.push(
-        { key: 'barDia', label: 'Bar Dia (mm)', width: '120px', align: 'center', render: (r) => r.barDia ?? '-' },
-        { key: 'gaugeLength', label: 'Gauge Length (mm)', width: '160px', align: 'center', render: (r) => r.gaugeLength ?? '-' },
-        { key: 'maxLoad', label: 'Max Load (Kgs/KN)', width: '160px', align: 'center', render: (r) => r.maxLoad ?? '-' },
-        { key: 'yieldLoad', label: 'Yield Load (Kgs/KN)', width: '170px', align: 'center', render: (r) => r.yieldLoad ?? '-' },
-        { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', width: '230px', align: 'center', render: (r) => r.tensileStrength ?? '-' },
-        { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', width: '230px', align: 'center', render: (r) => r.yieldStrength ?? '-' },
-        { key: 'elongation', label: 'Elongation', width: '110px', align: 'center', render: (r) => r.elongation ?? '-' },
-        { key: 'testedBy', label: 'Tested By', width: '130px', render: (r) => r.testedBy ?? '-' },
+        { key: 'barDia', label: 'Bar Dia (mm)', width: '8%', align: 'center', render: (r) => r.barDia ?? '-' },
+        { key: 'gaugeLength', label: 'Gauge Length (mm)', width: '10%', align: 'center', render: (r) => r.gaugeLength ?? '-' },
+        { key: 'maxLoad', label: 'Max Load (Kgs/KN)', width: '10%', align: 'center', render: (r) => r.maxLoad ?? '-' },
+        { key: 'yieldLoad', label: 'Yield Load (Kgs/KN)', width: '11%', align: 'center', render: (r) => r.yieldLoad ?? '-' },
+        { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.tensileStrength ?? '-' },
+        { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', width: '14%', align: 'center', render: (r) => r.yieldStrength ?? '-' },
+        { key: 'elongation', label: 'Elongation', width: '8%', align: 'center', render: (r) => r.elongation ?? '-' },
+        { key: 'testedBy', label: 'Tested By', width: '9%', render: (r) => r.testedBy ?? '-' },
       );
     }
 
@@ -351,13 +360,13 @@ const MicroTensileReport = () => {
       columns.push({ 
         key: 'remarks', 
         label: 'Remarks', 
-        width: '150px',
+        width: show.table1 ? '10%' : '15%',
         render: (r) => renderRemarkCell(r.remarks)
       });
     }
 
-    const noDataMessage = selectedDate 
-      ? 'No records found for the selected date.' 
+    const noDataMessage = startDate 
+      ? 'No records found for the selected date range.' 
       : 'No records found for the current date.';
 
     return (
@@ -393,17 +402,25 @@ const MicroTensileReport = () => {
 
       <div className="microtensile-filter-container">
         <div className="microtensile-filter-group">
-          <label>Date</label>
+          <label>Start Date</label>
           <CustomDatePicker
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            placeholder="Select date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            placeholder="Select start date"
           />
         </div>
-        <FilterButton onClick={handleFilter} disabled={!selectedDate || loading}>
+        <div className="microtensile-filter-group">
+          <label>End Date</label>
+          <CustomDatePicker
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            placeholder="Select end date"
+          />
+        </div>
+        <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
-        <ClearButton onClick={handleClearFilter} disabled={!selectedDate}>
+        <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate}>
           Clear
         </ClearButton>
       </div>

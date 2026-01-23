@@ -121,8 +121,8 @@
 .qc-filter-group input:focus,
 .qc-filter-group select:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
 }
 
 .qc-filter-container > div:has(button) {
@@ -367,8 +367,8 @@
 .qc-form-group textarea:focus,
 .qc-form-group select:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  border-color: #5B9AA9;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
 }
 
 .qc-form-group textarea {
@@ -476,21 +476,21 @@
 
 .modal-submit-btn {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 2px 6px rgba(91, 154, 169, 0.3);
   transition: all 0.3s ease;
   font-family: 'Poppins', sans-serif;
 }
 
 .modal-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, #4A8494 0%, #3A6B7A 100%);
+  box-shadow: 0 6px 20px rgba(91, 154, 169, 0.5);
 }
 
 .modal-submit-btn:disabled,

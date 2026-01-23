@@ -1,5 +1,12 @@
 /* Cupola Holder Log Sheet - Report Page Styles */
 
+/* Report Table Overrides */
+.chr-primary-table th,
+.chr-primary-table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
 .cupola-holder-report-header {
   width: 100%;
   display: flex;

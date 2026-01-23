@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Save, Loader2, RefreshCw, FileText } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
+import { SubmitButton, ResetButton, LockPrimaryButton, DisaDropdown, TimeInput, TimeRangeInput } from '../../Components/Buttons';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -790,7 +791,7 @@ const handleReset = () => {
       <div className="process-header">
         <div className="process-header-text">
           <h2>
-            <Save size={28} style={{ color: '#5B9AA9' }} />
+            <FileText size={28} style={{ color: '#5B9AA9' }} />
             Process Control - Entry Form
           </h2>
         </div>
@@ -807,47 +808,30 @@ const handleReset = () => {
 
             <div className="process-form-group">
               <label>DISA *</label>
-              <select
+              <DisaDropdown
                 ref={el => inputRefs.current.disa = el}
                 name="disa"
                 value={formData.disa}
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'disa')}
-                disabled={isPrimarySaved}                className={
+                disabled={isPrimarySaved}
+                className={
                   disaValid === null
                     ? ""
                     : disaValid
                     ? "valid-input"
                     : "invalid-input"
-                }                style={{
-                  width: '100%',
-                  padding: '0.625rem 0.875rem',
-                  border: '2px solid #cbd5e1',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  backgroundColor: isPrimarySaved ? '#f1f5f9' : '#ffffff',
-                  color: '#1e293b',
-                  cursor: isPrimarySaved ? 'not-allowed' : 'pointer'
-                }}
-              >
-                <option value="">Select DISA</option>
-                <option value="DISA I">DISA I</option>
-                <option value="DISA II">DISA II</option>
-                <option value="DISA III">DISA III</option>
-                <option value="DISA IV">DISA IV</option>
-              </select>
+                }
+              />
             </div>
 
             <div className="process-form-group">
               <label>&nbsp;</label>
-              <button
-                className="process-lock-primary-btn"
-                type="button"
+              <LockPrimaryButton
                 onClick={handlePrimarySubmit}
                 disabled={!isPrimarySaved && !formData.disa}
-              >
-                {isPrimarySaved ? 'Unlock Primary' : 'Lock Primary'}
-              </button>
+                isLocked={isPrimarySaved}
+              />
             </div>
 
             {/* Divider line to separate primary data from other inputs */}
@@ -1102,77 +1086,26 @@ const handleReset = () => {
 
             <div className="process-form-group time-range-group" style={{ gridColumn: '1 / -1' }}>
               <label>Time of Pouring (Range) *</label>
-              <div 
-                className="time-range-container"
-                style={{
-                  border: pouringTimeValid === null 
-                    ? '2px solid #cbd5e1' 
-                    : pouringTimeValid 
-                    ? '2px solid #10b981' 
-                    : '2px solid #ef4444',
-                  borderRadius: '8px',
-                  padding: '0.375rem 0.5rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  width: 'fit-content'
+              <TimeRangeInput
+                startHourRef={el => inputRefs.current.pouringStartHour = el}
+                startMinuteRef={el => inputRefs.current.pouringStartMinute = el}
+                endHourRef={el => inputRefs.current.pouringEndHour = el}
+                endMinuteRef={el => inputRefs.current.pouringEndMinute = el}
+                startHourName="pouringStartHour"
+                startMinuteName="pouringStartMinute"
+                endHourName="pouringEndHour"
+                endMinuteName="pouringEndMinute"
+                startHourValue={formData.pouringStartHour}
+                startMinuteValue={formData.pouringStartMinute}
+                endHourValue={formData.pouringEndHour}
+                endMinuteValue={formData.pouringEndMinute}
+                onChange={handleChange}
+                onKeyDown={(e) => {
+                  const name = e.target.name;
+                  handleKeyDown(e, name);
                 }}
-              >
-                <div className="time-inputs-group">
-                  <input 
-                    ref={el => inputRefs.current.pouringStartHour = el} 
-                    type="number" 
-                    name="pouringStartHour" 
-                    value={formData.pouringStartHour} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'pouringStartHour')} 
-                    placeholder="HH" 
-                    min="0" 
-                    max="23"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                  <span>:</span>
-                  <input 
-                    ref={el => inputRefs.current.pouringStartMinute = el} 
-                    type="number" 
-                    name="pouringStartMinute" 
-                    value={formData.pouringStartMinute} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'pouringStartMinute')} 
-                    placeholder="MM" 
-                    min="0" 
-                    max="59"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                </div>
-                <span className="time-separator">-</span>
-                <div className="time-inputs-group">
-                  <input 
-                    ref={el => inputRefs.current.pouringEndHour = el} 
-                    type="number" 
-                    name="pouringEndHour" 
-                    value={formData.pouringEndHour} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'pouringEndHour')} 
-                    placeholder="HH" 
-                    min="0" 
-                    max="23"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                  <span>:</span>
-                  <input 
-                    ref={el => inputRefs.current.pouringEndMinute = el} 
-                    type="number" 
-                    name="pouringEndMinute" 
-                    value={formData.pouringEndMinute} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'pouringEndMinute')} 
-                    placeholder="MM" 
-                    min="0" 
-                    max="59"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                </div>
-              </div>
+                validationState={pouringTimeValid}
+              />
             </div>
 
             <div className="process-form-group">
@@ -1314,49 +1247,20 @@ const handleReset = () => {
 
             <div className="process-form-group" style={{ gridColumn: '1 / -1' }}>
               <label>Tapping Time</label>
-              <div 
-                className="time-range-container"
-                style={{
-                  border: tappingTimeValid === null 
-                    ? '2px solid #cbd5e1' 
-                    : tappingTimeValid 
-                    ? '2px solid #10b981' 
-                    : '2px solid #ef4444',
-                  borderRadius: '8px',
-                  padding: '0.375rem 0.5rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  width: 'fit-content'
+              <TimeInput
+                hourRef={el => inputRefs.current.tappingHour = el}
+                minuteRef={el => inputRefs.current.tappingMinute = el}
+                hourName="tappingHour"
+                minuteName="tappingMinute"
+                hourValue={formData.tappingHour}
+                minuteValue={formData.tappingMinute}
+                onChange={handleChange}
+                onKeyDown={(e) => {
+                  const name = e.target.name;
+                  handleKeyDown(e, name);
                 }}
-              >
-                <div className="time-inputs-group">
-                  <input 
-                    ref={el => inputRefs.current.tappingHour = el} 
-                    type="number" 
-                    name="tappingHour" 
-                    value={formData.tappingHour} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'tappingHour')} 
-                    placeholder="HH" 
-                    min="0" 
-                    max="23"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                  <span>:</span>
-                  <input 
-                    ref={el => inputRefs.current.tappingMinute = el} 
-                    type="number" 
-                    name="tappingMinute" 
-                    value={formData.tappingMinute} 
-                    onChange={handleChange} 
-                    onKeyDown={e => handleKeyDown(e, 'tappingMinute')} 
-                    placeholder="MM" 
-                    min="0" 
-                    max="59"
-                    style={{ width: '60px', border: 'none', outline: 'none' }}
-                  />
-                </div>
-              </div>
+                validationState={tappingTimeValid}
+              />
             </div>
 
             <div className="section-header corrective-addition-header">
@@ -1665,25 +1569,23 @@ const handleReset = () => {
       </div>
 
       <div className="process-submit-container">
-        <button 
-          className="process-reset-btn"
-          onClick={handleReset}
-          type="button"
-        >
-          <RefreshCw size={18} />
+        <ResetButton onClick={handleReset}>
           Reset Form
-        </button>
-        <button 
-          ref={el => inputRefs.current.submitBtn = el}
-          className="process-submit-btn" 
-          type="button"
+        </ResetButton>
+        <SubmitButton
           onClick={handleSubmit}
-          onKeyDown={handleSubmitKeyDown}
           disabled={submitLoading}
+          type="button"
         >
-          {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
-          {submitLoading ? 'Saving...' : 'Submit Entry'}
-        </button>
+          {submitLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Submit Entry'
+          )}
+        </SubmitButton>
       </div>
     </>
   );

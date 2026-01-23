@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck, Trash2, Edit, X, Save } from 'lucide-react';
-import { DatePicker, FilterButton } from '../../Components/Buttons';
-import Loader from '../../Components/Loader';
+import { FilterButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
 // Redesigned to mirror TensileReport: one consolidated table showing all parameter rows across shifts.
@@ -373,7 +372,7 @@ const DmmSettingParametersReport = () => {
 
       {/* Section checkboxes removed */}
 
-      {loading ? <div className="impact-loader-container"><Loader /></div> : (
+      {loading ? <div className="impact-loader-container"><div>Loading...</div></div> : (
         <div className="impact-details-card">
           <div className="impact-table-container">
             <table className="impact-table">

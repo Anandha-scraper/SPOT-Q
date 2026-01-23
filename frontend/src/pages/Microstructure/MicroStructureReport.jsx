@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
-import Loader from '../../Components/Loader';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
+import Table from '../../Components/Table';
 import "../../styles/PageStyles/MicroStructure/MicroStructureReport.css";
 
 const MicroStructureReport = () => {
@@ -187,7 +188,7 @@ const MicroStructureReport = () => {
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>Start Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             placeholder="Select start date"
@@ -195,7 +196,7 @@ const MicroStructureReport = () => {
         </div>
         <div className="impact-filter-group">
           <label>End Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Select end date"
@@ -211,66 +212,72 @@ const MicroStructureReport = () => {
 
       {loading ? (
         <div className="impact-loader-container">
-          <Loader />
+          <div>Loading...</div>
         </div>
       ) : (
-        <div className="impact-details-card">
-          <div className="impact-table-container">
-            <table className="impact-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>DISA</th>
-                  <th>Part Name</th>
-                  <th>Date Code</th>
-                  <th>Heat Code</th>
-                  <th>Nodularity %</th>
-                  <th>Graphite Type %</th>
-                  <th>Count Nos/mm²</th>
-                  <th>Size</th>
-                  <th>Ferrite %</th>
-                  <th>Pearlite %</th>
-                  <th>Carbide %</th>
-                  <th>Remarks</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.length === 0 ? (
-                  <tr>
-                    <td colSpan="14" className="impact-no-records">
-                      No records found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItems.map((item, index) => (
-                    <tr key={item._id || index}>
-                      <td>{formatDate(item.date)}</td>
-                      <td>{item.disa || '-'}</td>
-                      <td>{item.partName || '-'}</td>
-                      <td>{item.dateCode || '-'}</td>
-                      <td>{item.heatCode || '-'}</td>
-                      <td>{item.nodularity !== undefined && item.nodularity !== null ? item.nodularity : '-'}</td>
-                      <td>{item.graphiteType !== undefined && item.graphiteType !== null ? item.graphiteType : '-'}</td>
-                      <td>{item.countNos || '-'}</td>
-                      <td>{item.size || '-'}</td>
-                      <td>{item.ferrite !== undefined && item.ferrite !== null ? item.ferrite : '-'}</td>
-                      <td>{item.pearlite !== undefined && item.pearlite !== null ? item.pearlite : '-'}</td>
-                      <td>{item.carbide !== undefined && item.carbide !== null ? item.carbide : '-'}</td>
-                      <td>{item.remarks || '-'}</td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
-                          <EditButton onClick={() => handleEdit(item)} />
-                          <DeleteButton onClick={() => handleDelete(item._id)} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table
+          columns={[
+            { 
+              key: 'date', 
+              label: 'Date', 
+              width: '120px',
+              align: 'center',
+              render: (item) => formatDate(item.date)
+            },
+            { key: 'disa', label: 'DISA', width: '100px', align: 'center' },
+            { key: 'partName', label: 'Part Name', width: '180px' },
+            { key: 'dateCode', label: 'Date Code', width: '110px', align: 'center' },
+            { key: 'heatCode', label: 'Heat Code', width: '110px', align: 'center' },
+            { 
+              key: 'nodularity', 
+              label: 'Nodularity %', 
+              width: '120px',
+              align: 'center',
+              render: (item) => item.nodularity !== undefined && item.nodularity !== null ? item.nodularity : '-'
+            },
+            { 
+              key: 'graphiteType', 
+              label: 'Graphite Type %', 
+              width: '140px',
+              align: 'center',
+              render: (item) => item.graphiteType !== undefined && item.graphiteType !== null ? item.graphiteType : '-'
+            },
+            { key: 'countNos', label: 'Count Nos/mm²', width: '130px', align: 'center' },
+            { key: 'size', label: 'Size', width: '90px', align: 'center' },
+            { 
+              key: 'ferrite', 
+              label: 'Ferrite %', 
+              width: '100px',
+              align: 'center',
+              render: (item) => item.ferrite !== undefined && item.ferrite !== null ? item.ferrite : '-'
+            },
+            { 
+              key: 'pearlite', 
+              label: 'Pearlite %', 
+              width: '100px',
+              align: 'center',
+              render: (item) => item.pearlite !== undefined && item.pearlite !== null ? item.pearlite : '-'
+            },
+            { 
+              key: 'carbide', 
+              label: 'Carbide %', 
+              width: '100px',
+              align: 'center',
+              render: (item) => item.carbide !== undefined && item.carbide !== null ? item.carbide : '-'
+            },
+            { key: 'remarks', label: 'Remarks', width: '200px' }
+          ]}
+          data={filteredItems}
+          minWidth={1700}
+          defaultAlign="left"
+          renderActions={(item) => (
+            <>
+              <EditButton onClick={() => handleEdit(item)} />
+              <DeleteButton onClick={() => handleDelete(item._id)} />
+            </>
+          )}
+          noDataMessage="No records found"
+        />
       )}
 
       {/* Edit Modal */}

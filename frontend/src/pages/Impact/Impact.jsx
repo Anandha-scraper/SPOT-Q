@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Save, RefreshCw, Loader2 } from 'lucide-react';
+import { Save } from 'lucide-react';
+import { SubmitButton, ResetButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Impact/Impact.css';
 
 const Impact = () => {
@@ -394,30 +395,20 @@ const Impact = () => {
       </form>
 
       <div className="impact-submit-container">
-        <button
-          className="impact-reset-btn"
-          onClick={handleReset}
-          type="button"
-        >
-          <RefreshCw size={18} />
+        <ResetButton onClick={handleReset}>
           Reset Form
-        </button>
+        </ResetButton>
 
         <div className="impact-submit-right">
           {submitError && (
             <span className="impact-submit-error">{submitError}</span>
           )}
-          <button
-            ref={submitButtonRef}
-            className="impact-submit-btn"
-            type="button"
+          <SubmitButton
             onClick={handleSubmit}
-            onKeyDown={handleSubmitButtonKeyDown}
             disabled={submitLoading}
           >
-            {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
             {submitLoading ? 'Saving...' : 'Submit Entry'}
-          </button>
+          </SubmitButton>
         </div>
       </div>
     </>

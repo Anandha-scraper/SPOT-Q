@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton } from '../../Components/Buttons';
-import Loader from '../../Components/Loader';
+import { FilterButton, ClearButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 
 const ProcessReport = () => {
@@ -164,7 +164,7 @@ const ProcessReport = () => {
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>Start Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             placeholder="Select start date"
@@ -172,7 +172,7 @@ const ProcessReport = () => {
         </div>
         <div className="impact-filter-group">
           <label>End Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Select end date"
@@ -188,7 +188,7 @@ const ProcessReport = () => {
 
       {loading ? (
         <div className="impact-loader-container">
-          <Loader />
+          <div>Loading...</div>
         </div>
       ) : (
         <>

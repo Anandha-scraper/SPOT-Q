@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
 const CupolaHolderLogSheetReport = () => {
@@ -340,7 +341,7 @@ const CupolaHolderLogSheetReport = () => {
       <div className="cupola-holder-filter-container">
         <div className="cupola-holder-filter-group">
           <label>Start Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
             placeholder="Select start date"
@@ -348,7 +349,7 @@ const CupolaHolderLogSheetReport = () => {
         </div>
         <div className="cupola-holder-filter-group">
           <label>End Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
             placeholder="Select end date"

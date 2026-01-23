@@ -6,7 +6,6 @@ import { AuthContext } from './src/context/AuthContext';
 import Sidebar from './src/Components/sidebar';
 import Dashboard from './src/Components/Dashboard';
 import DepartmentRouteGuard from './src/Components/DepartmentRouteGuard';
-import Loader from './src/Components/Loader';
 
 // Pages
 import Login from './src/pages/Login';
@@ -84,11 +83,7 @@ const App = () => {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
-    return (
-      <div className="app-loading-screen">
-        <Loader />
-      </div>
-    );
+    return null; // Show nothing while loading
   }
 
   return (

@@ -1,8 +1,6 @@
 import React, { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { EyeButton } from "../Components/Buttons";
-import Button from '../Components/Buttons';
-import Loader from '../Components/Loader';
 import "../styles/PageStyles/Login.css";
 
 const Login = () => {
@@ -11,7 +9,6 @@ const Login = () => {
   // Login state
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
   // Password visibility state
@@ -26,40 +23,16 @@ const Login = () => {
       return;
     }
 
-    setLoading(true);
-    const startTime = Date.now();
-
     try {
       await login(employeeId, password);
-      // AuthContext will set user/token; router in app.jsx will redirect
-      
-      // Ensure loader shows for at least 5 seconds
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 5000 - elapsedTime);
-      
-      setTimeout(() => {
-        setLoading(false);
-      }, remainingTime);
+      // Navigation happens automatically via AuthContext setting user
     } catch (err) {
       setError(err?.message || "Login failed. Please check your credentials.");
-      
-      // Still wait 5 seconds even on error
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 5000 - elapsedTime);
-      
-      setTimeout(() => {
-        setLoading(false);
-      }, remainingTime);
     }
   };
 
   return (
     <div className="login-container">
-      {loading && (
-        <div className="login-loader-overlay">
-          <Loader />
-        </div>
-      )}
       {/* Left side - Company Logo */}
       <div className="login-left">
         <img
@@ -90,7 +63,6 @@ const Login = () => {
                 autoComplete="username"
                 autoFocus
                 className="form-input"
-                disabled={loading}
               />
             </div>
 
@@ -107,7 +79,6 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   className="form-input"
-                  disabled={loading}
                 />
                 <div className="password-toggle">
                   <EyeButton
@@ -120,9 +91,9 @@ const Login = () => {
 
             {error && <div className="form-error">{error}</div>}
 
-            <Button type="submit" className="login-btn" disabled={loading}>
-              {loading ? 'Signing in...' : 'Login'}
-            </Button>
+            <button type="submit" className="login-btn">
+              Login
+            </button>
           </form>
         </div>
       </div>

@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, RefreshCw, FileText, Loader2, RotateCcw, Info } from "lucide-react";
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
 const initialRow = {
@@ -954,7 +953,7 @@ const DmmSettingParameters = () => {
     <div className="page-wrapper">
       {checkingData && (
         <div className="dmm-loader-overlay">
-          <Loader />
+          <div>Loading...</div>
         </div>
       )}
       {/* Header */}

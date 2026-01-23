@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, PencilLine, BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DeleteConfirmCard, RemarksCard } from '../../Components/PopUp';
-import Loader from '../../Components/Loader';
 import Table from '../../Components/Table';
+
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
@@ -558,7 +559,7 @@ const TensileReport = () => {
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>Start Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             placeholder="Select start date"
@@ -566,7 +567,7 @@ const TensileReport = () => {
         </div>
         <div className="impact-filter-group">
           <label>End Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Select end date"
@@ -582,7 +583,7 @@ const TensileReport = () => {
 
       {loading ? (
         <div className="impact-loader-container">
-          <Loader />
+          <div>Loading...</div>
         </div>
       ) : (
         <Table

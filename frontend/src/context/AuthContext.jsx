@@ -88,14 +88,13 @@ export const AuthProvider = ({ children }) => {
             const response = await fetch('http://localhost:5000/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // Important: allows cookies to be set
+                credentials: 'include',
                 body: JSON.stringify({ employeeId, password }),
             });
 
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // Create readable expiry format for human reference
                 const readableExpiry = new Date(data.expiresAt).toLocaleString('en-US', {
                     year: 'numeric',
                     month: 'short',
@@ -106,24 +105,25 @@ export const AuthProvider = ({ children }) => {
                     hour12: true
                 });
  
-                // Save to State (no token - it's in httpOnly cookie)
+                // Save to State
                 setUser(data.user);
                 setExpiresAt(data.expiresAt);
                 
-                // Save to LocalStorage for persistence (no token stored)
+                // Save to LocalStorage
                 localStorage.setItem('user', JSON.stringify(data.user));
-                localStorage.setItem('expiresAt', data.expiresAt); // ISO format for calculations
-                localStorage.setItem('expiresAtReadable', readableExpiry); // Human-readable format
+                localStorage.setItem('expiresAt', data.expiresAt);
+                localStorage.setItem('expiresAtReadable', readableExpiry);
                 
+                setLoading(false);
                 return data;
             } else {
+                setLoading(false);
                 throw new Error(data.message || 'Login failed');
             }
         } catch (error) {
+            setLoading(false);
             console.error('Login Error:', error.message);
             throw error;
-        } finally {
-            setLoading(false);
         }
     };
 

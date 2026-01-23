@@ -1,14 +1,20 @@
 import React from 'react';
 import styled from 'styled-components';
 
-const Loader = () => {
+const Loader = ({ cycles = 'infinite', onComplete }) => {
+  const handleAnimationEnd = () => {
+    if (onComplete && cycles !== 'infinite') {
+      onComplete();
+    }
+  };
+
   return (
-    <StyledWrapper>
+    <StyledWrapper $cycles={cycles}>
       <div className="loaderContainer">
         <img src="/images/Logo.svg" alt="Sakthi Auto Logo" className="logo" />
         <div className="textWrapper">
           <p className="text">Sakthi Auto</p>
-          <div className="invertbox" />
+          <div className="invertbox" onAnimationEnd={handleAnimationEnd} />
         </div>
       </div>
     </StyledWrapper>
@@ -19,7 +25,9 @@ const StyledWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 100%;
+  min-height: 200px;
 
   .loaderContainer {
     display: flex;
@@ -55,6 +63,7 @@ const StyledWrapper = styled.div`
     height: 6rem;
     display: flex;
     align-items: center;
+    white-space: nowrap;
   }
 
   .invertbox {
@@ -64,14 +73,24 @@ const StyledWrapper = styled.div`
     left: 0;
     top: 0;
     border-radius: 20%;
-    background-color: rgba(30, 41, 59, 0.1);
-    backdrop-filter: invert(100%);
-    animation: move 2s ease-in-out infinite;
+    background-color: #1e293b;
+    mix-blend-mode: difference;
+    animation-name: move;
+    animation-duration: 2s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: ${props => props.$cycles || 'infinite'};
+    animation-fill-mode: forwards;
   }
 
   @keyframes move {
+    0% {
+      left: 0;
+    }
     50% {
-      left: calc(100% - 2rem);
+      left: calc(100% - 6rem);
+    }
+    100% {
+      left: 0;
     }
   }
 `;

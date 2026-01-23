@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
-import Loader from '../../Components/Loader';
 import Table from '../../Components/Table';
 import { EditCard, DeleteConfirmCard } from '../../Components/PopUp';
 import { EditButton, DeleteButton } from '../../Components/Buttons';
@@ -329,7 +328,7 @@ const ProcessReportEntries = () => {
   };
 
   if (loading) {
-    return <Loader />;
+    return <div>Loading...</div>;
   }
 
   if (!currentEntries || currentEntries.length === 0) {
@@ -364,43 +363,44 @@ const ProcessReportEntries = () => {
 
       <Table
         columns={[
-          { key: 'partName', label: 'Part Name', width: '4%' },
-          { key: 'datecode', label: 'Date Code', width: '3%' },
-          { key: 'heatcode', label: 'Heat Code', width: '3%' },
-          { key: 'quantityOfMoulds', label: 'Qty. Of Moulds', width: '3%' },
-          { key: 'metalCompositionC', label: 'C', width: '2%' },
-          { key: 'metalCompositionSi', label: 'Si', width: '2%' },
-          { key: 'metalCompositionMn', label: 'Mn', width: '2%' },
-          { key: 'metalCompositionP', label: 'P', width: '2%' },
-          { key: 'metalCompositionS', label: 'S', width: '2%' },
-          { key: 'metalCompositionMgFL', label: 'Mg FL', width: '2%' },
-          { key: 'metalCompositionCu', label: 'Cu', width: '2%' },
-          { key: 'metalCompositionCr', label: 'Cr', width: '2%' },
-          { key: 'timeOfPouring', label: 'Time Of Pouring', width: '4%' },
-          { key: 'pouringTemperature', label: 'Pouring Temp', width: '3%' },
-          { key: 'ppCode', label: 'PP Code', width: '3%' },
-          { key: 'treatmentNo', label: 'Treatment No', width: '3%' },
-          { key: 'fcNo', label: 'FC No', width: '2%' },
-          { key: 'heatNo', label: 'Heat No', width: '3%' },
-          { key: 'conNo', label: 'Con No', width: '2%' },
-          { key: 'tappingTime', label: 'Tapping Time', width: '3%' },
-          { key: 'correctiveAdditionC', label: 'Corr. Add C', width: '3%' },
-          { key: 'correctiveAdditionSi', label: 'Corr. Add Si', width: '3%' },
-          { key: 'correctiveAdditionMn', label: 'Corr. Add Mn', width: '3%' },
-          { key: 'correctiveAdditionS', label: 'Corr. Add S', width: '3%' },
-          { key: 'correctiveAdditionCr', label: 'Corr. Add Cr', width: '3%' },
-          { key: 'correctiveAdditionCu', label: 'Corr. Add Cu', width: '3%' },
-          { key: 'correctiveAdditionSn', label: 'Corr. Add Sn', width: '3%' },
-          { key: 'tappingWt', label: 'Tapping Wt', width: '3%' },
-          { key: 'mg', label: 'Mg', width: '2%' },
-          { key: 'resMgConvertor', label: 'Res Mg Convertor', width: '4%' },
-          { key: 'recOfMg', label: 'Rec Of Mg', width: '3%' },
-          { key: 'streamInoculant', label: 'Stream Inoculant', width: '4%' },
-          { key: 'pTime', label: 'P Time', width: '2%' },
-          { key: 'remarks', label: 'Remarks', width: '4%' }
+          { key: 'partName', label: 'Part Name', width: '150px' },
+          { key: 'datecode', label: 'Date Code', width: '100px', align: 'center' },
+          { key: 'heatcode', label: 'Heat Code', width: '100px', align: 'center' },
+          { key: 'quantityOfMoulds', label: 'Qty. Of Moulds', width: '120px', align: 'center' },
+          { key: 'metalCompositionC', label: 'C', width: '70px', align: 'center' },
+          { key: 'metalCompositionSi', label: 'Si', width: '70px', align: 'center' },
+          { key: 'metalCompositionMn', label: 'Mn', width: '70px', align: 'center' },
+          { key: 'metalCompositionP', label: 'P', width: '70px', align: 'center' },
+          { key: 'metalCompositionS', label: 'S', width: '70px', align: 'center' },
+          { key: 'metalCompositionMgFL', label: 'Mg FL', width: '80px', align: 'center' },
+          { key: 'metalCompositionCu', label: 'Cu', width: '70px', align: 'center' },
+          { key: 'metalCompositionCr', label: 'Cr', width: '70px', align: 'center' },
+          { key: 'timeOfPouring', label: 'Time Of Pouring', width: '130px', align: 'center' },
+          { key: 'pouringTemperature', label: 'Pouring Temp', width: '110px', align: 'center' },
+          { key: 'ppCode', label: 'PP Code', width: '90px', align: 'center' },
+          { key: 'treatmentNo', label: 'Treatment No', width: '110px', align: 'center' },
+          { key: 'fcNo', label: 'FC No', width: '80px', align: 'center' },
+          { key: 'heatNo', label: 'Heat No', width: '90px', align: 'center' },
+          { key: 'conNo', label: 'Con No', width: '80px', align: 'center' },
+          { key: 'tappingTime', label: 'Tapping Time', width: '110px', align: 'center' },
+          { key: 'correctiveAdditionC', label: 'Corr. Add C', width: '100px', align: 'center' },
+          { key: 'correctiveAdditionSi', label: 'Corr. Add Si', width: '100px', align: 'center' },
+          { key: 'correctiveAdditionMn', label: 'Corr. Add Mn', width: '110px', align: 'center' },
+          { key: 'correctiveAdditionS', label: 'Corr. Add S', width: '100px', align: 'center' },
+          { key: 'correctiveAdditionCr', label: 'Corr. Add Cr', width: '100px', align: 'center' },
+          { key: 'correctiveAdditionCu', label: 'Corr. Add Cu', width: '110px', align: 'center' },
+          { key: 'correctiveAdditionSn', label: 'Corr. Add Sn', width: '110px', align: 'center' },
+          { key: 'tappingWt', label: 'Tapping Wt', width: '100px', align: 'center' },
+          { key: 'mg', label: 'Mg', width: '70px', align: 'center' },
+          { key: 'resMgConvertor', label: 'Res Mg Convertor', width: '140px', align: 'center' },
+          { key: 'recOfMg', label: 'Rec Of Mg', width: '100px', align: 'center' },
+          { key: 'streamInoculant', label: 'Stream Inoculant', width: '140px', align: 'center' },
+          { key: 'pTime', label: 'P Time', width: '80px', align: 'center' },
+          { key: 'remarks', label: 'Remarks', width: '200px' }
         ]}
         data={currentEntries}
-        minWidth={3500}
+        minWidth={3800} //Table width
+        defaultAlign="left"
         renderActions={(item) => (
           <>
             <EditButton onClick={() => handleEdit(item)} />

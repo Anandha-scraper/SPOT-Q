@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
-import { EditCard } from '../../Components/PopUp';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
+import Table from '../../Components/Table';
+import { EditCard, RemarksCard } from '../../Components/PopUp';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
-import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
+
 
 const MicroTensileReport = () => {
   const [selectedDate, setSelectedDate] = useState(null);
@@ -299,9 +301,25 @@ const MicroTensileReport = () => {
     };
 
     const columns = [
-      { key: 'dateOfInspection', label: 'Date of Inspection', get: (r) => formatDate(r.dateOfInspection || r.date || r.dateOfInspection), style: { minWidth: '80px' } },
-      { key: 'disa', label: 'DISA', get: (r) => Array.isArray(r.disa) ? r.disa.join(', ') : (r.disa || '-'), style: { minWidth: '90px' } },
-      { key: 'item', label: 'Item', get: (r) => {
+      { 
+        key: 'dateOfInspection', 
+        label: 'Date of Inspection', 
+        width: '140px',
+        align: 'center',
+        render: (r) => formatDate(r.dateOfInspection || r.date || r.dateOfInspection)
+      },
+      { 
+        key: 'disa', 
+        label: 'DISA', 
+        width: '100px',
+        align: 'center',
+        render: (r) => Array.isArray(r.disa) ? r.disa.join(', ') : (r.disa || '-')
+      },
+      { 
+        key: 'item', 
+        label: 'Item', 
+        width: '180px',
+        render: (r) => {
           if (!r.item) return '-';
           if (typeof r.item === 'string') return r.item;
           if (typeof r.item === 'object') {
@@ -310,74 +328,52 @@ const MicroTensileReport = () => {
             return `${it1}${it2 ? ' ' + it2 : ''}`.trim() || '-';
           }
           return String(r.item);
-        }, style: { minWidth: '120px' } },
-      { key: 'dateCode', label: 'Date Code', get: (r) => r.dateCode || '-', style: { minWidth: '100px' } },
-      { key: 'heatCode', label: 'Heat Code', get: (r) => r.heatCode || '-', style: { minWidth: '100px' } },
+        }
+      },
+      { key: 'dateCode', label: 'Date Code', width: '110px', align: 'center' },
+      { key: 'heatCode', label: 'Heat Code', width: '110px', align: 'center' },
     ];
 
     if (show.table1) {
       columns.push(
-        { key: 'barDia', label: 'Bar Dia (mm)', get: (r) => r.barDia ?? '-', style: { minWidth: '110px', textAlign: 'right' } },
-        { key: 'gaugeLength', label: 'Gauge Length (mm)', get: (r) => r.gaugeLength ?? '-', style: { minWidth: '140px', textAlign: 'right' } },
-        { key: 'maxLoad', label: 'Max Load (Kgs/KN)', get: (r) => r.maxLoad ?? '-', style: { minWidth: '150px', textAlign: 'right' } },
-        { key: 'yieldLoad', label: 'Yield Load (Kgs/KN)', get: (r) => r.yieldLoad ?? '-', style: { minWidth: '150px', textAlign: 'right' } },
-        { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', get: (r) => r.tensileStrength ?? '-', style: { minWidth: '200px', textAlign: 'right' } },
-        { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', get: (r) => r.yieldStrength ?? '-', style: { minWidth: '200px', textAlign: 'right' } },
-        { key: 'elongation', label: 'Elongation', get: (r) => r.elongation ?? '-', style: { minWidth: '100px', textAlign: 'right' } },
-        { key: 'testedBy', label: 'Tested By', get: (r) => r.testedBy ?? '-', style: { minWidth: '120px' } },
+        { key: 'barDia', label: 'Bar Dia (mm)', width: '120px', align: 'center', render: (r) => r.barDia ?? '-' },
+        { key: 'gaugeLength', label: 'Gauge Length (mm)', width: '160px', align: 'center', render: (r) => r.gaugeLength ?? '-' },
+        { key: 'maxLoad', label: 'Max Load (Kgs/KN)', width: '160px', align: 'center', render: (r) => r.maxLoad ?? '-' },
+        { key: 'yieldLoad', label: 'Yield Load (Kgs/KN)', width: '170px', align: 'center', render: (r) => r.yieldLoad ?? '-' },
+        { key: 'tensileStrength', label: 'Tensile Strength (Kg/mm² or MPa)', width: '230px', align: 'center', render: (r) => r.tensileStrength ?? '-' },
+        { key: 'yieldStrength', label: 'Yield Strength (Kg/mm² or MPa)', width: '230px', align: 'center', render: (r) => r.yieldStrength ?? '-' },
+        { key: 'elongation', label: 'Elongation', width: '110px', align: 'center', render: (r) => r.elongation ?? '-' },
+        { key: 'testedBy', label: 'Tested By', width: '130px', render: (r) => r.testedBy ?? '-' },
       );
     }
 
     if (show.remarks) {
-      columns.push({ key: 'remarks', label: 'Remarks', get: (r) => renderRemarkCell(r.remarks), style: { minWidth: '120px', maxWidth: '200px' } });
+      columns.push({ 
+        key: 'remarks', 
+        label: 'Remarks', 
+        width: '150px',
+        render: (r) => renderRemarkCell(r.remarks)
+      });
     }
 
+    const noDataMessage = selectedDate 
+      ? 'No records found for the selected date.' 
+      : 'No records found for the current date.';
+
     return (
-      <div className="chr-table-scroll">
-        <table className="chr-primary-table">
-          <thead>
-            <tr>
-              {columns.map((c) => (
-                <th key={c.key} style={c.style}>{c.label}</th>
-              ))}
-              <th style={{ minWidth: '160px' }}>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {list.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  style={{
-                    textAlign: 'center',
-                    padding: '14px',
-                    color: '#64748b',
-                    fontStyle: 'italic'
-                  }}
-                >
-                  {selectedDate ? 'No records found for the selected date.' : 'No records found for the current date.'}
-                </td>
-              </tr>
-            ) : (
-              list.map((row) => (
-                <tr key={`primary-${row._id || `${row.item}-${row.dateCode}-${row.heatCode}`}`}>
-                  {columns.map((c) => (
-                    <td key={`${(row._id || 'row')}-${c.key}`} style={c.style}>{c.get(row)}</td>
-                  ))}
-
-                  <td>
-                    <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '64px', margin: '0 auto' }}>
-                      <EditButton onClick={() => requestEdit(row)} />
-                      <DeleteButton onClick={() => requestDelete(row)} />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Table
+        columns={columns}
+        data={list}
+        minWidth={2000}
+        defaultAlign="left"
+        renderActions={(row) => (
+          <>
+            <EditButton onClick={() => requestEdit(row)} />
+            <DeleteButton onClick={() => requestDelete(row)} />
+          </>
+        )}
+        noDataMessage={noDataMessage}
+      />
     );
   };
 
@@ -398,7 +394,7 @@ const MicroTensileReport = () => {
       <div className="microtensile-filter-container">
         <div className="microtensile-filter-group">
           <label>Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             placeholder="Select date"
@@ -559,12 +555,11 @@ const MicroTensileReport = () => {
       )}
 
       {remarkModal.open && (
-        <div onClick={() => setRemarkModal({ open: false, text: '' })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: 10, padding: 16, width: 'min(520px, 95vw)', maxWidth: '95vw', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Remarks</div>
-            <div style={{ color: '#334155', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{remarkModal.text}</div>
-          </div>
-        </div>
+        <RemarksCard
+          isOpen={remarkModal.open}
+          onClose={() => setRemarkModal({ open: false, text: '' })}
+          remarksText={remarkModal.text}
+        />
       )}
     </>
   );

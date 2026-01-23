@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Save, Loader2, RefreshCw, FileText } from 'lucide-react';
+import { Save, Loader2, FileText } from 'lucide-react';
+import { SubmitButton, ResetButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
@@ -419,18 +420,24 @@ const QcProductionDetails = () => {
             </div>
       </form>
 
-      <div className="qcproduction-submit-container" style={{ justifyContent: 'flex-end' }}>
-        <button 
-          ref={submitButtonRef}
-          className="qcproduction-submit-btn" 
-          type="button"
+      <div className="qcproduction-submit-container">
+        <ResetButton onClick={handleReset}>
+          Reset Form
+        </ResetButton>
+        
+        <SubmitButton
           onClick={handleSubmit}
-          onKeyDown={handleSubmitButtonKeyDown}
           disabled={submitLoading}
         >
-          {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
-          {submitLoading ? 'Saving...' : 'Submit All'}
-        </button>
+          {submitLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Submit All'
+          )}
+        </SubmitButton>
       </div>
     </>
   );

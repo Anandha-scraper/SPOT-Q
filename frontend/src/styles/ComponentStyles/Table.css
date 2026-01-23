@@ -1,4 +1,5 @@
 /* Reusable Table Component Styles */
+/* Version 2.0 - Enhanced with MicroStructure design patterns */
 
 /* Table Container */
 .reusable-table-container {
@@ -13,27 +14,34 @@
 .reusable-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 0.875rem;
-  border: 1px solid #cbd5e1;
+  table-layout: auto;
+  font-size: 0.9375rem;
 }
 
-/* Table Header */
+/* Table Header - Default Simple Background */
 .reusable-table thead tr {
+  background: #f1f5f9;
+}
+
+/* Table Header - Optional Gradient (use .table-gradient-header class) */
+.reusable-table.table-gradient-header thead tr {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
 .reusable-table th {
-  padding: 0.875rem 1.5rem;
-  text-align: center;
-  font-weight: 700;
-  color: #1e293b;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #334155;
   white-space: nowrap;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  border-bottom: 2px solid #cbd5e1;
+  font-size: 0.9375rem;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
   vertical-align: middle;
+}
+
+.reusable-table th:last-child {
+  border-right: none;
 }
 
 /* Table Body */
@@ -47,25 +55,28 @@
   background-color: #f8fafc;
 }
 
-.reusable-table tbody tr:nth-child(even) {
+/* Optional Striped Rows (use .table-striped class) */
+.reusable-table.table-striped tbody tr:nth-child(even) {
   background-color: #f9fafb;
 }
 
-.reusable-table tbody tr:nth-child(even):hover {
+.reusable-table.table-striped tbody tr:nth-child(even):hover {
   background-color: #f1f5f9;
 }
 
 .reusable-table td {
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1rem;
   color: #475569;
-  text-align: center !important;
+  text-align: left;
   vertical-align: middle;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  font-size: 0.9375rem;
+  line-height: 1.5;
   word-wrap: break-word;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: table-cell;
+  border-right: 1px solid #e2e8f0;
+}
+
+.reusable-table td:last-child {
+  border-right: none;
 }
 
 /* No Records */

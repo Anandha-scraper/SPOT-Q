@@ -531,3 +531,193 @@
 .minus-button:active:not(:disabled) {
 	transform: scale(0.95);
 }
+
+/* ==================== Submit Button Styles ==================== */
+.submit-button-wrapper {
+	display: inline-block;
+}
+
+.submit-button-wrapper button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.875rem 2rem;
+	background: linear-gradient(135deg, #5B9AA9 0%, #4a7d8a 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	box-shadow: 0 2px 4px rgba(91, 154, 169, 0.3);
+	transition: all 0.3s ease;
+	white-space: nowrap;
+	min-height: 44px;
+}
+
+.submit-button-wrapper button:hover:not(:disabled) {
+	background: linear-gradient(135deg, #4a7d8a 0%, #3a6570 100%);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 8px rgba(91, 154, 169, 0.4);
+}
+
+.submit-button-wrapper button:active:not(:disabled) {
+	transform: translateY(0);
+}
+
+.submit-button-wrapper button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* ==================== Reset Button Styles ==================== */
+.reset-button-wrapper {
+	display: inline-block;
+}
+
+.reset-button-wrapper button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.875rem 2rem;
+	background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	box-shadow: 0 2px 4px rgba(100, 116, 139, 0.3);
+	transition: all 0.3s ease;
+	white-space: nowrap;
+	min-height: 44px;
+}
+
+.reset-button-wrapper button:hover:not(:disabled) {
+	background: linear-gradient(135deg, #475569 0%, #334155 100%);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 8px rgba(100, 116, 139, 0.4);
+}
+
+.reset-button-wrapper button:active:not(:disabled) {
+	transform: translateY(0);
+}
+
+.reset-button-wrapper button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* ==================== Lock Primary Button Styles ==================== */
+.lock-primary-button-wrapper {
+	display: block;
+	width: 100%;
+}
+
+.lock-primary-button-wrapper button {
+	width: 100%;
+	padding: 0.625rem 0.875rem;
+	border: 2px solid #5B9AA9;
+	border-radius: 8px;
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	background: linear-gradient(135deg, #5B9AA9 0%, #4A8494 100%);
+	color: white;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	box-shadow: 0 2px 4px rgba(91, 154, 169, 0.3);
+	min-height: 42px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
+}
+
+.lock-primary-button-wrapper button:hover:not(:disabled) {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(91, 154, 169, 0.4);
+	background: linear-gradient(135deg, #4A8494 0%, #3a6a78 100%);
+}
+
+.lock-primary-button-wrapper button:active:not(:disabled) {
+	transform: translateY(0);
+}
+
+.lock-primary-button-wrapper button:disabled {
+	background: #94a3b8;
+	border-color: #94a3b8;
+	cursor: not-allowed;
+	box-shadow: none;
+	opacity: 0.6;
+}
+
+/* ==================== Time Input Styles ==================== */
+.time-input-wrapper,
+.time-range-input-wrapper {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-family: 'Poppins', sans-serif;
+}
+
+.time-inputs-group {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.time-inputs-group input {
+	padding: 0.625rem 0.5rem;
+	border: 2px solid #cbd5e1;
+	border-radius: 8px;
+	font-size: 0.875rem;
+	font-family: 'Poppins', sans-serif;
+	transition: all 0.3s ease;
+	background: white;
+	text-align: center;
+	color: #1e293b;
+	font-weight: 500;
+}
+
+.time-inputs-group input:focus {
+	outline: none;
+	border-color: #5B9AA9;
+	box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
+}
+
+.time-inputs-group input::placeholder {
+	color: #94a3b8;
+	font-weight: 400;
+}
+
+.time-inputs-group span {
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: #334155;
+}
+
+.time-separator {
+	font-size: 1rem;
+	font-weight: 600;
+	color: #64748b;
+	margin: 0 0.5rem;
+}
+
+/* Remove up/down arrow buttons from number inputs in time inputs */
+.time-inputs-group input[type=number]::-webkit-inner-spin-button,
+.time-inputs-group input[type=number]::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.time-inputs-group input[type=number] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+}

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Save, Loader2, RefreshCw, FileText } from 'lucide-react';
+import { Save, Loader2, FileText } from 'lucide-react';
+import { SubmitButton, ResetButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
@@ -750,28 +751,27 @@ const MicroTensile = () => {
           </div>
 
       <div className="microtensile-submit-container">
-        <button
-          className="microtensile-reset-btn"
-          onClick={handleReset}
-          type="button"
-        >
-          <RefreshCw size={18} />
+        <ResetButton onClick={handleReset}>
           Reset Form
-        </button>
+        </ResetButton>
 
         <div className="microtensile-submit-right">
           {submitError && (
             <span className="microtensile-submit-error">{submitError}</span>
           )}
-          <button
-            className="microtensile-submit-btn"
-            type="button"
+          <SubmitButton
             onClick={handleSubmit}
             disabled={submitLoading}
           >
-            {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
-            {submitLoading ? 'Saving...' : 'Submit Entry'}
-          </button>
+            {submitLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Submit Entry'
+            )}
+          </SubmitButton>
         </div>
       </div>
     </>

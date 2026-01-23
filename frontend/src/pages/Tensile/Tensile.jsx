@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Save, Loader2, RefreshCw } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
+import { SubmitButton, ResetButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -857,30 +858,27 @@ const Tensile = () => {
       </form>
 
       <div className="tensile-submit-container">
-        <button
-          className="tensile-reset-btn"
-          onClick={handleReset}
-          type="button"
-        >
-          <RefreshCw size={18} />
+        <ResetButton onClick={handleReset}>
           Reset Form
-        </button>
+        </ResetButton>
 
         <div className="tensile-submit-right">
           {submitError && (
             <span className="tensile-submit-error">{submitError}</span>
           )}
-          <button
-            ref={submitButtonRef}
-            className="tensile-submit-btn"
-            type="button"
+          <SubmitButton
             onClick={handleSubmit}
-            onKeyDown={handleSubmitKeyDown}
             disabled={submitLoading}
           >
-            {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
-            {submitLoading ? 'Saving...' : 'Submit Entry'}
-          </button>
+            {submitLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Submit Entry'
+            )}
+          </SubmitButton>
         </div>
       </div>
     </>

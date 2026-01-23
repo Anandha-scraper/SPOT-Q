@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Save, RefreshCw, Loader2 } from 'lucide-react';
-import { DisaDropdown } from '../../Components/Buttons';
+import { Save, Loader2 } from 'lucide-react';
+import { DisaDropdown, SubmitButton, ResetButton } from '../../Components/Buttons';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
-import '../../styles/PageStyles/Impact/Impact.css';
 
 const MicroStructure = () => {
 
@@ -43,7 +42,6 @@ const MicroStructure = () => {
   const [pearliteFromValid, setPearliteFromValid] = useState(null);
   const [pearliteToValid, setPearliteToValid] = useState(null);
   const [carbideValid, setCarbideValid] = useState(null);
-
   const [submitLoading, setSubmitLoading] = useState(false);
   const [dateLoading, setDateLoading] = useState(true);
   const [submitError, setSubmitError] = useState('');
@@ -851,30 +849,27 @@ const MicroStructure = () => {
       </form>
 
       <div className="microstructure-submit-container">
-        <button
-          className="microstructure-reset-btn"
-          onClick={handleReset}
-          type="button"
-        >
-          <RefreshCw size={18} />
+        <ResetButton onClick={handleReset}>
           Reset Form
-        </button>
+        </ResetButton>
 
         <div className="microstructure-submit-right">
           {submitError && (
             <span className="microstructure-submit-error">{submitError}</span>
           )}
-          <button
-            ref={submitButtonRef}
-            className="microstructure-submit-btn"
-            type="button"
+          <SubmitButton
             onClick={handleSubmit}
-            onKeyDown={handleSubmitButtonKeyDown}
             disabled={submitLoading}
           >
-            {submitLoading ? <Loader2 size={20} className="animate-spin" /> : <Save size={18} />}
-            {submitLoading ? 'Saving...' : 'Submit Entry'}
-          </button>
+            {submitLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Submit Entry'
+            )}
+          </SubmitButton>
         </div>
       </div>
     </>

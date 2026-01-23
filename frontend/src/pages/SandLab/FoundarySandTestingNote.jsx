@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -975,7 +974,7 @@ export default function FoundrySandTestingNote() {
     <div className="page-wrapper">
       {checkingData && (
         <div className="foundry-loader-overlay">
-          <Loader />
+          <div>Loading...</div>
         </div>
       )}
       {/* Header */}

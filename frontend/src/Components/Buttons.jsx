@@ -1,65 +1,8 @@
 import React, { forwardRef } from 'react';
-import { Settings, Filter, X, Pencil, Trash2, Plus, Minus } from 'lucide-react';
-import CustomDatePicker from './CustomDatePicker';
+import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw } from 'lucide-react';
 import '../styles/ComponentStyles/Buttons.css';
 
-// ===========================
-// Base Button Component
-// ===========================
-const Button = ({
-  children,
-  onClick,
-  className = '',
-  variant = 'primary',
-  disabled = false,
-  type = 'button',
-  ariaLabel,
-  ...rest
-}) => {
-  const base = `btn btn--${variant}`;
-  const combined = `${base} ${className}`.trim();
-
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      className={combined}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-};
-
-// ===========================
-// Logout Functionality
-// ===========================
-export const handleLogout = () => {
-  sessionStorage.clear();
-  localStorage.clear();
-  window.location.href = '/login';
-};
-
-// ===========================
-// Logout Buttons
-// ===========================
-export const LogoutButton = ({ onClick }) => (
-  <div className="logout-wrapper">
-    <button onClick={onClick || handleLogout}>LOGOUT</button>
-  </div>
-);
-
-export const AdminLogoutButton = ({ onClick }) => (
-  <div className="admin-button-wrapper">
-    <button onClick={onClick} className="admin-logout">LOG OUT</button>
-  </div>
-);
-
-// ===========================
 // Action Buttons
-// ===========================
 export const EditButton = ({ onClick }) => (
   <button
     onClick={onClick}
@@ -88,9 +31,9 @@ export const DeleteUserButton = ({ onClick }) => (
   </div>
 );
 
-// ===========================
+
 // Filter & Clear Buttons
-// ===========================
+
 export const FilterButton = ({ onClick, disabled = false, children }) => (
   <div className="filter-button-wrapper">
     <button onClick={onClick} type="button" disabled={disabled} title="Filter">
@@ -109,9 +52,8 @@ export const ClearButton = ({ onClick, disabled = false, children }) => (
   </div>
 );
 
-// ===========================
 // Icon Buttons
-// ===========================
+
 export const EyeButton = ({ onClick, isVisible = false }) => (
   <div className="eye-button-wrapper">
     <button
@@ -166,9 +108,267 @@ export const MinusButton = ({ onClick, disabled = false, title = "Remove entry" 
   </button>
 );
 
-// ===========================
-// DISA Dropdown Component
-// ===========================
+
+// Submit , Reset , Lock Primary Buttons
+
+export const SubmitButton = ({ onClick, disabled = false, children, type = 'button' }) => (
+  <div className="submit-button-wrapper">
+    <button onClick={onClick} type={type} disabled={disabled} title={children || 'Submit'}>
+      <Save size={18} />
+      {children || 'Submit'}
+    </button>
+  </div>
+);
+
+export const ResetButton = ({ onClick, disabled = false, children }) => (
+  <div className="reset-button-wrapper">
+    <button onClick={onClick} type="button" disabled={disabled} title={children || 'Reset'}>
+      <RefreshCw size={18} />
+      {children || 'Reset'}
+    </button>
+  </div>
+);
+
+export const LockPrimaryButton = ({ onClick, disabled = false, isLocked = false }) => (
+  <div className="lock-primary-button-wrapper">
+    <button onClick={onClick} type="button" disabled={disabled} title={isLocked ? 'Unlock Primary' : 'Lock Primary'}>
+      {isLocked ? 'Unlock Primary' : 'Lock Primary'}
+    </button>
+  </div>
+);
+
+// Time Input Components
+
+export const TimeInput = forwardRef(({ 
+  hourRef, 
+  minuteRef, 
+  hourName, 
+  minuteName, 
+  hourValue, 
+  minuteValue, 
+  onChange, 
+  onKeyDown, 
+  validationState = null 
+}, ref) => {
+  const validHours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const validMinutes = Array.from({ length: 60 }, (_, i) => i); // [0, 1, 2, ..., 59]
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    const numValue = parseInt(value, 10);
+    const name = e.target.name;
+    
+    // Limit to 2 digits
+    if (value.length > 2) return;
+    
+    // Validate against allowed values
+    if (name === hourName) {
+      if (value === '' || validHours.includes(numValue)) {
+        onChange(e);
+      }
+    } else if (name === minuteName) {
+      if (value === '' || validMinutes.includes(numValue)) {
+        onChange(e);
+      }
+    }
+  };
+
+  return (
+    <div 
+      className="time-input-wrapper"
+      style={{
+        border: validationState === null 
+          ? '2px solid #cbd5e1' 
+          : validationState 
+          ? '2px solid #10b981' 
+          : '2px solid #ef4444',
+        borderRadius: '8px',
+        padding: '0.375rem 0.5rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 'fit-content'
+      }}
+    >
+      <div className="time-inputs-group">
+        <input 
+          ref={hourRef}
+          type="number" 
+          name={hourName}
+          value={hourValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="HH" 
+          min="1" 
+          max="12"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+        <span>:</span>
+        <input 
+          ref={minuteRef}
+          type="number" 
+          name={minuteName}
+          value={minuteValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="MM" 
+          min="0" 
+          max="59"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+      </div>
+    </div>
+  );
+});
+TimeInput.displayName = 'TimeInput';
+
+export const TimeRangeInput = forwardRef(({ 
+  startHourRef, 
+  startMinuteRef, 
+  endHourRef, 
+  endMinuteRef,
+  startHourName, 
+  startMinuteName,
+  endHourName,
+  endMinuteName,
+  startHourValue, 
+  startMinuteValue,
+  endHourValue,
+  endMinuteValue,
+  onChange, 
+  onKeyDown, 
+  validationState = null 
+}, ref) => {
+  const validHours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const validMinutes = Array.from({ length: 60 }, (_, i) => i); // [0, 1, 2, ..., 59]
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    const numValue = parseInt(value, 10);
+    const name = e.target.name;
+    
+    // Limit to 2 digits
+    if (value.length > 2) return;
+    
+    // Validate against allowed values
+    if (name === startHourName || name === endHourName) {
+      if (value === '' || validHours.includes(numValue)) {
+        onChange(e);
+      }
+    } else if (name === startMinuteName || name === endMinuteName) {
+      if (value === '' || validMinutes.includes(numValue)) {
+        onChange(e);
+      }
+    }
+  };
+
+  return (
+    <div 
+      className="time-range-input-wrapper"
+      style={{
+        border: validationState === null 
+          ? '2px solid #cbd5e1' 
+          : validationState 
+          ? '2px solid #10b981' 
+          : '2px solid #ef4444',
+        borderRadius: '8px',
+        padding: '0.375rem 0.5rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 'fit-content'
+      }}
+    >
+      <div className="time-inputs-group">
+        <input 
+          ref={startHourRef}
+          type="number" 
+          name={startHourName}
+          value={startHourValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="HH" 
+          min="1" 
+          max="12"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+        <span>:</span>
+        <input 
+          ref={startMinuteRef}
+          type="number" 
+          name={startMinuteName}
+          value={startMinuteValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="MM" 
+          min="0" 
+          max="59"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+      </div>
+      <span className="time-separator">-</span>
+      <div className="time-inputs-group">
+        <input 
+          ref={endHourRef}
+          type="number" 
+          name={endHourName}
+          value={endHourValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="HH" 
+          min="1" 
+          max="12"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+        <span>:</span>
+        <input 
+          ref={endMinuteRef}
+          type="number" 
+          name={endMinuteName}
+          value={endMinuteValue}
+          onChange={handleInputChange}
+          onInput={(e) => {
+            if (e.target.value.length > 2) {
+              e.target.value = e.target.value.slice(0, 2);
+            }
+          }}
+          onKeyDown={onKeyDown}
+          placeholder="MM" 
+          min="0" 
+          max="59"
+          style={{ width: '60px', border: 'none', outline: 'none' }}
+        />
+      </div>
+    </div>
+  );
+});
+TimeRangeInput.displayName = 'TimeRangeInput';
+
+ // DISA Dropdown Component
+
 export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, className = '' }, ref) => {
   const disaOptions = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
 
@@ -193,28 +393,3 @@ export const DisaDropdown = forwardRef(({ value, onChange, name, disabled, onKey
   );
 });
 DisaDropdown.displayName = 'DisaDropdown';
-
-// ===========================
-// Date Picker Component
-// ===========================
-export const DatePicker = forwardRef(({ value, onChange, name, max, placeholder, style, disabled, onKeyDown }, ref) => {
-  const today = new Date().toISOString().split('T')[0];
-
-  return (
-    <CustomDatePicker
-      ref={ref}
-      value={value}
-      onChange={onChange}
-      name={name}
-      max={max || today}
-      placeholder={placeholder}
-      style={style}
-      disabled={disabled}
-      onKeyDown={onKeyDown}
-    />
-  );
-});
-DatePicker.displayName = 'DatePicker';
-
-export { Button };
-export default Button;

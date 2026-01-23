@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, PencilLine, BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton } from '../../Components/Buttons';
-import Loader from '../../Components/Loader';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
+import Table from '../../Components/Table';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 const QcProductionDetailsReport = () => {
@@ -158,7 +159,7 @@ const QcProductionDetailsReport = () => {
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>Start Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             placeholder="Select start date"
@@ -166,7 +167,7 @@ const QcProductionDetailsReport = () => {
         </div>
         <div className="impact-filter-group">
           <label>End Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             placeholder="Select end date"
@@ -182,99 +183,119 @@ const QcProductionDetailsReport = () => {
 
       {loading ? (
         <div className="impact-loader-container">
-          <Loader />
+          <div>Loading...</div>
         </div>
       ) : (
-        <div className="impact-details-card">
-          <div className="impact-table-container">
-            <table className="impact-table">
-              <thead>
-                <tr>
-                  <th>Date </th>
-                  <th>Part Name</th>
-                  <th>No.Of Moulds</th>
-                  <th>C %</th>
-                  <th>Si %</th>
-                  <th>Mn %</th>
-                  <th>P %</th>
-                  <th>S %</th>
-                  <th>Mg %</th>
-                  <th>Cu %</th>
-                  <th>Cr %</th>
-                  <th>Nodularity</th>
-                  <th>Graphite Type</th>
-                  <th>Pearlite Ferrite</th>
-                  <th>Hardness BHN</th>
-                  <th>TS</th>
-                  <th>YS</th>
-                  <th>EL</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.length === 0 ? (
-                  <tr>
-                    <td colSpan="19" className="qc-production-no-records">
-                      No records found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItems.map((item, index) => (
-                    <tr key={item._id || index}>
-                      <td>{item.date? new Date(item.date).toLocaleDateString() : '-'}</td>
-                      <td>{item.partName || '-'}</td>
-                      <td>{item.noOfMoulds|| '-'}</td>
-                      <td>{item.cPercent  !== undefined && item.cPercent  !== null ? item.cPercent  : '-'}</td>
-                      <td>{item.siPercent !== undefined && item.siPercent !== null ? item.siPercent : '-'}</td>
-                      <td>{item.mnPercent !== undefined && item.mnPercent !== null ? item.mnPercent : '-'}</td>
-                      <td>{item.pPercent  !== undefined && item.pPercent  !== null ? item.pPercent  : '-'}</td>
-                      <td>{item.sPercent  !== undefined && item.sPercent  !== null ? item.sPercent  : '-'}</td>
-                      <td>{item.mgPercent !== undefined && item.mgPercent !== null ? item.mgPercent : '-'}</td>
-                      <td>{item.cuPercent !== undefined && item.cuPercent !== null ? item.cuPercent : '-'}</td>
-                      <td>{item.crPercent !== undefined && item.crPercent !== null ? item.crPercent : '-'}</td>
-                      <td>{item.nodularity || '-'}</td>
-                      <td>{item.graphiteType || '-'}</td>
-                      <td>{item.pearliteFerrite|| '-'}</td>
-                      <td>{item.hardnessBHN !== undefined && item.hardnessBHN !== null ? item.hardnessBHN : '-'}</td>
-                      <td>{item.ts !== undefined && item.ts !== null ? item.ts : '-'}</td>
-                      <td>{item.ys !== undefined && item.ys !== null ? item.ys : '-'}</td>
-                      <td>{item.el !== undefined && item.el !== null ? item.el : '-'}</td>
-                      <td style={{ minWidth: '100px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => handleEdit(item)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: 4,
-                              border: '1px solid #fecaca',
-                              background: '#fee2e2',
-                              color: '#b91c1c',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Table
+          columns={[
+            { 
+              key: 'date', 
+              label: 'Date', 
+              width: '120px',
+              align: 'center',
+              render: (item) => item.date ? new Date(item.date).toLocaleDateString() : '-'
+            },
+            { key: 'partName', label: 'Part Name', width: '180px' },
+            { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', align: 'center' },
+            { 
+              key: 'cPercent', 
+              label: 'C %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.cPercent !== undefined && item.cPercent !== null ? item.cPercent : '-'
+            },
+            { 
+              key: 'siPercent', 
+              label: 'Si %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.siPercent !== undefined && item.siPercent !== null ? item.siPercent : '-'
+            },
+            { 
+              key: 'mnPercent', 
+              label: 'Mn %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.mnPercent !== undefined && item.mnPercent !== null ? item.mnPercent : '-'
+            },
+            { 
+              key: 'pPercent', 
+              label: 'P %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.pPercent !== undefined && item.pPercent !== null ? item.pPercent : '-'
+            },
+            { 
+              key: 'sPercent', 
+              label: 'S %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.sPercent !== undefined && item.sPercent !== null ? item.sPercent : '-'
+            },
+            { 
+              key: 'mgPercent', 
+              label: 'Mg %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.mgPercent !== undefined && item.mgPercent !== null ? item.mgPercent : '-'
+            },
+            { 
+              key: 'cuPercent', 
+              label: 'Cu %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.cuPercent !== undefined && item.cuPercent !== null ? item.cuPercent : '-'
+            },
+            { 
+              key: 'crPercent', 
+              label: 'Cr %', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.crPercent !== undefined && item.crPercent !== null ? item.crPercent : '-'
+            },
+            { key: 'nodularity', label: 'Nodularity', width: '110px', align: 'center' },
+            { key: 'graphiteType', label: 'Graphite Type', width: '130px', align: 'center' },
+            { key: 'pearliteFerrite', label: 'Pearlite Ferrite', width: '140px', align: 'center' },
+            { 
+              key: 'hardnessBHN', 
+              label: 'Hardness BHN', 
+              width: '130px',
+              align: 'center',
+              render: (item) => item.hardnessBHN !== undefined && item.hardnessBHN !== null ? item.hardnessBHN : '-'
+            },
+            { 
+              key: 'ts', 
+              label: 'TS', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.ts !== undefined && item.ts !== null ? item.ts : '-'
+            },
+            { 
+              key: 'ys', 
+              label: 'YS', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.ys !== undefined && item.ys !== null ? item.ys : '-'
+            },
+            { 
+              key: 'el', 
+              label: 'EL', 
+              width: '80px',
+              align: 'center',
+              render: (item) => item.el !== undefined && item.el !== null ? item.el : '-'
+            }
+          ]}
+          data={filteredItems}
+          minWidth={2000}
+          defaultAlign="left"
+          renderActions={(item) => (
+            <>
+              <EditButton onClick={() => handleEdit(item)} />
+              <DeleteButton onClick={() => handleDelete(item._id)} />
+            </>
+          )}
+          noDataMessage="No records found"
+        />
       )}
 
       {/* Edit Modal */}

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { DatePicker, FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
+import CustomDatePicker from '../../Components/CustomDatePicker';
+import Table from '../../Components/Table';
 import { EditCard } from '../../Components/PopUp';
-import Loader from '../../Components/Loader';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 
 const ImpactReport = () => {
@@ -255,7 +256,7 @@ const ImpactReport = () => {
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>Date</label>
-          <DatePicker
+          <CustomDatePicker
             value={selectedDate || ''}
             onChange={(e) => setSelectedDate(e.target.value)}
             placeholder="Select date"
@@ -271,58 +272,58 @@ const ImpactReport = () => {
 
       {loading ? (
         <div className="impact-loader-container">
-          <Loader />
+          <div>Loading...</div>
         </div>
       ) : (
-        <div className="impact-table-container">
-          <table className="impact-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Part Name</th>
-                <th>Date Code</th>
-                <th>Specification Value</th>
-                <th>Specification Constraint</th>
-                <th>Observed Value</th>
-                <th>Remarks</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="impact-no-records">
-                    {isFiltered ? 'No entries found for the selected date' : 'No entries found for today'}
-                  </td>
-                </tr>
-              ) : (
-                entries.map((item, index) => (
-                  <tr key={item._id || index}>
-                    <td>
-                      {(() => {
-                        const raw = item.date || currentDate;
-                        const isoDate = typeof raw === 'string' ? raw.split('T')[0] : new Date(raw).toISOString().split('T')[0];
-                        return formatDateDisplay(isoDate);
-                      })()}
-                    </td>
-                    <td>{item.partName || '-'}</td>
-                    <td>{item.dateCode || '-'}</td>
-                    <td>{item.specification?.val || '-'}</td>
-                    <td>{item.specification?.constraint || '-'}</td>
-                    <td>{item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}</td>
-                    <td>{item.remarks || '-'}</td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
-                        <EditButton onClick={() => handleEdit(item)} />
-                        <DeleteButton onClick={() => handleDeleteClick(item._id)} />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={[
+            { 
+              key: 'date', 
+              label: 'Date', 
+              width: '120px',
+              align: 'center',
+              render: (item) => {
+                const raw = item.date || currentDate;
+                const isoDate = typeof raw === 'string' ? raw.split('T')[0] : new Date(raw).toISOString().split('T')[0];
+                return formatDateDisplay(isoDate);
+              }
+            },
+            { key: 'partName', label: 'Part Name', width: '200px' },
+            { key: 'dateCode', label: 'Date Code', width: '120px', align: 'center' },
+            { 
+              key: 'specification.val', 
+              label: 'Specification Value', 
+              width: '160px',
+              align: 'center',
+              render: (item) => item.specification?.val || '-'
+            },
+            { 
+              key: 'specification.constraint', 
+              label: 'Specification Constraint', 
+              width: '180px',
+              align: 'center',
+              render: (item) => item.specification?.constraint || '-'
+            },
+            { 
+              key: 'observedValue', 
+              label: 'Observed Value', 
+              width: '140px',
+              align: 'center',
+              render: (item) => item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'
+            },
+            { key: 'remarks', label: 'Remarks', width: '250px', align: 'center' }
+          ]}
+          data={entries}
+          minWidth={1400}
+          defaultAlign="left"
+          renderActions={(item) => (
+            <>
+              <EditButton onClick={() => handleEdit(item)} />
+              <DeleteButton onClick={() => handleDeleteClick(item._id)} />
+            </>
+          )}
+          noDataMessage={isFiltered ? 'No entries found for the selected date' : 'No entries found for today'}
+        />
       )}
 
       {/* Edit Modal */}

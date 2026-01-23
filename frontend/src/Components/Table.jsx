@@ -1,25 +1,22 @@
 import React from 'react';
 import '../styles/ComponentStyles/Table.css';
 
-/**
- * Reusable Table Component
- * 
- * @param {Array} columns - Array of column definitions [{key, label, width, align, render}]
- * @param {Array} data - Array of data objects
- * @param {Function} renderActions - Optional function to render action buttons
- * @param {String} noDataMessage - Message when no data available
- * @param {Number} minWidth - Minimum table width in pixels
- */
 const Table = ({ 
   columns = [], 
   data = [], 
   renderActions = null,
   noDataMessage = 'No records found',
-  minWidth = 1400
+  minWidth = 1400,
+  striped = false,
+  headerGradient = false,
+  defaultAlign = 'left'
 }) => {
   return (
     <div className="reusable-table-container">
-      <table className="reusable-table" style={{ minWidth: `${minWidth}px` }}>
+      <table 
+        className={`reusable-table ${striped ? 'table-striped' : ''} ${headerGradient ? 'table-gradient-header' : ''}`}
+        style={{ minWidth: `${minWidth}px` }}
+      >
         <thead>
           <tr>
             {columns.map((col, index) => (
@@ -27,13 +24,13 @@ const Table = ({
                 key={col.key || index}
                 style={{
                   width: col.width || 'auto',
-                  textAlign: col.align || 'center'
+                  textAlign: col.align || 'left'
                 }}
               >
                 {col.label}
               </th>
             ))}
-            {renderActions && <th style={{ width: '6%' }}>Actions</th>}
+            {renderActions && <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -58,9 +55,9 @@ const Table = ({
                     <td 
                       key={col.key || colIndex}
                       style={{
-                        textAlign: col.align || 'center',
+                        textAlign: col.align || defaultAlign,
                         fontWeight: col.bold ? 600 : 'normal',
-                        color: col.bold ? '#1e293b' : '#475569'
+                        color: col.bold ? '#334155' : '#475569'
                       }}
                     >
                       {value !== undefined && value !== null ? value : '-'}
@@ -68,7 +65,7 @@ const Table = ({
                   );
                 })}
                 {renderActions && (
-                  <td>
+                  <td style={{ textAlign: 'center' }}>
                     <div className="action-buttons-group">
                       {renderActions(item, rowIndex)}
                     </div>

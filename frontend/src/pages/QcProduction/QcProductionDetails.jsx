@@ -66,6 +66,16 @@ const QcProductionDetails = () => {
   const submitButtonRef = useRef(null);
   const firstInputRef = useRef(null);
 
+  // Helper function to validate range format (e.g., "3.50-3.75" or "3.50")
+  const isValidRange = (value) => {
+    if (!value || value.trim() === '') return false;
+    const trimmed = value.trim();
+    // Check if it's a range (e.g., "3.50-3.75") or single number
+    const rangePattern = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?$/;
+    const numberPattern = /^\d+(\.\d+)?$/;
+    return rangePattern.test(trimmed) || numberPattern.test(trimmed);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     // Prevent programmatic/user changes to date
@@ -89,61 +99,61 @@ const QcProductionDetails = () => {
       }
     }
 
-    // Validate percentage fields (numbers >= 0)
+    // Validate percentage fields (range format: "X.XX-Y.YY" or single number)
     if (name === 'cPercent') {
       if (value.trim() === '') {
         setCPercentValid(null);
       } else {
-        setCPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setCPercentValid(isValidRange(value));
       }
     }
     if (name === 'siPercent') {
       if (value.trim() === '') {
         setSiPercentValid(null);
       } else {
-        setSiPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setSiPercentValid(isValidRange(value));
       }
     }
     if (name === 'mnPercent') {
       if (value.trim() === '') {
         setMnPercentValid(null);
       } else {
-        setMnPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setMnPercentValid(isValidRange(value));
       }
     }
     if (name === 'pPercent') {
       if (value.trim() === '') {
         setPPercentValid(null);
       } else {
-        setPPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setPPercentValid(isValidRange(value));
       }
     }
     if (name === 'sPercent') {
       if (value.trim() === '') {
         setSPercentValid(null);
       } else {
-        setSPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setSPercentValid(isValidRange(value));
       }
     }
     if (name === 'mgPercent') {
       if (value.trim() === '') {
         setMgPercentValid(null);
       } else {
-        setMgPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setMgPercentValid(isValidRange(value));
       }
     }
     if (name === 'cuPercent') {
       if (value.trim() === '') {
         setCuPercentValid(null);
       } else {
-        setCuPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setCuPercentValid(isValidRange(value));
       }
     }
     if (name === 'crPercent') {
       if (value.trim() === '') {
         setCrPercentValid(null);
       } else {
-        setCrPercentValid(!isNaN(value) && parseFloat(value) >= 0);
+        setCrPercentValid(isValidRange(value));
       }
     }
 
@@ -170,12 +180,12 @@ const QcProductionDetails = () => {
       }
     }
 
-    // Validate Hardness BHN (number > 0)
+    // Validate Hardness BHN (range format)
     if (name === 'hardnessBHN') {
       if (value.trim() === '') {
         setHardnessBHNValid(null);
       } else {
-        setHardnessBHNValid(!isNaN(value) && parseFloat(value) > 0);
+        setHardnessBHNValid(isValidRange(value));
       }
     }
 
@@ -259,35 +269,35 @@ const QcProductionDetails = () => {
       setNoOfMouldsValid(false);
       hasErrors = true;
     }
-    if (!formData.cPercent || isNaN(formData.cPercent) || parseFloat(formData.cPercent) < 0) {
+    if (!formData.cPercent || !isValidRange(formData.cPercent)) {
       setCPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.siPercent || isNaN(formData.siPercent) || parseFloat(formData.siPercent) < 0) {
+    if (!formData.siPercent || !isValidRange(formData.siPercent)) {
       setSiPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.mnPercent || isNaN(formData.mnPercent) || parseFloat(formData.mnPercent) < 0) {
+    if (!formData.mnPercent || !isValidRange(formData.mnPercent)) {
       setMnPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.pPercent || isNaN(formData.pPercent) || parseFloat(formData.pPercent) < 0) {
+    if (!formData.pPercent || !isValidRange(formData.pPercent)) {
       setPPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.sPercent || isNaN(formData.sPercent) || parseFloat(formData.sPercent) < 0) {
+    if (!formData.sPercent || !isValidRange(formData.sPercent)) {
       setSPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.mgPercent || isNaN(formData.mgPercent) || parseFloat(formData.mgPercent) < 0) {
+    if (!formData.mgPercent || !isValidRange(formData.mgPercent)) {
       setMgPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.cuPercent || isNaN(formData.cuPercent) || parseFloat(formData.cuPercent) < 0) {
+    if (!formData.cuPercent || !isValidRange(formData.cuPercent)) {
       setCuPercentValid(false);
       hasErrors = true;
     }
-    if (!formData.crPercent || isNaN(formData.crPercent) || parseFloat(formData.crPercent) < 0) {
+    if (!formData.crPercent || !isValidRange(formData.crPercent)) {
       setCrPercentValid(false);
       hasErrors = true;
     }
@@ -303,7 +313,7 @@ const QcProductionDetails = () => {
       setPearliteFertiteValid(false);
       hasErrors = true;
     }
-    if (!formData.hardnessBHN || isNaN(formData.hardnessBHN) || parseFloat(formData.hardnessBHN) <= 0) {
+    if (!formData.hardnessBHN || !isValidRange(formData.hardnessBHN)) {
       setHardnessBHNValid(false);
       hasErrors = true;
     }
@@ -385,7 +395,24 @@ const QcProductionDetails = () => {
         pPercent: '', sPercent: '', mgPercent: '', cuPercent: '', crPercent: '',
         nodularity: '', graphiteType: '', pearliteFerrite: '', hardnessBHN: '', ts: '', ys: '', el: ''
       });
-      setValidationErrors({});
+      // Reset all validation states
+      setPartNameValid(null);
+      setNoOfMouldsValid(null);
+      setCPercentValid(null);
+      setSiPercentValid(null);
+      setMnPercentValid(null);
+      setPPercentValid(null);
+      setSPercentValid(null);
+      setMgPercentValid(null);
+      setCuPercentValid(null);
+      setCrPercentValid(null);
+      setNodularityValid(null);
+      setGraphiteTypeValid(null);
+      setPearliteFertiteValid(null);
+      setHardnessBHNValid(null);
+      setTsValid(null);
+      setYsValid(null);
+      setElValid(null);
       // Focus first input after submission handling
       setTimeout(() => {
         if (firstInputRef.current && firstInputRef.current.focus) {
@@ -487,7 +514,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 3.54-3.75"
-                className={validationErrors.cPercent ? 'invalid-input' : ''}
+                className={getInputStyle(cPercentValid)}
               />
             </div>
 
@@ -501,7 +528,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 2.40-2.80"
-                className={validationErrors.siPercent ? 'invalid-input' : ''}
+                className={getInputStyle(siPercentValid)}
               />
             </div>
 
@@ -515,7 +542,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.40-0.60"
-                className={validationErrors.mnPercent ? 'invalid-input' : ''}
+                className={getInputStyle(mnPercentValid)}
               />
             </div>
 
@@ -529,7 +556,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.02-0.05"
-                className={validationErrors.pPercent ? 'invalid-input' : ''}
+                className={getInputStyle(pPercentValid)}
               />
             </div>
 
@@ -543,7 +570,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.01-0.05"
-                className={validationErrors.sPercent ? 'invalid-input' : ''}
+                className={getInputStyle(sPercentValid)}
               />
             </div>
 
@@ -557,7 +584,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.03-0.05"
-                className={validationErrors.mgPercent ? 'invalid-input' : ''}
+                className={getInputStyle(mgPercentValid)}
               />
             </div>
 
@@ -571,7 +598,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.30-0.80"
-                className={validationErrors.cuPercent ? 'invalid-input' : ''}
+                className={getInputStyle(cuPercentValid)}
               />
             </div>
 
@@ -585,7 +612,7 @@ const QcProductionDetails = () => {
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 0.05-0.15"
-                className={validationErrors.crPercent ? 'invalid-input' : ''}
+                className={getInputStyle(crPercentValid)}
               />
             </div>
 
@@ -598,7 +625,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 85"
-                className={validationErrors.nodularity ? 'invalid-input' : ''}
+                className={getInputStyle(nodularityValid)}
               />
             </div>
 
@@ -611,7 +638,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 23-45"
-                className={validationErrors.graphiteType ? 'invalid-input' : ''}
+                className={getInputStyle(graphiteTypeValid)}
               />
             </div>
 
@@ -624,7 +651,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 55-65P"
-                className={validationErrors.pearliteFerrite ? 'invalid-input' : ''}
+                className={getInputStyle(pearliteFertiteValid)}
               />
             </div>
 
@@ -637,7 +664,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 25-48"
-                className={validationErrors.hardnessBHN ? 'invalid-input' : ''}
+                className={getInputStyle(hardnessBHNValid)}
               />
             </div>
 
@@ -650,7 +677,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 550.23"
-                className={validationErrors.ts ? 'invalid-input' : ''}
+                className={getInputStyle(tsValid)}
               />
             </div>
 
@@ -663,7 +690,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 460.23"
-                className={validationErrors.ys ? 'invalid-input' : ''}
+                className={getInputStyle(ysValid)}
               />
             </div>
 
@@ -676,7 +703,7 @@ const QcProductionDetails = () => {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="e.g: 18.5"
-                className={validationErrors.el ? 'invalid-input' : ''}
+                className={getInputStyle(elValid)}
               />
             </div>
       </form>

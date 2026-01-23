@@ -20,43 +20,51 @@ const QcProductionSchema = new mongoose.Schema({
         },
 
     cPercent: { 
-        type: Number, 
-        required: true
+        type: String, 
+        required: true,
+        trim: true
     },
 
     siPercent: { 
-        type: Number, 
-        required: true
+        type: String, 
+        required: true,
+        trim: true
     },
 
     mnPercent: { 
-        type: Number,
-        required: true 
+        type: String,
+        required: true,
+        trim: true
     },
 
     pPercent: { 
-        type: Number,
-        required: true
+        type: String,
+        required: true,
+        trim: true
     },
 
     sPercent: {
-         type: Number, 
-         required: true 
+         type: String, 
+         required: true,
+         trim: true
     },
 
     mgPercent: { 
-        type: Number,
-        required: true 
+        type: String,
+        required: true,
+        trim: true
     },
 
     cuPercent: {
-        type: Number,
-        required: true 
+        type: String,
+        required: true,
+        trim: true
     },
 
     crPercent: { 
-        type: Number,
-        required: true 
+        type: String,
+        required: true,
+        trim: true
     },
 
     nodularity: {
@@ -78,8 +86,9 @@ const QcProductionSchema = new mongoose.Schema({
     },
 
     hardnessBHN: { 
-        type: Number,
-        required: true 
+        type: String,
+        required: true,
+        trim: true
     },
 
     ts: { 

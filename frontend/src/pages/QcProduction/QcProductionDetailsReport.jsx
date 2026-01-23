@@ -19,9 +19,38 @@ const QcProductionDetailsReport = () => {
   const [editFormData, setEditFormData] = useState({});
   const [editLoading, setEditLoading] = useState(false);
 
+  // Edit Validation states
+  const [editPartNameValid, setEditPartNameValid] = useState(null);
+  const [editNoOfMouldsValid, setEditNoOfMouldsValid] = useState(null);
+  const [editCPercentValid, setEditCPercentValid] = useState(null);
+  const [editSiPercentValid, setEditSiPercentValid] = useState(null);
+  const [editMnPercentValid, setEditMnPercentValid] = useState(null);
+  const [editPPercentValid, setEditPPercentValid] = useState(null);
+  const [editSPercentValid, setEditSPercentValid] = useState(null);
+  const [editMgPercentValid, setEditMgPercentValid] = useState(null);
+  const [editCuPercentValid, setEditCuPercentValid] = useState(null);
+  const [editCrPercentValid, setEditCrPercentValid] = useState(null);
+  const [editNodularityValid, setEditNodularityValid] = useState(null);
+  const [editGraphiteTypeValid, setEditGraphiteTypeValid] = useState(null);
+  const [editPearliteFertiteValid, setEditPearliteFertiteValid] = useState(null);
+  const [editHardnessBHNValid, setEditHardnessBHNValid] = useState(null);
+  const [editTsValid, setEditTsValid] = useState(null);
+  const [editYsValid, setEditYsValid] = useState(null);
+  const [editElValid, setEditElValid] = useState(null);
+
   useEffect(() => {
     fetchItems();
   }, []);
+
+  // Helper function to validate range format (e.g., "3.50-3.75" or "3.50")
+  const isValidRange = (value) => {
+    if (!value || value.trim() === '') return false;
+    const trimmed = value.trim();
+    // Check if it's a range (e.g., "3.50-3.75") or single number
+    const rangePattern = /^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?$/;
+    const numberPattern = /^\d+(\.\d+)?$/;
+    return rangePattern.test(trimmed) || numberPattern.test(trimmed);
+  };
 
   const fetchItems = async () => {
 
@@ -41,16 +70,7 @@ const QcProductionDetailsReport = () => {
 
       let serverItems = [];
       if (data.success) {
-        const allItems = data.data || [];
-        setItems(allItems);
-        
-        // Filter to show today's entries by default
-        const todaysEntries = allItems.filter(item => {
-          if (!item.date) return false;
-          const itemDate = new Date(item.date).toISOString().split('T')[0];
-          return itemDate === todayStr;
-        });
-        setFilteredItems(todaysEntries);
+        serverItems = data.data || [];
       }
 
       // Merge with locally stored QC entries (frontend-only fallback)
@@ -64,7 +84,14 @@ const QcProductionDetailsReport = () => {
 
       const combined = [...serverItems, ...localItems];
       setItems(combined);
-      setFilteredItems(combined);
+      
+      // Filter to show today's entries by default
+      const todaysEntries = combined.filter(item => {
+        if (!item.date) return false;
+        const itemDate = new Date(item.date).toISOString().split('T')[0];
+        return itemDate === todayStr;
+      });
+      setFilteredItems(todaysEntries);
 
     } catch (error) {
       console.error('Error fetching QC production details:', error);
@@ -80,6 +107,137 @@ const QcProductionDetailsReport = () => {
     if (name === 'date') {
       return;
     }
+
+    // Validate Part Name
+    if (name === 'partName') {
+      if (value.trim() === '') {
+        setEditPartNameValid(null);
+      } else {
+        setEditPartNameValid(value.trim().length > 0);
+      }
+    }
+
+    // Validate No. of Moulds (number >= 1)
+    if (name === 'noOfMoulds') {
+      if (value.trim() === '') {
+        setEditNoOfMouldsValid(null);
+      } else {
+        setEditNoOfMouldsValid(!isNaN(value) && parseFloat(value) >= 1);
+      }
+    }
+
+    // Validate percentage fields (range format: "X.XX-Y.YY" or single number)
+    if (name === 'cPercent') {
+      if (value.trim() === '') {
+        setEditCPercentValid(null);
+      } else {
+        setEditCPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'siPercent') {
+      if (value.trim() === '') {
+        setEditSiPercentValid(null);
+      } else {
+        setEditSiPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'mnPercent') {
+      if (value.trim() === '') {
+        setEditMnPercentValid(null);
+      } else {
+        setEditMnPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'pPercent') {
+      if (value.trim() === '') {
+        setEditPPercentValid(null);
+      } else {
+        setEditPPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'sPercent') {
+      if (value.trim() === '') {
+        setEditSPercentValid(null);
+      } else {
+        setEditSPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'mgPercent') {
+      if (value.trim() === '') {
+        setEditMgPercentValid(null);
+      } else {
+        setEditMgPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'cuPercent') {
+      if (value.trim() === '') {
+        setEditCuPercentValid(null);
+      } else {
+        setEditCuPercentValid(isValidRange(value));
+      }
+    }
+    if (name === 'crPercent') {
+      if (value.trim() === '') {
+        setEditCrPercentValid(null);
+      } else {
+        setEditCrPercentValid(isValidRange(value));
+      }
+    }
+
+    // Validate text fields
+    if (name === 'nodularity') {
+      if (value.trim() === '') {
+        setEditNodularityValid(null);
+      } else {
+        setEditNodularityValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'graphiteType') {
+      if (value.trim() === '') {
+        setEditGraphiteTypeValid(null);
+      } else {
+        setEditGraphiteTypeValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'pearliteFerrite') {
+      if (value.trim() === '') {
+        setEditPearliteFertiteValid(null);
+      } else {
+        setEditPearliteFertiteValid(value.trim().length > 0);
+      }
+    }
+
+    // Validate Hardness BHN (range format)
+    if (name === 'hardnessBHN') {
+      if (value.trim() === '') {
+        setEditHardnessBHNValid(null);
+      } else {
+        setEditHardnessBHNValid(isValidRange(value));
+      }
+    }
+
+    // Validate TS, YS, EL (text fields)
+    if (name === 'ts') {
+      if (value.trim() === '') {
+        setEditTsValid(null);
+      } else {
+        setEditTsValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'ys') {
+      if (value.trim() === '') {
+        setEditYsValid(null);
+      } else {
+        setEditYsValid(value.trim().length > 0);
+      }
+    }
+    if (name === 'el') {
+      if (value.trim() === '') {
+        setEditElValid(null);
+      } else {
+        setEditElValid(value.trim().length > 0);
+      }
+    }
     
     setEditFormData(prev => ({
       ...prev,
@@ -92,7 +250,7 @@ const QcProductionDetailsReport = () => {
     setEditFormData({
       date: item.date ? new Date(item.date).toISOString().split('T')[0] : '',
       partName: item.partName || '',
-      noofMoulds: item.noOfMoulds || '',
+      noOfMoulds: item.noOfMoulds || '',
       cPercent: item.cPercent || '',
       siPercent: item.siPercent || '',
       mnPercent: item.mnPercent || '',
@@ -109,10 +267,104 @@ const QcProductionDetailsReport = () => {
       ys: item.ys || '',
       el: item.el || ''
     });
+    // Reset validation states
+    setEditPartNameValid(null);
+    setEditNoOfMouldsValid(null);
+    setEditCPercentValid(null);
+    setEditSiPercentValid(null);
+    setEditMnPercentValid(null);
+    setEditPPercentValid(null);
+    setEditSPercentValid(null);
+    setEditMgPercentValid(null);
+    setEditCuPercentValid(null);
+    setEditCrPercentValid(null);
+    setEditNodularityValid(null);
+    setEditGraphiteTypeValid(null);
+    setEditPearliteFertiteValid(null);
+    setEditHardnessBHNValid(null);
+    setEditTsValid(null);
+    setEditYsValid(null);
+    setEditElValid(null);
     setShowEditModal(true);
   };
 
   const handleUpdate = async () => {
+    // Validate all fields before updating
+    let hasErrors = false;
+
+    if (!editFormData.partName || editFormData.partName.trim() === '') {
+      setEditPartNameValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.noOfMoulds || isNaN(editFormData.noOfMoulds) || parseFloat(editFormData.noOfMoulds) < 1) {
+      setEditNoOfMouldsValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.cPercent || !isValidRange(editFormData.cPercent)) {
+      setEditCPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.siPercent || !isValidRange(editFormData.siPercent)) {
+      setEditSiPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.mnPercent || !isValidRange(editFormData.mnPercent)) {
+      setEditMnPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.pPercent || !isValidRange(editFormData.pPercent)) {
+      setEditPPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.sPercent || !isValidRange(editFormData.sPercent)) {
+      setEditSPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.mgPercent || !isValidRange(editFormData.mgPercent)) {
+      setEditMgPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.cuPercent || !isValidRange(editFormData.cuPercent)) {
+      setEditCuPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.crPercent || !isValidRange(editFormData.crPercent)) {
+      setEditCrPercentValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.nodularity || editFormData.nodularity.trim() === '') {
+      setEditNodularityValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.graphiteType || editFormData.graphiteType.trim() === '') {
+      setEditGraphiteTypeValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.pearliteFerrite || editFormData.pearliteFerrite.trim() === '') {
+      setEditPearliteFertiteValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.hardnessBHN || !isValidRange(editFormData.hardnessBHN)) {
+      setEditHardnessBHNValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.ts || editFormData.ts.trim() === '') {
+      setEditTsValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.ys || editFormData.ys.trim() === '') {
+      setEditYsValid(false);
+      hasErrors = true;
+    }
+    if (!editFormData.el || editFormData.el.trim() === '') {
+      setEditElValid(false);
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      return;
+    }
+
     try {
       setEditLoading(true);
       const response = await fetch(`http://localhost:5000/api/v1/qc-reports/${editingItem._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(editFormData) });
@@ -190,6 +442,13 @@ const QcProductionDetailsReport = () => {
       return itemDate === todayStr;
     });
     setFilteredItems(todaysEntries);
+  };
+
+  // Helper to get input style class based on validation state
+  const getInputStyle = (validState) => {
+    if (validState === true) return 'valid-input';
+    if (validState === false) return 'invalid-input';
+    return '';
   };
 
   const formatDateDisplay = (dateStr) => {
@@ -396,6 +655,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.partName}
                     onChange={handleEditChange}
                     placeholder="e.g: Engine Block"
+                    className={getInputStyle(editPartNameValid)}
                   />
                 </div>
 
@@ -407,6 +667,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.noOfMoulds}
                     onChange={handleEditChange}
                     placeholder="e.g: 10"
+                    className={getInputStyle(editNoOfMouldsValid)}
                   />
                 </div>
 
@@ -419,6 +680,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 3.50"
+                    className={getInputStyle(editCPercentValid)}
                   />
                 </div>
 
@@ -431,6 +693,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 2.50"
+                    className={getInputStyle(editSiPercentValid)}
                   />
                 </div>
 
@@ -443,6 +706,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.50"
+                    className={getInputStyle(editMnPercentValid)}
                   />
                 </div>
 
@@ -455,6 +719,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.03"
+                    className={getInputStyle(editPPercentValid)}
                   />
                 </div>
 
@@ -467,6 +732,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.02"
+                    className={getInputStyle(editSPercentValid)}
                   />
                 </div>
 
@@ -479,6 +745,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.04"
+                    className={getInputStyle(editMgPercentValid)}
                   />
                 </div>
 
@@ -491,6 +758,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.80"
+                    className={getInputStyle(editCuPercentValid)}
                   />
                 </div>
 
@@ -503,6 +771,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 0.10"
+                    className={getInputStyle(editCrPercentValid)}
                   />
                 </div>
 
@@ -514,6 +783,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.nodularity}
                     onChange={handleEditChange}
                     placeholder="e.g: 90%"
+                    className={getInputStyle(editNodularityValid)}
                   />
                 </div>
 
@@ -525,6 +795,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.graphiteType}
                     onChange={handleEditChange}
                     placeholder="e.g: Type VI"
+                    className={getInputStyle(editGraphiteTypeValid)}
                   />
                 </div>
 
@@ -536,6 +807,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.pearliteFerrite}
                     onChange={handleEditChange}
                     placeholder="e.g: 80/20 %"
+                    className={getInputStyle(editPearliteFertiteValid)}
                   />
                 </div>
 
@@ -547,6 +819,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.hardnessBHN}
                     onChange={handleEditChange}
                     placeholder="e.g: 220"
+                    className={getInputStyle(editHardnessBHNValid)}
                   />
                 </div>
 
@@ -559,6 +832,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 600"
+                    className={getInputStyle(editTsValid)}
                   />
                 </div>
 
@@ -571,6 +845,7 @@ const QcProductionDetailsReport = () => {
                     onChange={handleEditChange}
                     step="0.01"
                     placeholder="e.g: 400"
+                    className={getInputStyle(editYsValid)}
                   />
                 </div>
 
@@ -582,8 +857,7 @@ const QcProductionDetailsReport = () => {
                     value={editFormData.el}
                     onChange={handleEditChange}
                     step="0.01"
-                    placeholder="e.g: 10"
-                  />
+                    placeholder="e.g: 10"                    className={getInputStyle(editElValid)}                  />
                 </div>
               </div>
             </div>

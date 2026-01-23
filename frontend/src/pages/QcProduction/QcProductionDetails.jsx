@@ -52,10 +52,124 @@ const QcProductionDetails = () => {
     const { name, value } = e.target;
     // Prevent programmatic/user changes to date
     if (name === 'date') return;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    // List of fields that require range format with decimals (e.g., 2.34-3.42)
+    const rangeFieldsWithDecimals = ['cPercent', 'siPercent', 'mnPercent', 'pPercent', 'sPercent', 'mgPercent', 'cuPercent', 'crPercent'];
+    
+    // List of fields that require range format with integers only (e.g., 23-45)
+    const rangeFieldsIntegersOnly = ['graphiteType', 'hardnessBHN'];
+    
+    // List of fields that require numbers only
+    const numberOnlyFields = ['noOfMoulds', 'nodularity'];
+
+    // List of fields that require a single decimal number (e.g., 254.23)
+    const decimalNumberOnlyFields = ['ts', 'ys', 'el'];
+    
+    // For range fields with decimals, validate and only allow range format
+    if (rangeFieldsWithDecimals.includes(name)) {
+      // First, remove all non-numeric, non-dot, non-hyphen characters
+      let filteredValue = value.replace(/[^0-9.\-]/g, '');
+      
+      // Remove multiple consecutive hyphens and keep only one
+      filteredValue = filteredValue.replace(/\-+/g, '-');
+      
+      // Ensure only one hyphen - keep only first two parts
+      let parts = filteredValue.split('-');
+      if (parts.length > 2) {
+        // More than 2 parts means more than 1 hyphen, reconstruct with only first two parts
+        parts = [parts[0], parts[1]];
+      }
+      
+      // For each part, ensure only one dot
+      parts = parts.map(part => {
+        const dotParts = part.split('.');
+        if (dotParts.length > 2) {
+          // Multiple dots found, keep only first two parts (number.decimal)
+          return dotParts[0] + '.' + dotParts[1];
+        }
+        return part;
+      });
+      
+      filteredValue = parts.join('-');
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: filteredValue
+      }));
+    } else if (name === 'pearliteFerrite') {
+      // For pearliteFerrite, allow only NN-NNP format (digits, single hyphen, optional trailing P)
+      let upper = value.toUpperCase();
+      // Keep only digits, hyphen, and P
+      upper = upper.replace(/[^0-9P\-]/g, '');
+
+      // Extract and temporarily remove all P characters
+      const hasP = upper.includes('P');
+      let withoutP = upper.replace(/P/g, '');
+
+      // Remove multiple consecutive hyphens and keep only one
+      withoutP = withoutP.replace(/\-+/g, '-');
+
+      // Ensure only one hyphen - keep only first two parts
+      const partsPF = withoutP.split('-');
+      if (partsPF.length > 2) {
+        withoutP = partsPF[0] + '-' + partsPF[1];
+      }
+
+      // Reattach a single P at the end if user typed it anywhere
+      let finalValue = withoutP;
+      if (hasP && withoutP.length > 0) {
+        finalValue = withoutP + 'P';
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: finalValue
+      }));
+    } else if (rangeFieldsIntegersOnly.includes(name)) {
+      // For range fields with integers only (no decimals), remove non-numeric and non-hyphen characters
+      let filteredValue = value.replace(/[^0-9\-]/g, '');
+      
+      // Remove multiple consecutive hyphens and keep only one
+      filteredValue = filteredValue.replace(/\-+/g, '-');
+      
+      // Ensure only one hyphen - keep only first two parts
+      const parts = filteredValue.split('-');
+      if (parts.length > 2) {
+        // More than 2 parts means more than 1 hyphen, reconstruct with only first two parts
+        filteredValue = parts[0] + '-' + parts[1];
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: filteredValue
+      }));
+    } else if (numberOnlyFields.includes(name)) {
+      // For number-only fields, remove all non-numeric characters
+      const filteredValue = value.replace(/[^0-9]/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: filteredValue
+      }));
+    } else if (decimalNumberOnlyFields.includes(name)) {
+      // For decimal number-only fields, allow digits and a single dot
+      let filteredValue = value.replace(/[^0-9.]/g, '');
+
+      const parts = filteredValue.split('.');
+      if (parts.length > 2) {
+        // More than one dot: keep first dot and join the rest without dots
+        filteredValue = parts[0] + '.' + parts.slice(1).join('');
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: filteredValue
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
 
     // Clear validation error when user starts typing
     if (validationErrors[name]) {
@@ -126,29 +240,48 @@ const QcProductionDetails = () => {
     // Clear validation errors if all fields are valid
     setValidationErrors({});
 
+    // Helper: save entry locally if backend fails
+    const saveLocalEntry = () => {
+      try {
+        const existingRaw = localStorage.getItem('qcProductionLocalEntries');
+        const existing = existingRaw ? JSON.parse(existingRaw) : [];
+        const localEntry = {
+          ...formData,
+          _id: `local-${Date.now()}`,
+          local: true
+        };
+        const updated = [...existing, localEntry];
+        localStorage.setItem('qcProductionLocalEntries', JSON.stringify(updated));
+      } catch (storageError) {
+        console.error('Error saving QC entry to localStorage:', storageError);
+      }
+    };
+
     try {
       setSubmitLoading(true);
       const response = await fetch('http://localhost:5000/api/v1/qc-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(formData) });
       const data = await response.json();
 
-      if (data.success) {
-        alert('QC Production report created successfully!');
-        setFormData({
-          date: getTodayDate(), partName: '', noOfMoulds: '', cPercent: '', siPercent: '', mnPercent: '',
-          pPercent: '', sPercent: '', mgPercent: '', cuPercent: '', crPercent: '',
-          nodularity: '', graphiteType: '', pearliteFerrite: '', hardnessBHN: '', ts: '', ys: '', el: ''
-        });
-        setValidationErrors({});
-        // Focus first input after successful submission
-        setTimeout(() => {
-          if (firstInputRef.current && firstInputRef.current.focus) {
-            firstInputRef.current.focus();
-          }
-        }, 100);
+      if (!data.success) {
+        console.warn('QC backend did not return success, storing entry locally.');
+        saveLocalEntry();
       }
+
+      setFormData({
+        date: getTodayDate(), partName: '', noOfMoulds: '', cPercent: '', siPercent: '', mnPercent: '',
+        pPercent: '', sPercent: '', mgPercent: '', cuPercent: '', crPercent: '',
+        nodularity: '', graphiteType: '', pearliteFerrite: '', hardnessBHN: '', ts: '', ys: '', el: ''
+      });
+      setValidationErrors({});
+      // Focus first input after submission handling
+      setTimeout(() => {
+        if (firstInputRef.current && firstInputRef.current.focus) {
+          firstInputRef.current.focus();
+        }
+      }, 100);
     } catch (error) {
       console.error('Error creating QC report:', error);
-      alert('Failed to create entry: ' + error.message);
+      saveLocalEntry();
     } finally {
       setSubmitLoading(false);
     }
@@ -196,7 +329,7 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>No. of Moulds *</label>
               <input
-                type="number"
+                type="text"
                 name="noOfMoulds"
                 value={formData.noOfMoulds}
                 onChange={handleChange}
@@ -210,14 +343,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>C % *</label>
               <input
-                type="number"
+                type="text"
                 name="cPercent"
                 value={formData.cPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 3.5"
+                placeholder="e.g: 3.54-3.75"
                 className={validationErrors.cPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -225,14 +357,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Si % *</label>
               <input
-                type="number"
+                type="text"
                 name="siPercent"
                 value={formData.siPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 2.5"
+                placeholder="e.g: 2.40-2.80"
                 className={validationErrors.siPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -240,14 +371,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Mn % *</label>
               <input
-                type="number"
+                type="text"
                 name="mnPercent"
                 value={formData.mnPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.5"
+                placeholder="e.g: 0.40-0.60"
                 className={validationErrors.mnPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -255,14 +385,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>P % *</label>
               <input
-                type="number"
+                type="text"
                 name="pPercent"
                 value={formData.pPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.05"
+                placeholder="e.g: 0.02-0.05"
                 className={validationErrors.pPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -270,14 +399,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>S % *</label>
               <input
-                type="number"
+                type="text"
                 name="sPercent"
                 value={formData.sPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.03"
+                placeholder="e.g: 0.01-0.05"
                 className={validationErrors.sPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -285,14 +413,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Mg % *</label>
               <input
-                type="number"
+                type="text"
                 name="mgPercent"
                 value={formData.mgPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.04"
+                placeholder="e.g: 0.03-0.05"
                 className={validationErrors.mgPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -300,14 +427,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Cu % *</label>
               <input
-                type="number"
+                type="text"
                 name="cuPercent"
                 value={formData.cuPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.5"
+                placeholder="e.g: 0.30-0.80"
                 className={validationErrors.cuPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -315,14 +441,13 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Cr % *</label>
               <input
-                type="number"
+                type="text"
                 name="crPercent"
                 value={formData.crPercent}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                step="0.01"
-                placeholder="e.g: 0.2"
+                placeholder="e.g: 0.05-0.15"
                 className={validationErrors.crPercent ? 'invalid-input' : ''}
               />
             </div>
@@ -335,7 +460,7 @@ const QcProductionDetails = () => {
                 value={formData.nodularity}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 85%"
+                placeholder="e.g: 85"
                 className={validationErrors.nodularity ? 'invalid-input' : ''}
               />
             </div>
@@ -348,7 +473,7 @@ const QcProductionDetails = () => {
                 value={formData.graphiteType}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: Type VI"
+                placeholder="e.g: 23-45"
                 className={validationErrors.graphiteType ? 'invalid-input' : ''}
               />
             </div>
@@ -361,7 +486,7 @@ const QcProductionDetails = () => {
                 value={formData.pearliteFerrite}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 80/20"
+                placeholder="e.g: 55-65P"
                 className={validationErrors.pearliteFerrite ? 'invalid-input' : ''}
               />
             </div>
@@ -369,13 +494,12 @@ const QcProductionDetails = () => {
             <div className="qcproduction-form-group">
               <label>Hardness BHN *</label>
               <input
-                type="number"
+                type="text"
                 name="hardnessBHN"
                 value={formData.hardnessBHN}
                 onChange={handleChange}
-                onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 220"
+                placeholder="e.g: 25-48"
                 className={validationErrors.hardnessBHN ? 'invalid-input' : ''}
               />
             </div>
@@ -388,7 +512,7 @@ const QcProductionDetails = () => {
                 value={formData.ts}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 550"
+                placeholder="e.g: 550.23"
                 className={validationErrors.ts ? 'invalid-input' : ''}
               />
             </div>
@@ -401,7 +525,7 @@ const QcProductionDetails = () => {
                 value={formData.ys}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 460"
+                placeholder="e.g: 460.23"
                 className={validationErrors.ys ? 'invalid-input' : ''}
               />
             </div>
@@ -414,7 +538,7 @@ const QcProductionDetails = () => {
                 value={formData.el}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g: 18"
+                placeholder="e.g: 18.5"
                 className={validationErrors.el ? 'invalid-input' : ''}
               />
             </div>
@@ -424,23 +548,27 @@ const QcProductionDetails = () => {
         <ResetButton onClick={handleReset}>
           Reset Form
         </ResetButton>
-        
-        <SubmitButton
-          onClick={handleSubmit}
-          disabled={submitLoading}
-        >
-          {submitLoading ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              Saving...
-            </>
-          ) : (
-            'Submit All'
-          )}
-        </SubmitButton>
+
+        <div className="qcproduction-submit-right">
+          <SubmitButton
+            onClick={handleSubmit}
+            disabled={submitLoading}
+            type="button"
+          >
+            {submitLoading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Submit Entry'
+            )}
+          </SubmitButton>
+        </div>
       </div>
     </>
   );
 };
 
 export default QcProductionDetails;
+

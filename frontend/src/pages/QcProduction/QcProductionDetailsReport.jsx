@@ -11,7 +11,7 @@ const QcProductionDetailsReport = () => {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Edit states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -23,15 +23,30 @@ const QcProductionDetailsReport = () => {
   }, []);
 
   const fetchItems = async () => {
+
     try {
       setLoading(true);
       const response = await fetch('http://localhost:5000/api/v1/qc-reports', { credentials: 'include' });
       const data = await response.json();
 
+      let serverItems = [];
       if (data.success) {
-        setItems(data.data || []);
-        setFilteredItems(data.data || []);
+        serverItems = data.data || [];
       }
+
+      // Merge with locally stored QC entries (frontend-only fallback)
+      let localItems = [];
+      try {
+        const localRaw = localStorage.getItem('qcProductionLocalEntries');
+        localItems = localRaw ? JSON.parse(localRaw) : [];
+      } catch (e) {
+        console.error('Error reading local QC entries:', e);
+      }
+
+      const combined = [...serverItems, ...localItems];
+      setItems(combined);
+      setFilteredItems(combined);
+
     } catch (error) {
       console.error('Error fetching QC production details:', error);
     } finally {

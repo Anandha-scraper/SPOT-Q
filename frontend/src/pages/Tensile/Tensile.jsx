@@ -592,7 +592,10 @@ const Tensile = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          DATE : {formData.dateOfInspection ? new Date(formData.dateOfInspection).toLocaleDateString('en-GB') : '-'}
+          DATE : {formData.dateOfInspection ? (() => {
+            const [y, m, d] = formData.dateOfInspection.split('-');
+            return `${d} / ${m} / ${y}`;
+          })() : '-'}
         </div>
       </div>
 

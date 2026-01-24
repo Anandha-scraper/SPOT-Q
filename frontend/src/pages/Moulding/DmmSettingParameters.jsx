@@ -971,7 +971,19 @@ const DmmSettingParameters = () => {
         <div className="dmm-section primary-section">
           <div className="primary-header-container">
             <h3 className="primary-section-title">PRIMARY</h3>
-            <div className="primary-date-display">DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</div>
+            <div className="primary-date-display">DATE : {primaryData.date ? (() => {
+              const date = new Date(primaryData.date);
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const year = date.getFullYear();
+              return `${day} / ${month} / ${year}`;
+            })() : (() => {
+              const date = new Date();
+              const day = String(date.getDate()).padStart(2, '0');
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const year = date.getFullYear();
+              return `${day} / ${month} / ${year}`;
+            })()}</div>
           </div>
           {checkingData && (
             <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem' }}>

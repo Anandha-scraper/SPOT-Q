@@ -14,7 +14,7 @@
 .reusable-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
   font-size: 0.9375rem;
 }
 
@@ -33,7 +33,9 @@
   text-align: left;
   font-weight: 600;
   color: #334155;
-  white-space: nowrap;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.9375rem;
   border-bottom: 1px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;
@@ -71,7 +73,8 @@
   vertical-align: middle;
   font-size: 0.9375rem;
   line-height: 1.5;
-  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-right: 1px solid #e2e8f0;
 }
 

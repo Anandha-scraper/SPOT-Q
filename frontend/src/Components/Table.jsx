@@ -63,7 +63,7 @@ const Table = ({
                 {col.label}
               </th>
             ))}
-            {renderActions && <th style={{ width: '100px', textAlign: 'center' }}>Actions</th>}
+            {renderActions && <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -99,6 +99,7 @@ const Table = ({
                       key={col.key || colIndex}
                       rowSpan={rowSpan}
                       style={{
+                        width: col.width || 'auto',
                         textAlign: col.align || defaultAlign,
                         fontWeight: col.bold ? 600 : 'normal',
                         color: col.bold ? '#334155' : '#475569',
@@ -110,7 +111,7 @@ const Table = ({
                   );
                 })}
                 {renderActions && (
-                  <td style={{ textAlign: 'center' }}>
+                  <td style={{ width: '120px', textAlign: 'center' }}>
                     <div className="action-buttons-group">
                       {renderActions(item, rowIndex)}
                     </div>

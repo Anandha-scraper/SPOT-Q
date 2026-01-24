@@ -412,7 +412,13 @@ const DmmSettingParametersReport = () => {
                 ) : (
                   flattenedRows.map((row, idx) => (
                     <tr key={row._id + '-' + idx} style={{ transition: 'background-color 0.2s ease' }}>
-                      <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: 500 }}>{row.date ? new Date(row.date).toLocaleDateString() : '-'}</td>
+                      <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: 500 }}>{row.date ? (() => {
+                        const date = new Date(row.date);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day} / ${month} / ${year}`;
+                      })() : '-'}</td>
                       <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: 500 }}>{row.machine || '-'}</td>
                       <td style={{ padding: '12px 18px', textAlign: 'center', fontWeight: 500 }}>{row.shift}</td>
                       <td style={{ padding: '12px 18px', textAlign: 'center' }}>{row.operatorName}</td>

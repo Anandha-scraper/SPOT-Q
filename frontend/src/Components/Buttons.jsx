@@ -150,7 +150,7 @@ export const TimeInput = forwardRef(({
   onKeyDown, 
   validationState = null 
 }, ref) => {
-  const validHours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const validHours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   const validMinutes = Array.from({ length: 60 }, (_, i) => i); // [0, 1, 2, ..., 59]
 
   const handleInputChange = (e) => {
@@ -192,7 +192,8 @@ export const TimeInput = forwardRef(({
       <div className="time-inputs-group">
         <input 
           ref={hourRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={hourName}
           value={hourValue}
           onChange={handleInputChange}
@@ -203,14 +204,13 @@ export const TimeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="HH" 
-          min="1" 
-          max="12"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
         <span>:</span>
         <input 
           ref={minuteRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={minuteName}
           value={minuteValue}
           onChange={handleInputChange}
@@ -221,8 +221,6 @@ export const TimeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="MM" 
-          min="0" 
-          max="59"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
       </div>
@@ -248,7 +246,7 @@ export const TimeRangeInput = forwardRef(({
   onKeyDown, 
   validationState = null 
 }, ref) => {
-  const validHours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const validHours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   const validMinutes = Array.from({ length: 60 }, (_, i) => i); // [0, 1, 2, ..., 59]
 
   const handleInputChange = (e) => {
@@ -290,7 +288,8 @@ export const TimeRangeInput = forwardRef(({
       <div className="time-inputs-group">
         <input 
           ref={startHourRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={startHourName}
           value={startHourValue}
           onChange={handleInputChange}
@@ -301,14 +300,13 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="HH" 
-          min="1" 
-          max="12"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
         <span>:</span>
         <input 
           ref={startMinuteRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={startMinuteName}
           value={startMinuteValue}
           onChange={handleInputChange}
@@ -319,8 +317,6 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="MM" 
-          min="0" 
-          max="59"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
       </div>
@@ -328,7 +324,8 @@ export const TimeRangeInput = forwardRef(({
       <div className="time-inputs-group">
         <input 
           ref={endHourRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={endHourName}
           value={endHourValue}
           onChange={handleInputChange}
@@ -339,14 +336,13 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="HH" 
-          min="1" 
-          max="12"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
         <span>:</span>
         <input 
           ref={endMinuteRef}
-          type="number" 
+          type="text" 
+          inputMode="numeric"
           name={endMinuteName}
           value={endMinuteValue}
           onChange={handleInputChange}
@@ -357,8 +353,6 @@ export const TimeRangeInput = forwardRef(({
           }}
           onKeyDown={onKeyDown}
           placeholder="MM" 
-          min="0" 
-          max="59"
           style={{ width: '60px', border: 'none', outline: 'none' }}
         />
       </div>

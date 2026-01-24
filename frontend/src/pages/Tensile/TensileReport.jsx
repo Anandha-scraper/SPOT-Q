@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { X, PencilLine, BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, EditButton, DeleteButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { DeleteConfirmCard, RemarksCard } from '../../Components/PopUp';
+import { DeleteConfirmCard } from '../../Components/PopUp';
 import Table from '../../Components/Table';
 
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
 const TensileReport = () => {
-  // Helper: display date in readable format (e.g., "23/01/2026")
+  // Helper: display date in readable format (e.g., "23 / 01 / 2026")
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '-';
     try {
       const isoDate = typeof dateStr === 'string' ? dateStr.split('T')[0] : dateStr;
       const [y, m, d] = isoDate.split('-');
-      return `${d}/${m}/${y}`;
+      return `${d} / ${m} / ${y}`;
     } catch {
       return dateStr;
     }
@@ -34,10 +34,6 @@ const TensileReport = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [editLoading, setEditLoading] = useState(false);
-
-  // Remarks preview modal
-  const [showRemarksModal, setShowRemarksModal] = useState(false);
-  const [remarksText, setRemarksText] = useState('');
 
   // Delete confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -141,11 +137,6 @@ const TensileReport = () => {
     if (sentences.length <= 2) return { preview: text, truncated: false };
     const preview = sentences.slice(0, 2).join(' ');
     return { preview, truncated: true };
-  };
-
-  const openRemarks = (full) => {
-    setRemarksText(full || '');
-    setShowRemarksModal(true);
   };
 
   const handleEditChange = (e) => {
@@ -594,7 +585,7 @@ const TensileReport = () => {
             { 
               key: 'date', 
               label: 'Date of Inspection', 
-              width: '6%', 
+              width: '140px', 
               bold: true,
               align: 'center',
               render: (item) => {
@@ -605,38 +596,23 @@ const TensileReport = () => {
                 return formatDateDisplay(isoDate);
               }
             },
-            { key: 'item', label: 'Item', width: '4%', align: 'center' },
-            { key: 'dateCode', label: 'Date Code', width: '4%', align: 'center' },
-            { key: 'heatCode', label: 'Heat Code', width: '4%', align: 'center' },
-            { key: 'dia', label: 'Dia (mm)', width: '3%', align: 'center' },
-            { key: 'lo', label: 'Lo (mm)', width: '3%', align: 'center' },
-            { key: 'li', label: 'Li (mm)', width: '3%', align: 'center' },
-            { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '5%', align: 'center' },
-            { key: 'yieldLoad', label: 'Yield Load (kN)', width: '4%', align: 'center' },
-            { key: 'uts', label: 'UTS (N/mm²)', width: '3%', align: 'center' },
-            { key: 'ys', label: 'YS (N/mm²)', width: '3%', align: 'center' },
-            { key: 'elongation', label: 'Elongation (%)', width: '5%', align: 'center' },
-            { key: 'testedBy', label: 'Tested By', width: '4%', align: 'center' },
+            { key: 'item', label: 'Item', width: '200px', align: 'center' },
+            { key: 'dateCode', label: 'Date Code', width: '120px', align: 'center' },
+            { key: 'heatCode', label: 'Heat Code', width: '120px', align: 'center' },
+            { key: 'dia', label: 'Dia (mm)', width: '100px', align: 'center' },
+            { key: 'lo', label: 'Lo (mm)', width: '100px', align: 'center' },
+            { key: 'li', label: 'Li (mm)', width: '100px', align: 'center' },
+            { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '160px', align: 'center' },
+            { key: 'yieldLoad', label: 'Yield Load (kN)', width: '140px', align: 'center' },
+            { key: 'uts', label: 'UTS (N/mm²)', width: '120px', align: 'center' },
+            { key: 'ys', label: 'YS (N/mm²)', width: '120px', align: 'center' },
+            { key: 'elongation', label: 'Elongation (%)', width: '140px', align: 'center' },
+            { key: 'testedBy', label: 'Tested By', width: '140px', align: 'center' },
             { 
               key: 'remarks', 
               label: 'Remarks', 
-              width: '4%',
-              align: 'center',
-              render: (item) => {
-                const value = typeof item.remarks === 'string' ? item.remarks : '';
-                if (!value) return '-';
-                const short = value.length > 6 ? value.slice(0, 5) + '..' : value;
-                return (
-                  <span
-                    onClick={() => openRemarks(value)}
-                    title={value}
-                    style={{ cursor: 'pointer', color: '#0ea5e9', textDecoration: 'underline dotted' }}
-                    aria-label="View full remarks"
-                  >
-                    {short}
-                  </span>
-                );
-              }
+              width: '200px',
+              align: 'center'
             }
           ]}
           data={entries}
@@ -651,12 +627,6 @@ const TensileReport = () => {
         />
       )}
 
-      {/* Remarks Modal */}
-      <RemarksCard
-        isOpen={showRemarksModal}
-        onClose={() => setShowRemarksModal(false)}
-        remarksText={remarksText}
-      />
 
       {/* Edit Modal */}
       {showEditModal && (

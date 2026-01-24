@@ -177,7 +177,10 @@ const DisamaticProduct = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          DATE : {formData.date ? new Date(formData.date).toLocaleDateString('en-GB') : '-'}
+          DATE : {formData.date ? (() => {
+            const [y, m, d] = formData.date.split('-');
+            return `${d} / ${m} / ${y}`;
+          })() : '-'}
         </div>
       </div>
 

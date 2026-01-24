@@ -17,7 +17,7 @@ const QcProductionDetails = () => {
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
     const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
+    return `${d} / ${m} / ${y}`;
   };
 
   const [formData, setFormData] = useState({

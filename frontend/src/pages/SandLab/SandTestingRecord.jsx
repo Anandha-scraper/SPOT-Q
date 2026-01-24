@@ -953,7 +953,13 @@ const SandTestingRecord = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Loading...'}
+          DATE : {primaryData.date ? (() => {
+            const date = new Date(primaryData.date);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day} / ${month} / ${year}`;
+          })() : 'Loading...'}
         </div>
       </div>
 

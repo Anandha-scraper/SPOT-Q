@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Save, Plus, X, RefreshCw } from "lucide-react";
+import { Save, Plus, X, RefreshCw, Loader2 } from "lucide-react";
+import { SubmitButton, ResetButton } from "../../Components/Buttons";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
 
 // Get today's date in YYYY-MM-DD format
@@ -26,6 +27,7 @@ const initialFormData = {
 
 const DisamaticProduct = () => {
   const [formData, setFormData] = useState(initialFormData);
+  const [submitLoading, setSubmitLoading] = useState(false);
 
   // Handle basic field changes
   const handleChange = (field, value) => {
@@ -160,10 +162,64 @@ const DisamaticProduct = () => {
     setFormData(initialFormData);
   };
 
-  // Submit Handler (placeholder)
-  const handleSubmit = () => {
-    console.log("Form Data:", formData);
-    alert("Form submitted! Check console for data.");
+  const handleReset = () => {
+    setFormData({
+      ...initialFormData,
+      date: formData.date // Keep the current date
+    });
+  };
+
+  // Submit Handler
+  const handleSubmit = async () => {
+    // Basic validation
+    if (!formData.shift) {
+      alert('Please select a shift');
+      return;
+    }
+    if (!formData.incharge || !formData.incharge.trim()) {
+      alert('Please enter incharge name');
+      return;
+    }
+    if (!formData.ppOperator || !formData.ppOperator.trim()) {
+      alert('Please enter PP Operator name');
+      return;
+    }
+    if (!formData.members || formData.members.length === 0 || !formData.members[0].trim()) {
+      alert('Please add at least one member');
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+
+      const response = await fetch('http://localhost:5000/api/v1/disamatic-product', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Entry submitted successfully!');
+        
+        // Reset form but keep the current date
+        setFormData({
+          ...initialFormData,
+          date: formData.date
+        });
+      } else {
+        alert('Failed to submit entry: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Failed to submit entry: ' + (error.message || 'Unknown error'));
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   return (
@@ -185,48 +241,40 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Primary Section */}
-      <div className="disamatic-section primary-section">
-        <div className="primary-header-container">
-          <h3 className="primary-section-title">PRIMARY</h3>
+      <form className="primary-fields-row">
+        <div className="disamatic-form-group">
+          <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
+          <select
+            value={formData.shift}
+            onChange={e => handleChange("shift", e.target.value)}
+          >
+            <option value="">Select Shift</option>
+            <option value="Shift 1">Shift 1</option>
+            <option value="Shift 2">Shift 2</option>
+            <option value="Shift 3">Shift 3</option>
+          </select>
+        </div>
+        <div className="disamatic-form-group">
+          <label>Incharge <span style={{ color: '#ef4444' }}>*</span></label>
+          <input 
+            type="text" 
+            value={formData.incharge} 
+            onChange={e => handleChange("incharge", e.target.value)}
+            placeholder="Enter incharge name"
+          />
+        </div>
+        <div className="disamatic-form-group">
+          <label>PP Operator <span style={{ color: '#ef4444' }}>*</span></label>
+          <input 
+            type="text" 
+            value={formData.ppOperator} 
+            onChange={e => handleChange("ppOperator", e.target.value)}
+            placeholder="Enter PP Operator name"
+          />
         </div>
         
-        {/* First Row: Shift, Incharge, PP Operator */}
-        <div className="primary-fields-row">
-          <div className="disamatic-form-group">
-            <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
-            <select
-              value={formData.shift}
-              onChange={e => handleChange("shift", e.target.value)}
-            >
-              <option value="">Select Shift</option>
-              <option value="Shift 1">Shift 1</option>
-              <option value="Shift 2">Shift 2</option>
-              <option value="Shift 3">Shift 3</option>
-            </select>
-          </div>
-          <div className="disamatic-form-group">
-            <label>Incharge <span style={{ color: '#ef4444' }}>*</span></label>
-            <input 
-              type="text" 
-              value={formData.incharge} 
-              onChange={e => handleChange("incharge", e.target.value)}
-              placeholder="Enter incharge name"
-            />
-          </div>
-          <div className="disamatic-form-group">
-            <label>PP Operator <span style={{ color: '#ef4444' }}>*</span></label>
-            <input 
-              type="text" 
-              value={formData.ppOperator} 
-              onChange={e => handleChange("ppOperator", e.target.value)}
-              placeholder="Enter PP Operator name"
-            />
-          </div>
-        </div>
-        
-        {/* Second Row: Members Present */}
-        <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
-          <div className="disamatic-form-group" style={{ gridColumn: '1 / -1' }}>
+        {/* Members Present */}
+        <div className="disamatic-form-group" style={{ flex: '1 1 100%' }}>
             <label>Members Present <span style={{ color: '#ef4444' }}>*</span></label>
             <div className="disamatic-members-container">
               {formData.members.map((member, index) => (
@@ -261,19 +309,31 @@ const DisamaticProduct = () => {
               </button>
             </div>
           </div>
-        </div>
-        
-        {/* Primary Submit Container */}
-        <div className="disamatic-submit-container" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-          <button className="disamatic-submit-btn" type="button" onClick={handleSubmit}>
-            <Save size={18} />
-            Save Primary
-          </button>
-        </div>
+      </form>
+
+      {/* Primary Submit Container */}
+      <div className="disamatic-submit-container">
+        <ResetButton onClick={handleReset}>
+          Reset Form
+        </ResetButton>
+        <SubmitButton
+          onClick={handleSubmit}
+          disabled={submitLoading}
+          type="button"
+        >
+          {submitLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Submit Entry'
+          )}
+        </SubmitButton>
       </div>
 
       {/* Divider */}
-      <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
+      <div style={{ marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
       {/* Production Table */}
       <div className="disamatic-section">

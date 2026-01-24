@@ -1,7 +1,7 @@
 /* Disamatic Product - Report Page Styles */
 
 /* Header Section */
-.impact-report-header {
+.disamatic-report-header {
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -13,7 +13,7 @@
   border-bottom: 2px solid #e2e8f0;
 }
 
-.impact-report-header-text {
+.disamatic-report-header-text {
   flex: 1;
   display: flex;
   align-items: center;
@@ -21,7 +21,7 @@
   padding: 0;
 }
 
-.impact-report-header-text h2 {
+.disamatic-report-header-text h2 {
   font-size: 1.625rem;
   font-weight: 700;
   color: #1e293b;
@@ -33,4 +33,37 @@
   line-height: 1;
   width: 100%;
   position: relative;
+}
+
+/* Filter Section */
+.disamatic-filter-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.disamatic-filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.disamatic-filter-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 0.375rem;
+}
+
+.disamatic-filter-group input {
+  width: 160px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.disamatic-filter-container button {
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }

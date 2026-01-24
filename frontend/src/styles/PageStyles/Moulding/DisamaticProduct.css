@@ -45,23 +45,6 @@
   border: 1px solid #e2e8f0;
 }
 
-.primary-section {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 2px solid #cbd5e1;
-}
-
-.primary-header-container {
-  margin-bottom: 1.5rem;
-}
-
-.primary-section-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-  padding: 0;
-}
-
 .disamatic-section-title {
   font-size: 1.125rem;
   font-weight: 700;
@@ -87,10 +70,12 @@
 
 /* Form Grid and Groups */
 .primary-fields-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: row;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .disamatic-form-group {
@@ -251,12 +236,12 @@
 }
 
 .disamatic-submit-container {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
   margin-top: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding-top: 1.5rem;
-  border-top: 2px solid #e2e8f0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .disamatic-submit-btn {

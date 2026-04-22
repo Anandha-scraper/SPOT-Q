@@ -367,6 +367,41 @@ export const PanelDropdown = forwardRef(({ value, onChange, name, disabled, onKe
 });
 PanelDropdown.displayName = 'PanelDropdown';
 
+// SG/FG Grade Dropdown Component
+
+export const SgFgDropdown = forwardRef(({ value, onChange, name, disabled, onKeyDown, onFocus, onBlur, className = '' }, ref) => {
+  const gradeOptions = ['SG', 'FG'];
+
+  return (
+    <div className={`shift-dropdown-wrapper ${className}`}>
+      <select
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        tabIndex={disabled ? -1 : 0}
+        style={{
+          pointerEvents: disabled ? 'none' : 'auto',
+          opacity: disabled ? 0.6 : 1,
+          backgroundColor: disabled ? '#f1f5f9' : '#ffffff',
+          cursor: disabled ? 'not-allowed' : 'pointer'
+        }}
+      >
+        <option value="">Select Grade</option>
+        {gradeOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+});
+SgFgDropdown.displayName = 'SgFgDropdown';
+
 export const CustomTimeInput = forwardRef(({ value, onChange, className = '', hasError = false, onFocus, onBlur, onEnterPress, disabled = false, style = {}, ...props }, ref) => {
   const hourRef = useRef(null);
   const minuteRef = useRef(null);

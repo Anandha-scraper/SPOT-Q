@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown } from '../../Components/Buttons';
+import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown, SgFgDropdown } from '../../Components/Buttons';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
@@ -453,6 +453,512 @@ const MeltingLogSheet = () => {
   // Validation error message
   const [validationErrorMessage, setValidationErrorMessage] = useState('');
 
+  // =====================================================================================
+  // VALIDATION RULE CONFIGURATION MATRIX FOR MELTING LOG SHEETS
+  // =====================================================================================
+  //
+  // RULE SCHEMA: Each validation rule defines constraints for a field including:
+  // - field: UI label (acts as primary key for field mapping)
+  // - required: Boolean flag for mandatory field validation
+  // - type: Validation strategy selector (Text, Number, Integer, Time, etc.)
+  // - min/max: Boundary constraints for numeric fields
+  // - pattern: User-facing example/regex pattern (documentation)
+  const validationRanges = [
+    // TABLE 1 - Charging Composition
+    {
+      field: 'Heat No',
+      type: 'Text',
+      pattern: 'e.g., A-001'
+    },
+    {
+      field: 'Grade',
+      required: true,
+      type: 'Text',
+      allowedValues:['SG','FG']
+    },
+    {
+      field: 'Charging Time',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'IF Bath',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Liquid Metal - Press & Pour',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Liquid Metal - Holder',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'SG MS Steel',
+      type: 'Number',
+      min: 400,
+      max:2500,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Grey MS Steel',
+      type: 'Number',
+      min: 400,
+      max: 2500,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Returns (SG)',
+      type: 'Number',
+      min: 500,
+      max:2500,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Pig Iron',
+      type: 'Number',
+      min: 0,
+      max:350,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Borings',
+      type: 'Number',
+      min: 0,
+      max:1900,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Final Bath',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    // TABLE 2 - Fuel & Additives
+    {
+      field: 'Char Coal',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'CPC (Furnace)',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'CPC (L/C)',
+      type: 'Number',
+      min: 0
+    },
+    {
+      field: 'Silicon Carbide (Furnace)',
+      type: 'Number',
+      min: 3,
+      max: 9,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Ferrosilicon (Furnace)',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Ferrosilicon (L/C)',
+      type: 'Number',
+      min: 0
+    },
+    {
+      field: 'Ferromanganese (Furnace)',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    {
+      field: 'Ferromanganese (L/C)',
+      type: 'Number',
+      min: 0
+    },
+    {
+      field: 'Cu',
+      type: 'Number',
+      min: 0,
+      unit: '%'
+    },
+    {
+      field: 'Cr',
+      type: 'Number',
+      min: 0,
+      unit: '%'
+    },
+    {
+      field: 'Pure Mg',
+      type: 'Number',
+      min: 0,
+      unit: '%'
+    },
+    {
+      field: 'Iron Pyrite',
+      type: 'Number',
+      min: 0,
+      unit: 'Kgs'
+    },
+    // TABLE 3 - Lab Analysis
+    {
+      field: 'Lab Coin Time',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Lab Coin Temp (C)',
+      type: 'Number',
+      min: 0,
+      unit: '°C'
+    },
+    {
+      field: 'Deslag Time From',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Deslag Time To',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Metal Ready Time',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Waiting for Tapping From',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Waiting for Tapping To',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Reason',
+      type: 'Text',
+      pattern: 'e.g., Maintenance delay'
+    },
+    // TABLE 4 - Temperature Monitoring
+    {
+      field: 'Temp Time',
+      required: true,
+      type: 'Time',
+      pattern: 'HH:MM'
+    },
+    {
+      field: 'Temp C - SG',
+      type: 'Number',
+      min: 1440,
+      max:1550,
+      unit: '°C'
+    },
+    {
+      field: 'Direct Furnace',
+      type: 'Number',
+      min: 0,
+      unit: '°C'
+    },
+    {
+      field: 'Holder to Furnace',
+      type: 'Number',
+      min: 0,
+      unit: '°C'
+    },
+    {
+      field: 'Furnace to Holder',
+      type: 'Number',
+      min: 0,
+      unit: '°C'
+    },
+    {
+      field: 'DISA No',
+      type: 'Text',
+      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
+    },
+    {
+      field: 'Item',
+      type: 'Text',
+      pattern: 'e.g., Item-001'
+    },
+    // TABLE 5 - Furnace Power
+    {
+      field: 'Furnace 1 KW',
+      type: 'Number',
+      min: 0,
+      unit: 'KW'
+    },
+    {
+      field: 'Furnace 1 A',
+      type: 'Number',
+      min: 2000,
+      max:3500,
+      unit: 'Amps'
+    },
+    {
+      field: 'Furnace 1 V',
+      type: 'Number',
+      min: 500,
+      max:1000,
+      unit: 'Volts'
+    },
+    {
+      field: 'Furnace 4 Hz',
+      type: 'Number',
+      min: 0,
+      unit: 'Hz'
+    },
+    {
+      field: 'Furnace 4 Gld',
+      type: 'Number',
+      min: 0.6,
+      max: 95,
+      unit: 'Amps'
+    },
+    {
+      field: 'Furnace 4 KW/Hr',
+      type: 'Number',
+      min: 0,
+      unit: 'KW/Hr'
+    }
+  ];
+
+  // =====================================================================================
+  // FIELD MAPPING RESOLUTION MATRIX - UI LABEL TO FORM DATA BINDING
+  // =====================================================================================
+  //
+  // Maps UI labels in validationRanges to actual form data property names across
+  // the five table states (table1, table2, table3, table4, table5).
+  const fieldMapping = {
+    // TABLE 1
+    'Heat No': 'heatNo',
+    'Grade': 'grade',
+    'Charging Time': ['chargingTimeHour', 'chargingTimeMinute'],
+    'IF Bath': 'ifBath',
+    'Liquid Metal - Press & Pour': 'liquidMetalPressPour',
+    'Liquid Metal - Holder': 'liquidMetalHolder',
+    'SG MS Steel': 'sgMsSteel',
+    'Grey MS Steel': 'greyMsSteel',
+    'Returns (SG)': 'returnsSg',
+    'Pig Iron': 'pigIron',
+    'Borings': 'borings',
+    'Final Bath': 'finalBath',
+    // TABLE 2
+    'Char Coal': 'charCoal',
+    'CPC (Furnace)': 'cpcFur',
+    'CPC (L/C)': 'cpcLc',
+    'Silicon Carbide (Furnace)': 'siliconCarbideFur',
+    'Ferrosilicon (Furnace)': 'ferrosiliconFur',
+    'Ferrosilicon (L/C)': 'ferrosiliconLc',
+    'Ferromanganese (Furnace)': 'ferroManganeseFur',
+    'Ferromanganese (L/C)': 'ferroManganeseLc',
+    'Cu': 'cu',
+    'Cr': 'cr',
+    'Pure Mg': 'pureMg',
+    'Iron Pyrite': 'ironPyrite',
+    // TABLE 3
+    'Lab Coin Time': ['labCoinTimeHour', 'labCoinTimeMinute'],
+    'Lab Coin Temp (C)': 'labCoinTempC',
+    'Deslag Time From': ['deslagingTimeFromHour', 'deslagingTimeFromMinute'],
+    'Deslag Time To': ['deslagingTimeToHour', 'deslagingTimeToMinute'],
+    'Metal Ready Time': ['metalReadyTimeHour', 'metalReadyTimeMinute'],
+    'Waiting for Tapping From': ['waitingForTappingFromHour', 'waitingForTappingFromMinute'],
+    'Waiting for Tapping To': ['waitingForTappingToHour', 'waitingForTappingToMinute'],
+    'Reason': 'reason',
+    // TABLE 4
+    'Temp Time': ['timeHour', 'timeMinute'],
+    'Temp C - SG': 'tempCSg',
+    'Direct Furnace': 'directFurnace',
+    'Holder to Furnace': 'holderToFurnace',
+    'Furnace to Holder': 'furnaceToHolder',
+    'DISA No': 'disaNo',
+    'Item': 'item',
+    // TABLE 5
+    'Furnace 1 KW': 'furnace1Kw',
+    'Furnace 1 A': 'furnace1A',
+    'Furnace 1 V': 'furnace1V',
+    'Furnace 4 Hz': 'furnace4Hz',
+    'Furnace 4 Gld': 'furnace4Gld',
+    'Furnace 4 KW/Hr': 'furnace4KwHr'
+  };
+
+  // =====================================================================================
+  // VALIDATION SETTERS DEPENDENCY INJECTION MAP
+  // =====================================================================================
+  //
+  // Maps form data property names to their corresponding React state setter functions.
+  // Enables the validation engine to update component state without direct hook coupling.
+  const validationSetters = {
+    // TABLE 1
+    'heatNo': setHeatNoValid,
+    'grade': setGradeValid,
+    'chargingTime': setChargingTimeValid,
+    'ifBath': setIfBathValid,
+    'liquidMetalPressPour': setLiquidMetalPressPourValid,
+    'liquidMetalHolder': setLiquidMetalHolderValid,
+    'sgMsSteel': setSgMsSteelValid,
+    'greyMsSteel': setGreyMsSteelValid,
+    'returnsSg': setReturnsSgValid,
+    'pigIron': setPigIronValid,
+    'borings': setBoringsValid,
+    'finalBath': setFinalBathValid,
+    // TABLE 2
+    'charCoal': setCharCoalValid,
+    'cpcFur': setCpcFurValid,
+    'cpcLc': setCpcLcValid,
+    'siliconCarbideFur': setSiliconCarbideFurValid,
+    'ferrosiliconFur': setFerrosiliconFurValid,
+    'ferrosiliconLc': setFerrosiliconLcValid,
+    'ferroManganeseFur': setFerroManganeseFurValid,
+    'ferroManganeseLc': setFerroManganeseLcValid,
+    'cu': setCuValid,
+    'cr': setCrValid,
+    'pureMg': setPureMgValid,
+    'ironPyrite': setIronPyriteValid,
+    // TABLE 3
+    'labCoinTime': setLabCoinTimeValid,
+    'labCoinTempC': setLabCoinTempCValid,
+    'deslagingTimeFrom': setDeslagingTimeFromValid,
+    'deslagingTimeTo': setDeslagingTimeToValid,
+    'metalReadyTime': setMetalReadyTimeValid,
+    'waitingForTappingFrom': setWaitingForTappingFromValid,
+    'waitingForTappingTo': setWaitingForTappingToValid,
+    'reason': setReasonValid,
+    // TABLE 4
+    'tempTime': setTable4TimeValid,
+    'tempCSg': setTempCSgValid,
+    'directFurnace': setDirectFurnaceValid,
+    'holderToFurnace': setHolderToFurnaceValid,
+    'furnaceToHolder': setFurnaceToHolderValid,
+    'disaNo': setDisaNoValid,
+    'item': setItemValid,
+    // TABLE 5
+    'furnace1Kw': setFurnace1KwValid,
+    'furnace1A': setFurnace1AValid,
+    'furnace1V': setFurnace1VValid,
+    'furnace4Hz': setFurnace4HzValid,
+    'furnace4Gld': setFurnace4GldValid,
+    'furnace4KwHr': setFurnace4KwHrValid
+  };
+
+  // =====================================================================================
+  // FIELD VALIDATION STRATEGY ENGINE
+  // =====================================================================================
+  //
+  // Validates individual fields based on their validation rule type and constraints.
+  // Returns { isValid: boolean, message?: string } for each field.
+  const validateField = (rule, mappedFields, tableData) => {
+    // Handle time fields (arrays with hour/minute)
+    if (Array.isArray(mappedFields)) {
+      const [hourField, minuteField] = mappedFields;
+      const hour = tableData[hourField];
+      const minute = tableData[minuteField];
+
+      if (rule.required) {
+        if (!hour || !minute) {
+          return { isValid: false, message: `${rule.field} is required` };
+        }
+      }
+
+      // If both values exist, validate as proper time
+      if (hour && minute) {
+        const h = parseInt(hour);
+        const m = parseInt(minute);
+
+        if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+          return { isValid: false, message: `${rule.field} must be valid time (HH:MM)` };
+        }
+      }
+
+      return { isValid: true };
+    }
+
+    // Handle single fields
+    const fieldName = mappedFields;
+    const value = tableData[fieldName];
+
+    // Check required fields
+    if (rule.required) {
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        return { isValid: false, message: `${rule.field} is required` };
+      }
+    }
+
+    // If field is empty and not required, it's valid
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
+      return { isValid: true };
+    }
+
+    // Type-specific validation
+    switch (rule.type) {
+      case 'Number':
+      case 'Integer':
+        const stringValue = String(value).trim();
+
+        // Check for invalid number patterns
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
+        if (invalidNumberPattern.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        if (/[eE.+-]$/.test(stringValue)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) {
+          return { isValid: false, message: `${rule.field} must be a valid number` };
+        }
+
+        // Check min/max constraints
+        if (rule.min !== undefined && num < rule.min) {
+          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
+        }
+        if (rule.max !== undefined && num > rule.max) {
+          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
+        }
+
+        // For Integer type, check if it's actually an integer
+        if (rule.type === 'Integer' && !Number.isInteger(num)) {
+          return { isValid: false, message: `${rule.field} must be a whole number` };
+        }
+        break;
+
+      case 'Text':
+        const textValue = String(value).trim();
+        if (textValue === '') {
+          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return { isValid: true };
+  };
+
   // Helper functions to convert between Time object and hour/minute strings
   const createTimeFromHourMinute = (hour, minute) => {
     if (!hour && !minute) return null;
@@ -594,348 +1100,175 @@ const MeltingLogSheet = () => {
     }
   };
 
+  // Handle clicks on locked table fields - only trigger on actual inputs/labels
+  const handlePrimaryDataLockedClick = (e) => {
+    if (isPrimaryDataSaved) return; // Do nothing if primary data is saved
 
+    e.preventDefault();
+    e.stopPropagation();
+
+    setShowPrimaryWarning(true);
+    primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => setShowPrimaryWarning(false), 3000);
+  };
+
+  // Document-level click listener for locked table fields
+  useEffect(() => {
+    const handleLockedTableClick = (e) => {
+      if (isPrimaryDataSaved) return; // Do nothing if primary data is saved
+
+      const target = e.target;
+
+      // Check if clicked element is a disabled input, select, or textarea
+      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) {
+        if (target.disabled) {
+          handlePrimaryDataLockedClick(e);
+          return;
+        }
+      }
+
+      // Check if clicked on a label
+      if (target.tagName === 'LABEL') {
+        let formGroup = target.closest('.melting-log-form-group');
+        if (formGroup) {
+          const input = formGroup.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handlePrimaryDataLockedClick(e);
+            return;
+          }
+        }
+      }
+
+      // Check if clicked on any parent element - traverse up and check for form groups with disabled inputs
+      let currentElement = target;
+      while (currentElement && currentElement !== document) {
+        // If we find a form group, check if it has a disabled input
+        if (currentElement.classList && currentElement.classList.contains('melting-log-form-group')) {
+          const input = currentElement.querySelector('input, select, textarea');
+          if (input && input.disabled) {
+            handlePrimaryDataLockedClick(e);
+            return;
+          }
+        }
+        currentElement = currentElement.parentElement;
+      }
+    };
+
+    // Add event listener to document to catch clicks on locked fields
+    document.addEventListener('mousedown', handleLockedTableClick, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleLockedTableClick, true);
+    };
+  }, [isPrimaryDataSaved]);
 
   const handleAllTablesSubmit = async () => {
     // Clear previous error message
     setValidationErrorMessage('');
     
-    // Validate only table fields (mark them as invalid if empty)
     let hasErrors = false;
-    // Track first error field for auto-focus (sync variable, not state)
-    let firstErrorRef = null;
+    let firstErrorField = null;
 
-    // Validate Table 1 fields
-    if (!table1.heatNo || !table1.heatNo.trim()) {
-      setHeatNoValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = heatNoRef;
-    } else {
-      setHeatNoValid(null);
-    }
-    if (!table1.grade || !table1.grade.trim()) {
-      setGradeValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = gradeRef;
-    } else {
-      setGradeValid(null);
-    }
-    if (!table1.chargingTimeHour || !table1.chargingTimeMinute) {
-      setChargingTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = chargingTimeRef;
-    } else {
-      setChargingTimeValid(null);
-    }
-    if (!table1.ifBath || !table1.ifBath.trim()) {
-      setIfBathValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ifBathRef;
-    } else {
-      setIfBathValid(null);
-    }
-    if (!table1.liquidMetalPressPour || table1.liquidMetalPressPour.trim() === '') {
-      setLiquidMetalPressPourValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = liquidMetalPressPourRef;
-    } else {
-      setLiquidMetalPressPourValid(null);
-    }
-    if (!table1.liquidMetalHolder || table1.liquidMetalHolder.trim() === '') {
-      setLiquidMetalHolderValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = liquidMetalHolderRef;
-    } else {
-      setLiquidMetalHolderValid(null);
-    }
-    if (!table1.sgMsSteel || table1.sgMsSteel.trim() === '') {
-      setSgMsSteelValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = sgMsSteelRef;
-    } else {
-      setSgMsSteelValid(null);
-    }
-    if (!table1.greyMsSteel || table1.greyMsSteel.trim() === '') {
-      setGreyMsSteelValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = greyMsSteelRef;
-    } else {
-      setGreyMsSteelValid(null);
-    }
-    if (!table1.returnsSg || table1.returnsSg.trim() === '') {
-      setReturnsSgValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = returnsSgRef;
-    } else {
-      setReturnsSgValid(null);
-    }
-    if (!table1.pigIron || table1.pigIron.trim() === '') {
-      setPigIronValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = pigIronRef;
-    } else {
-      setPigIronValid(null);
-    }
-    if (!table1.borings || table1.borings.trim() === '') {
-      setBoringsValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = boringsRef;
-    } else {
-      setBoringsValid(null);
-    }
-    if (!table1.finalBath || table1.finalBath.trim() === '') {
-      setFinalBathValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = finalBathRef;
-    } else {
-      setFinalBathValid(null);
-    }
+    // Map of field names to refs for auto-focus on first error
+    const fieldRefs = {
+      // Table 1
+      'heatNo': heatNoRef,
+      'grade': gradeRef,
+      'chargingTime': chargingTimeRef,
+      'ifBath': ifBathRef,
+      'liquidMetalPressPour': liquidMetalPressPourRef,
+      'liquidMetalHolder': liquidMetalHolderRef,
+      'sgMsSteel': sgMsSteelRef,
+      'greyMsSteel': greyMsSteelRef,
+      'returnsSg': returnsSgRef,
+      'pigIron': pigIronRef,
+      'borings': boringsRef,
+      'finalBath': finalBathRef,
+      // Table 2
+      'charCoal': charCoalRef,
+      'cpcFur': cpcFurRef,
+      'cpcLc': cpcLcRef,
+      'siliconCarbideFur': siliconCarbideFurRef,
+      'ferrosiliconFur': ferrosiliconFurRef,
+      'ferrosiliconLc': ferrosiliconLcRef,
+      'ferroManganeseFur': ferroManganeseFurRef,
+      'ferroManganeseLc': ferroManganeseLcRef,
+      'cu': cuRef,
+      'cr': crRef,
+      'pureMg': pureMgRef,
+      'ironPyrite': ironPyriteRef,
+      // Table 3
+      'labCoinTime': labCoinTimeRef,
+      'labCoinTempC': labCoinTempCRef,
+      'deslagingTimeFrom': deslagingTimeFromRef,
+      'deslagingTimeTo': deslagingTimeToRef,
+      'metalReadyTime': metalReadyTimeRef,
+      'waitingForTappingFrom': waitingForTappingFromRef,
+      'waitingForTappingTo': waitingForTappingToRef,
+      'reason': reasonRef,
+      // Table 4
+      'tempTime': table4TimeRef,
+      'tempCSg': tempCSgRef,
+      'directFurnace': directFurnaceRef,
+      'holderToFurnace': holderToFurnaceRef,
+      'furnaceToHolder': furnaceToHolderRef,
+      'disaNo': disaNoRef,
+      'item': itemRef,
+      // Table 5
+      'furnace1Kw': furnace1KwRef,
+      'furnace1A': furnace1ARef,
+      'furnace1V': furnace1VRef,
+      'furnace4Hz': furnace4HzRef,
+      'furnace4Gld': furnace4GldRef,
+      'furnace4KwHr': furnace4KwHrRef
+    };
 
-    // Validate Table 2 fields
-    if (!table2.charCoal || table2.charCoal.trim() === '') {
-      setCharCoalValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = charCoalRef;
-    } else {
-      setCharCoalValid(null);
-    }
-    if (!table2.cpcFur || table2.cpcFur.trim() === '') {
-      setCpcFurValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = cpcFurRef;
-    } else {
-      setCpcFurValid(null);
-    }
-    if (!table2.cpcLc || table2.cpcLc.trim() === '') {
-      setCpcLcValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = cpcLcRef;
-    } else {
-      setCpcLcValid(null);
-    }
-    if (!table2.siliconCarbideFur || table2.siliconCarbideFur.trim() === '') {
-      setSiliconCarbideFurValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = siliconCarbideFurRef;
-    } else {
-      setSiliconCarbideFurValid(null);
-    }
-    if (!table2.ferrosiliconFur || table2.ferrosiliconFur.trim() === '') {
-      setFerrosiliconFurValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ferrosiliconFurRef;
-    } else {
-      setFerrosiliconFurValid(null);
-    }
-    if (!table2.ferrosiliconLc || table2.ferrosiliconLc.trim() === '') {
-      setFerrosiliconLcValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ferrosiliconLcRef;
-    } else {
-      setFerrosiliconLcValid(null);
-    }
-    if (!table2.ferroManganeseFur || table2.ferroManganeseFur.trim() === '') {
-      setFerroManganeseFurValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ferroManganeseFurRef;
-    } else {
-      setFerroManganeseFurValid(null);
-    }
-    if (!table2.ferroManganeseLc || table2.ferroManganeseLc.trim() === '') {
-      setFerroManganeseLcValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ferroManganeseLcRef;
-    } else {
-      setFerroManganeseLcValid(null);
-    }
-    if (!table2.cu || table2.cu.trim() === '') {
-      setCuValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = cuRef;
-    } else {
-      setCuValid(null);
-    }
-    if (!table2.cr || table2.cr.trim() === '') {
-      setCrValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = crRef;
-    } else {
-      setCrValid(null);
-    }
-    if (!table2.pureMg || table2.pureMg.trim() === '') {
-      setPureMgValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = pureMgRef;
-    } else {
-      setPureMgValid(null);
-    }
-    if (!table2.ironPyrite || table2.ironPyrite.trim() === '') {
-      setIronPyriteValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = ironPyriteRef;
-    } else {
-      setIronPyriteValid(null);
-    }
+    // Dynamic validation based on validationRanges
+    // Table 1 validation
+    const tables = [
+      { tableNum: 1, data: table1, rules: validationRanges.filter(r => ['Heat No', 'Grade', 'Charging Time', 'IF Bath', 'Liquid Metal - Press & Pour', 'Liquid Metal - Holder', 'SG MS Steel', 'Grey MS Steel', 'Returns (SG)', 'Pig Iron', 'Borings', 'Final Bath'].includes(r.field)) },
+      { tableNum: 2, data: table2, rules: validationRanges.filter(r => ['Char Coal', 'CPC (Furnace)', 'CPC (L/C)', 'Silicon Carbide (Furnace)', 'Ferrosilicon (Furnace)', 'Ferrosilicon (L/C)', 'Ferromanganese (Furnace)', 'Ferromanganese (L/C)', 'Cu', 'Cr', 'Pure Mg', 'Iron Pyrite'].includes(r.field)) },
+      { tableNum: 3, data: table3, rules: validationRanges.filter(r => ['Lab Coin Time', 'Lab Coin Temp (C)', 'Deslag Time From', 'Deslag Time To', 'Metal Ready Time', 'Waiting for Tapping From', 'Waiting for Tapping To', 'Reason'].includes(r.field)) },
+      { tableNum: 4, data: table4, rules: validationRanges.filter(r => ['Temp Time', 'Temp C - SG', 'Direct Furnace', 'Holder to Furnace', 'Furnace to Holder', 'DISA No', 'Item'].includes(r.field)) },
+      { tableNum: 5, data: table5, rules: validationRanges.filter(r => ['Furnace 1 KW', 'Furnace 1 A', 'Furnace 1 V', 'Furnace 4 Hz', 'Furnace 4 Gld', 'Furnace 4 KW/Hr'].includes(r.field)) }
+    ];
 
-    // Validate Table 3 fields
-    if (!table3.labCoinTimeHour || !table3.labCoinTimeMinute) {
-      setLabCoinTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = labCoinTimeRef;
-    } else {
-      setLabCoinTimeValid(null);
-    }
-    if (!table3.labCoinTempC || table3.labCoinTempC.trim() === '') {
-      setLabCoinTempCValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = labCoinTempCRef;
-    } else {
-      setLabCoinTempCValid(null);
-    }
-    if (!table3.deslagingTimeFromHour || !table3.deslagingTimeFromMinute) {
-      setDeslagingTimeFromValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = deslagingTimeFromRef;
-    } else {
-      setDeslagingTimeFromValid(null);
-    }
-    if (!table3.deslagingTimeToHour || !table3.deslagingTimeToMinute) {
-      setDeslagingTimeToValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = deslagingTimeToRef;
-    } else {
-      setDeslagingTimeToValid(null);
-    }
-    if (!table3.metalReadyTimeHour || !table3.metalReadyTimeMinute) {
-      setMetalReadyTimeValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = metalReadyTimeRef;
-    } else {
-      setMetalReadyTimeValid(null);
-    }
-    if (!table3.waitingForTappingFromHour || !table3.waitingForTappingFromMinute) {
-      setWaitingForTappingFromValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = waitingForTappingFromRef;
-    } else {
-      setWaitingForTappingFromValid(null);
-    }
-    if (!table3.waitingForTappingToHour || !table3.waitingForTappingToMinute) {
-      setWaitingForTappingToValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = waitingForTappingToRef;
-    } else {
-      setWaitingForTappingToValid(null);
-    }
-    if (!table3.reason || !table3.reason.trim()) {
-      setReasonValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = reasonRef;
-    } else {
-      setReasonValid(null);
-    }
+    for (const tableConfig of tables) {
+      for (const rule of tableConfig.rules) {
+        const mappedFields = fieldMapping[rule.field];
+        if (!mappedFields) continue;
 
-    // Validate Table 4 fields
-    if (!table4.timeHour || !table4.timeMinute) {
-      setTable4TimeValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = table4TimeRef;
-    } else {
-      setTable4TimeValid(null);
-    }
-    if (!table4.tempCSg || table4.tempCSg.trim() === '') {
-      setTempCSgValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = tempCSgRef;
-    } else {
-      setTempCSgValid(null);
-    }
-    if (!table4.directFurnace || table4.directFurnace.trim() === '') {
-      setDirectFurnaceValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = directFurnaceRef;
-    } else {
-      setDirectFurnaceValid(null);
-    }
-    if (!table4.holderToFurnace || table4.holderToFurnace.trim() === '') {
-      setHolderToFurnaceValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = holderToFurnaceRef;
-    } else {
-      setHolderToFurnaceValid(null);
-    }
-    if (!table4.furnaceToHolder || table4.furnaceToHolder.trim() === '') {
-      setFurnaceToHolderValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnaceToHolderRef;
-    } else {
-      setFurnaceToHolderValid(null);
-    }
-    if (!table4.disaNo || !table4.disaNo.trim()) {
-      setDisaNoValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = disaNoRef;
-    } else {
-      setDisaNoValid(null);
-    }
-    if (!table4.item || !table4.item.trim()) {
-      setItemValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = itemRef;
-    } else {
-      setItemValid(null);
-    }
+        // Run validation
+        const result = validateField(rule, mappedFields, tableConfig.data);
 
-    // Validate Table 5 fields
-    if (!table5.furnace1Kw || table5.furnace1Kw.trim() === '') {
-      setFurnace1KwValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace1KwRef;
-    } else {
-      setFurnace1KwValid(null);
-    }
-    if (!table5.furnace1A || table5.furnace1A.trim() === '') {
-      setFurnace1AValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace1ARef;
-    } else {
-      setFurnace1AValid(null);
-    }
-    if (!table5.furnace1V || table5.furnace1V.trim() === '') {
-      setFurnace1VValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace1VRef;
-    } else {
-      setFurnace1VValid(null);
-    }
-    if (!table5.furnace4Hz || table5.furnace4Hz.trim() === '') {
-      setFurnace4HzValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace4HzRef;
-    } else {
-      setFurnace4HzValid(null);
-    }
-    if (!table5.furnace4Gld || table5.furnace4Gld.trim() === '') {
-      setFurnace4GldValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace4GldRef;
-    } else {
-      setFurnace4GldValid(null);
-    }
-    if (!table5.furnace4KwHr || table5.furnace4KwHr.trim() === '') {
-      setFurnace4KwHrValid(false);
-      hasErrors = true;
-      if (!firstErrorRef) firstErrorRef = furnace4KwHrRef;
-    } else {
-      setFurnace4KwHrValid(null);
+        // Determine which setter to use
+        const fieldKey = Array.isArray(mappedFields) ? mappedFields[0].replace(/Hour|Minute/, '') : mappedFields;
+        let setter = validationSetters[fieldKey];
+
+        // Special handling for time fields
+        if (rule.field === 'Temp Time') setter = validationSetters['tempTime'];
+
+        if (setter) {
+          if (!result.isValid) {
+            setter(false);
+            hasErrors = true;
+            if (!firstErrorField) {
+              const refKey = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
+              firstErrorField = fieldRefs[refKey];
+            }
+          } else {
+            setter(null);
+          }
+        }
+      }
     }
 
     if (hasErrors) {
-      setValidationErrorMessage('Correct Data format or Enter Empty Field');
+      setValidationErrorMessage('Fill required Fields in Correct format');
       // Auto-focus on first error field
-      if (firstErrorRef && firstErrorRef.current) {
-        firstErrorRef.current.focus();
-        firstErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (firstErrorField && firstErrorField.current) {
+        firstErrorField.current.focus();
+        firstErrorField.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       return;
     }
@@ -959,12 +1292,22 @@ const MeltingLogSheet = () => {
         ...prepareTableData(5, table5)
       };
 
+      // Convert empty numeric fields to 0 in primary data
+      const processedPrimaryData = {
+        ...primaryData,
+        cumulativeLiquidMetal: primaryData.cumulativeLiquidMetal === '' ? 0 : primaryData.cumulativeLiquidMetal,
+        finalKWHr: primaryData.finalKWHr === '' ? 0 : primaryData.finalKWHr,
+        initialKWHr: primaryData.initialKWHr === '' ? 0 : primaryData.initialKWHr,
+        totalUnits: primaryData.totalUnits === '' ? 0 : primaryData.totalUnits,
+        cumulativeUnits: primaryData.cumulativeUnits === '' ? 0 : primaryData.cumulativeUnits
+      };
+
       const res = await fetch(`${API_ENDPOINTS.meltingLogs}/table-update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          primaryData: primaryData,
+          primaryData: processedPrimaryData,
           data: allData
         })
       });
@@ -994,7 +1337,7 @@ const MeltingLogSheet = () => {
         table5: false
       });
     }
-  };
+    };
 
   const fetchPrimaryData = async (date, shift, furnaceNo, panel) => {
     if (!date || !shift || !furnaceNo || !panel) return;
@@ -1382,12 +1725,21 @@ const MeltingLogSheet = () => {
     setPrimaryLoading(true);
     // Save primary data to database (without locking)
     try {
+      // Convert empty numeric fields to 0 in primary data
+      const processedPrimaryData = {
+        ...primaryData,
+        cumulativeLiquidMetal: primaryData.cumulativeLiquidMetal === '' ? 0 : primaryData.cumulativeLiquidMetal,
+        finalKWHr: primaryData.finalKWHr === '' ? 0 : primaryData.finalKWHr,
+        initialKWHr: primaryData.initialKWHr === '' ? 0 : primaryData.initialKWHr,
+        totalUnits: primaryData.totalUnits === '' ? 0 : primaryData.totalUnits,
+        cumulativeUnits: primaryData.cumulativeUnits === '' ? 0 : primaryData.cumulativeUnits
+      };
       const res = await fetch(`${API_ENDPOINTS.meltingLogs}/primary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          primaryData: primaryData,
+          primaryData: processedPrimaryData,
           isLocked: false
         })
       });
@@ -1450,18 +1802,36 @@ const MeltingLogSheet = () => {
     return `${h}:${m}`;
   };
 
+  // Helper function to convert empty numeric values to 0
+  const convertEmptyToZero = (data, numericFields) => {
+    const result = { ...data };
+    numericFields.forEach(field => {
+      if (result[field] === '' || result[field] === null || result[field] === undefined) {
+        result[field] = 0;
+      }
+    });
+    return result;
+  };
+
   const prepareTableData = (tableNum, rawData) => {
     switch (tableNum) {
       case 1:
         return {
-          ...rawData,
+          ...convertEmptyToZero(rawData, [
+            'ifBath', 'liquidMetalPressPour', 'liquidMetalHolder', 'sgMsSteel', 
+            'greyMsSteel', 'returnsSg', 'pigIron', 'borings', 'finalBath'
+          ]),
           chargingTime: combineTime(rawData.chargingTimeHour, rawData.chargingTimeMinute)
         };
+      case 2:
+        return convertEmptyToZero(rawData, [
+          'charCoal', 'cpcFur', 'cpcLc', 'siliconCarbideFur', 'ferrosiliconFur',
+          'ferrosiliconLc', 'ferroManganeseFur', 'ferroManganeseLc', 'cu', 'cr', 'pureMg', 'ironPyrite'
+        ]);
       case 3:
         return {
-          ...rawData,
+          ...convertEmptyToZero(rawData, ['labCoinTempC']),
           labCoinTime: combineTime(rawData.labCoinTimeHour, rawData.labCoinTimeMinute),
-          labCoinTempC: rawData.labCoinTempC,
           deslagingTimeFrom: combineTime(rawData.deslagingTimeFromHour, rawData.deslagingTimeFromMinute),
           deslagingTimeTo: combineTime(rawData.deslagingTimeToHour, rawData.deslagingTimeToMinute),
           metalReadyTime: combineTime(rawData.metalReadyTimeHour, rawData.metalReadyTimeMinute),
@@ -1471,9 +1841,14 @@ const MeltingLogSheet = () => {
         };
       case 4:
         return {
-          ...rawData,
+          ...convertEmptyToZero(rawData, ['tempCSg', 'directFurnace', 'holderToFurnace', 'furnaceToHolder']),
           time: combineTime(rawData.timeHour, rawData.timeMinute)
         };
+      case 5:
+        return convertEmptyToZero(rawData, [
+          'furnace1Kw', 'furnace1A', 'furnace1V', 'furnace2Kw', 'furnace2A', 'furnace2V',
+          'furnace3Kw', 'furnace3A', 'furnace3V', 'furnace4Hz', 'furnace4Gld', 'furnace4KwHr'
+        ]);
       default:
         return rawData;
     }
@@ -2000,19 +2375,10 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 1 */}
-      <div 
-        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
-        onClickCapture={!isPrimaryDataSaved ? (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowPrimaryWarning(true);
-          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => setShowPrimaryWarning(false), 3000);
-        } : undefined}
-      >
+      <div>
         <h3 className="section-header">Table 1 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>Heat No</label>
             <input
@@ -2026,20 +2392,24 @@ const MeltingLogSheet = () => {
               placeholder="Enter heat no"
               className={getValidationClass('table1.heatNo', heatNoValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
           <div className="melting-log-form-group">
             <label>Grade</label>
-            <input
+            <SgFgDropdown
               ref={gradeRef}
-              type="text"
               value={table1.grade || ''}
               onChange={(e) => handleTableChange(1, 'grade', e.target.value)}
               onKeyDown={(e) => handleTableEnterKey(e, chargingTimeRef)}
               onFocus={() => setFocusedField('table1.grade')}
               onBlur={() => setFocusedField(null)}
-              placeholder="Enter grade"
               className={getValidationClass('table1.grade', gradeValid)}
               disabled={!isPrimaryDataSaved}
             />
@@ -2068,6 +2438,12 @@ const MeltingLogSheet = () => {
               placeholder="Enter if bath"
               className={getValidationClass('table1.ifBath', ifBathValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2085,6 +2461,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.liquidMetalPressPour', liquidMetalPressPourValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2102,6 +2484,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.liquidMetalHolder', liquidMetalHolderValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2121,6 +2509,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.sgMsSteel', sgMsSteelValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2140,6 +2534,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.greyMsSteel', greyMsSteelValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2159,6 +2559,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.returnsSg', returnsSgValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2178,6 +2584,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.pigIron', pigIronValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2197,6 +2609,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.borings', boringsValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2214,6 +2632,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table1.finalBath', finalBathValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
         </div>
@@ -2223,18 +2647,11 @@ const MeltingLogSheet = () => {
 
       {/* Table 2 */}
       <div 
-        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
-        onClickCapture={!isPrimaryDataSaved ? (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowPrimaryWarning(true);
-          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => setShowPrimaryWarning(false), 3000);
-        } : undefined}
+        style={{ position: 'relative' }}
       >
         <h3 className="section-header">Table 2 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>CharCoal (kgs)</label>
             <input
@@ -2249,6 +2666,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.charCoal', charCoalValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2266,11 +2689,17 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.cpcFur', cpcFurValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
           <div className="melting-log-form-group">
-            <label>CPC - LC (kgs)</label>
+            <label>CPC - L/C</label>
             <input
               ref={cpcLcRef}
               type="number"
@@ -2283,6 +2712,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.cpcLc', cpcLcValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2302,6 +2737,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.siliconCarbideFur', siliconCarbideFurValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2319,11 +2760,17 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.ferrosiliconFur', ferrosiliconFurValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
           <div className="melting-log-form-group">
-            <label>Ferrosilicon - LC (kgs)</label>
+            <label>Ferrosilicon - L/C</label>
             <input
               ref={ferrosiliconLcRef}
               type="number"
@@ -2336,6 +2783,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.ferrosiliconLc', ferrosiliconLcValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2353,11 +2806,17 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.ferroManganeseFur', ferroManganeseFurValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
           <div className="melting-log-form-group">
-            <label>FerroManganese - LC (kgs)</label>
+            <label>FerroManganese - L/C</label>
             <input
               ref={ferroManganeseLcRef}
               type="number"
@@ -2370,6 +2829,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.ferroManganeseLc', ferroManganeseLcValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2387,6 +2852,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.cu', cuValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2404,6 +2875,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.cr', crValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2421,6 +2898,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.pureMg', pureMgValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2438,6 +2921,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table2.ironPyrite', ironPyriteValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
         </div>
@@ -2446,25 +2935,17 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 3 */}
-      <div 
-        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
-        onClickCapture={!isPrimaryDataSaved ? (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowPrimaryWarning(true);
-          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => setShowPrimaryWarning(false), 3000);
-        } : undefined}
-      >
+      <div>
         <h3 className="section-header">Table 3 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ rowGap: '1.5rem', pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid" style={{ rowGap: '1.5rem', marginTop: '1.5rem' }}>
           <div className="melting-log-form-group">
             <label>Lab Coin - Time</label>
             <CustomTimeInput
               value={createTimeFromHourMinute(table3.labCoinTimeHour, table3.labCoinTimeMinute)}
               onChange={(time) => handleTimeChange(3, 'labCoinTimeHour', 'labCoinTimeMinute', time)}
               className={getValidationClass('table3.labCoinTime', labCoinTimeValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2483,6 +2964,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table3.labCoinTempC', labCoinTempCValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2492,6 +2979,7 @@ const MeltingLogSheet = () => {
               value={createTimeFromHourMinute(table3.deslagingTimeFromHour, table3.deslagingTimeFromMinute)}
               onChange={(time) => handleTimeChange(3, 'deslagingTimeFromHour', 'deslagingTimeFromMinute', time)}
               className={getValidationClass('table3.deslagingTimeFrom', deslagingTimeFromValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2502,6 +2990,7 @@ const MeltingLogSheet = () => {
               value={createTimeFromHourMinute(table3.deslagingTimeToHour, table3.deslagingTimeToMinute)}
               onChange={(time) => handleTimeChange(3, 'deslagingTimeToHour', 'deslagingTimeToMinute', time)}
               className={getValidationClass('table3.deslagingTimeTo', deslagingTimeToValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2512,6 +3001,7 @@ const MeltingLogSheet = () => {
               value={createTimeFromHourMinute(table3.metalReadyTimeHour, table3.metalReadyTimeMinute)}
               onChange={(time) => handleTimeChange(3, 'metalReadyTimeHour', 'metalReadyTimeMinute', time)}
               className={getValidationClass('table3.metalReadyTime', metalReadyTimeValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2524,6 +3014,7 @@ const MeltingLogSheet = () => {
               value={createTimeFromHourMinute(table3.waitingForTappingFromHour, table3.waitingForTappingFromMinute)}
               onChange={(time) => handleTimeChange(3, 'waitingForTappingFromHour', 'waitingForTappingFromMinute', time)}
               className={getValidationClass('table3.waitingForTappingFrom', waitingForTappingFromValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2534,6 +3025,7 @@ const MeltingLogSheet = () => {
               value={createTimeFromHourMinute(table3.waitingForTappingToHour, table3.waitingForTappingToMinute)}
               onChange={(time) => handleTimeChange(3, 'waitingForTappingToHour', 'waitingForTappingToMinute', time)}
               className={getValidationClass('table3.waitingForTappingTo', waitingForTappingToValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2556,6 +3048,7 @@ const MeltingLogSheet = () => {
               onBlur={() => setFocusedField(null)}
               placeholder="Enter reason"
               className={getValidationClass('table3.reason', reasonValid)}
+              style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
               disabled={!isPrimaryDataSaved}
             />
           </div>
@@ -2565,31 +3058,25 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 4 - Metal Tapping in Kgs */}
-      <div 
-        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
-        onClickCapture={!isPrimaryDataSaved ? (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowPrimaryWarning(true);
-          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => setShowPrimaryWarning(false), 3000);
-        } : undefined}
-      >
+      <div>
         <h3 className="section-header">Table 4 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         
-        <div className="melting-log-form-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid">
         <div className="melting-log-form-group">
-          <label>Time</label>
+          <label>Metal Tapping Time</label>
           <CustomTimeInput
             value={createTimeFromHourMinute(table4.timeHour, table4.timeMinute)}
             onChange={(time) => handleTimeChange(4, 'timeHour', 'timeMinute', time)}
             className={getValidationClass('table4.time', table4TimeValid)}
+            style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text' }}
             disabled={!isPrimaryDataSaved}
           />
         </div>
 
         <div className="melting-log-form-group">
-          <label>Temp C - SG (0-2000°C)</label>
+          <label>
+            Temp C - SG <span style={{ fontSize: '0.53rem' }}>(1440°C - 1550°C)</span> / FG <span style={{ fontSize: '0.53rem' }}>(1460°C - 1550°C)</span>
+          </label>
           <input
                 ref={tempCSgRef}
                 type="number"
@@ -2602,6 +3089,12 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 className={getValidationClass('table4.tempCSg', tempCSgValid)}
                 disabled={!isPrimaryDataSaved}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+                }}
           />
         </div>
 
@@ -2619,6 +3112,12 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 className={getValidationClass('table4.directFurnace', directFurnaceValid)}
                 disabled={!isPrimaryDataSaved}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+                }}
           />
         </div>
 
@@ -2636,6 +3135,12 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 className={getValidationClass('table4.holderToFurnace', holderToFurnaceValid)}
                 disabled={!isPrimaryDataSaved}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+                }}
           />
         </div>
 
@@ -2653,6 +3158,12 @@ const MeltingLogSheet = () => {
                 step="0.01"
                 className={getValidationClass('table4.furnaceToHolder', furnaceToHolderValid)}
                 disabled={!isPrimaryDataSaved}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+                }}
           />
         </div>
 
@@ -2662,6 +3173,12 @@ const MeltingLogSheet = () => {
                 value={table4.disaNo || ''}
                 onChange={(e) => handleTableChange(4, 'disaNo', e.target.value)}
                 className={getValidationClass('table4.disaNo', disaNoValid)}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'pointer'
+                }}
                 disabled={!isPrimaryDataSaved}
           />
         </div>
@@ -2679,6 +3196,12 @@ const MeltingLogSheet = () => {
                 placeholder="Enter item"
                 className={getValidationClass('table4.item', itemValid)}
                 disabled={!isPrimaryDataSaved}
+                style={{
+                  pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                  opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                  backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                  cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+                }}
           />
         </div>
       </div>
@@ -2687,21 +3210,12 @@ const MeltingLogSheet = () => {
       </div>
 
       {/* Table 5 - Electrical Readings */}
-      <div 
-        style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, cursor: isPrimaryDataSaved ? 'default' : 'not-allowed', position: 'relative' }}
-        onClickCapture={!isPrimaryDataSaved ? (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowPrimaryWarning(true);
-          primarySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setTimeout(() => setShowPrimaryWarning(false), 3000);
-        } : undefined}
-      >
+      <div>
         <h3 className="section-header">Table 5 {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         {/* Furnace 1,2,3 combined section */}
         <h4 className="melting-log-sub-section-title">Furnace 1,2,3</h4>
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>Kw</label>
             <input
@@ -2716,6 +3230,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace1Kw', furnace1KwValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2733,6 +3253,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace1A', furnace1AValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2750,13 +3276,19 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace1V', furnace1VValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
         </div>
 
         {/* Furnace 4 section */}
         <h4 className="melting-log-sub-section-title">Furnace 4</h4>
-        <div className="melting-log-form-grid melting-log-table5-grid" style={{ pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+        <div className="melting-log-form-grid melting-log-table5-grid">
           <div className="melting-log-form-group">
             <label>Hz</label>
             <input
@@ -2771,6 +3303,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace4Hz', furnace4HzValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2788,6 +3326,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace4Gld', furnace4GldValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
 
@@ -2804,6 +3348,12 @@ const MeltingLogSheet = () => {
               step="0.01"
               className={getValidationClass('table5.furnace4KwHr', furnace4KwHrValid)}
               disabled={!isPrimaryDataSaved}
+              style={{
+                pointerEvents: !isPrimaryDataSaved ? 'none' : 'auto',
+                opacity: !isPrimaryDataSaved ? 0.6 : 1,
+                backgroundColor: !isPrimaryDataSaved ? '#f1f5f9' : '#ffffff',
+                cursor: !isPrimaryDataSaved ? 'not-allowed' : 'text'
+              }}
             />
           </div>
         </div>

@@ -65,7 +65,7 @@ const MeltingLogSheetReport = () => {
   const [filteredEntries, setFilteredEntries] = useState([]); // Filtered subset shown in table
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);      // Pagination — reset to 1 on every filter/clear
-  const [show, setShow] = useState({ primary: false, table1: false, table2: false, table3: false, table4: false, table5: false });
+  const [show, setShow] = useState({ primary: true, table1: true, table2: true, table3: true, table4: true, table5: true });
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Reason' });
 

@@ -1,10 +1,9 @@
 const getApiBaseUrl = () => {
-  // Use environment variable (set in Vercel for production, optional for dev)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  const url = import.meta.env.VITE_API_URL;
+  if (!url) {
+    throw new Error('❌ VITE_API_URL is not defined in .env — frontend cannot start.');
   }
-  // Development fallback
-  return 'http://localhost:5000';
+  return url;
 };
 
 const API_BASE_URL = getApiBaseUrl();

@@ -5,7 +5,11 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('❌ PORT is not defined in .env — server cannot start.');
+  process.exit(1);
+}
 
 
 // 1. Global Middleware

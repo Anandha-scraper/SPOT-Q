@@ -1,37 +1,3 @@
-/*
- * =====================================================================================
- * PROCESS CONTROL VALIDATION STYLING SYSTEM - TECHNICAL ARCHITECTURE
- * =====================================================================================
- *
- * CSS ARCHITECTURE OVERVIEW:
- * This stylesheet implements a component-based styling system with validation state
- * management using CSS class composition and pseudo-selector patterns for dynamic
- * user feedback and accessibility compliance.
- *
- * DESIGN PATTERNS USED:
- * 1. BEM METHODOLOGY - Block Element Modifier naming convention for scalability
- * 2. CASCADE LAYERING - Specificity management via logical selector hierarchy
- * 3. STATE PATTERN - Dynamic class application for validation state transitions
- * 4. RESPONSIVE DESIGN - Mobile-first approach with progressive enhancement
- * 5. ACCESSIBILITY FIRST - Focus management + high contrast ratios for WCAG compliance
- *
- * VALIDATION VISUAL FEEDBACK SYSTEM:
- * - NEUTRAL STATE: Default border styling (no validation feedback)
- * - ERROR STATE: .invalid-input class → red border + background + focus indicators
- * - TRANSITION EFFECTS: 0.3s ease transitions for smooth state changes
- * - ACCESSIBILITY: High contrast error colors + focus indicators for screen readers
- *
- * COLOR PALETTE - ERROR STATES:
- * - Error Border: #ef4444 (Red-500) - High contrast for visibility
- * - Error Background: #fef2f2 (Red-50) - Subtle background hint
- * - Error Focus: rgba(239, 68, 68, 0.15) - Semi-transparent focus ring
- * - Focus Border: #dc2626 (Red-600) - Deeper red for active focus state
- *
- * CSS CUSTOM PROPERTIES INTEGRATION:
- * Validation styles integrate with design system color tokens for consistency
- * across component library and theme switching capabilities.
- */
-
 /* Process Control - Entry Page Styles */
 .process-header {
   width: 100%;
@@ -47,6 +13,7 @@
 
 .process-header-text {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   margin: 0;
@@ -54,7 +21,7 @@
 }
 
 .process-header-text h2 {
-  font-size: 1.625rem;
+  font-size: clamp(1.2rem, 1.6vw, 1.8rem);
   font-weight: 700;
   color: #1e293b;
   margin: 0;
@@ -66,26 +33,6 @@
   width: 100%;
   position: relative;
 }
-
-/* =====================================================================================
- * FORM LAYOUT ARCHITECTURE - RESPONSIVE GRID SYSTEM
- * =====================================================================================
- *
- * GRID LAYOUT STRATEGY:
- * Implements CSS Grid with auto-fit columns and minmax constraints for responsive
- * form layouts that maintain usability across device sizes.
- *
- * RESPONSIVE BREAKPOINTS:
- * - Desktop: repeat(auto-fit, minmax(220px, 1fr)) - Flexible multi-column
- * - Tablet: minmax(200px, 1fr) - Adjusted for medium screens
- * - Mobile: 1fr - Single column stack for touch interfaces
- *
- * ACCESSIBILITY FEATURES:
- * - Consistent spacing (1rem gap) for touch targets
- * - Minimum 78px height for adequate touch area
- * - Flexible layout prevents horizontal scrolling
- */
-
 .process-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));  /* Responsive columns */
@@ -100,7 +47,7 @@
 
 .process-form-group label {
   display: block;
-  font-size: 0.875rem;
+  font-size: clamp(0.75rem, 0.85vw, 0.95rem);
   font-weight: 600;
   color: #334155;
   margin-bottom: 0.5rem;
@@ -113,7 +60,7 @@
   padding: 0.625rem 0.875rem;
   border: 2px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: clamp(0.78rem, 0.88vw, 0.95rem);
   transition: all 0.3s ease;
   background: white;
   font-family: inherit;
@@ -141,97 +88,10 @@
   pointer-events: none;
 }
 
-/* =====================================================================================
- * FORM INPUT VALIDATION STATE STYLING - ERROR FEEDBACK SYSTEM
- * =====================================================================================
- *
- * VALIDATION STATE IMPLEMENTATION:
- * These classes implement the visual feedback layer for form validation using
- * CSS state classes that are dynamically applied via JavaScript validation engine.
- *
- * CLASS APPLICATION PATTERN:
- * JavaScript: getInputClassName() → 'invalid-input' class → CSS error styling
- * React Integration: className={getInputClassName(field, validationState)}
- *
- * VISUAL HIERARCHY:
- * 1. BORDER PRIORITY: Error border overrides default with !important specificity
- * 2. BACKGROUND FEEDBACK: Subtle error background maintains readability
- * 3. FOCUS ENHANCEMENT: Enhanced focus ring for active invalid fields
- * 4. TRANSITION SMOOTHING: Ease transitions prevent jarring state changes
- *
- * ACCESSIBILITY COMPLIANCE:
- * - Color contrast ratio > 3:1 for WCAG AA compliance
- * - Focus indicators visible for keyboard navigation
- * - Error states perceivable without color alone (background + border changes)
- */
-
-/* INVALID FIELD STATE - APPLIED TO ALL FORM INPUT TYPES */
-.process-form-group input.invalid-input,
-.process-form-group select.invalid-input,
-.process-form-group textarea.invalid-input {
-  border-color: #ef4444 !important;        /* High priority error border */
-  background-color: #fef2f2 !important;   /* Subtle error background hint */
-}
-
-/* INVALID FIELD FOCUS STATE - ENHANCED ERROR FEEDBACK */
-.process-form-group input.invalid-input:focus,
-.process-form-group select.invalid-input:focus,
-.process-form-group textarea.invalid-input:focus {
-  outline: none;
-  border-color: #dc2626 !important;                    /* Deeper error red for focus */
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;  /* Error focus ring */
-}
-
-/* GLOBAL INVALID CLASS - FALLBACK FOR DYNAMIC APPLICATION */
-.invalid-input {
-  border-color: #ef4444 !important;
-  background-color: #fef2f2 !important;
-}
-
-.invalid-input:focus {
-  outline: none;
-  border-color: #dc2626 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
-}
-
-.process-submit-container {
-  margin-top: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-/* =====================================================================================
- * FORM SUBMISSION ERROR FEEDBACK - ANIMATION + STYLING SYSTEM
- * =====================================================================================
- *
- * ERROR MESSAGE COMPONENT:
- * This implements a prominent error feedback component with attention-grabbing
- * animation for critical form validation failures during submission attempts.
- *
- * VISUAL DESIGN PATTERNS:
- * - HIGH CONTRAST: Error red (#dc2626) for critical visibility
- * - BORDERED CONTAINER: Clear delineation from surrounding content
- * - SHAKE ANIMATION: CSS keyframe animation for attention capture
- * - TYPOGRAPHY: Bold weight (600) for enhanced readability
- * - SPACING: Comfortable padding for touch-friendly interaction
- *
- * ANIMATION SEQUENCE:
- * Validation Failure → CSS class application → shake keyframe → user attention
- * Duration: 0.5s with ease-in-out timing for natural feel
- *
- * ACCESSIBILITY FEATURES:
- * - Respects prefer-reduced-motion user preference
- * - High color contrast for visibility
- * - Semantic error styling for screen readers
- */
-
 /* Submit error message styling */
 .submit-error-message {
   color: #dc2626;                   /* High contrast error text */
-  font-size: 0.875rem;             /* Readable size (14px) */
+  font-size: clamp(0.78rem, 0.85vw, 0.95rem);
   font-weight: 600;                 /* Bold emphasis for importance */
   padding: 0.625rem 1.25rem;       /* Touch-friendly spacing */
   background-color: #fef2f2;       /* Subtle error background */
@@ -242,20 +102,6 @@
   white-space: nowrap;              /* Prevent text wrapping */
 }
 
-/* =====================================================================================
- * SHAKE ANIMATION KEYFRAMES - USER ATTENTION PATTERN
- * =====================================================================================
- *
- * ANIMATION MECHANICS:
- * Implements horizontal shake effect using transform: translateX() property
- * for hardware acceleration and smooth performance across devices.
- *
- * TIMING PATTERN:
- * - 5 shake cycles over 0.5s duration
- * - Alternating left/right movement (±4px displacement)
- * - Return to center (0px) at start and end for smooth loop
- * - Hardware acceleration via transform property (not layout-affecting properties)
- */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }     /* Start/end at center */
   10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }  /* Left movement */
@@ -274,7 +120,7 @@
 
 .section-header h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: clamp(0.9rem, 1.1vw, 1.2rem);
   font-weight: 600;
   color: #334155;
   padding-bottom: 0.25rem;
@@ -303,29 +149,6 @@ input[type=number] {
   appearance: textfield;
 }
 
-/* =====================================================================================
- * SPECIALIZED TIME RANGE INPUT VALIDATION STYLING
- * =====================================================================================
- *
- * TIME RANGE COMPONENT ARCHITECTURE:
- * These styles support complex time range inputs with multiple sub-components
- * that require coordinated validation state management and visual consistency.
- *
- * COMPONENT COMPOSITION:
- * .time-range-container → flex layout for time input groups
- * .time-inputs-group → grouped time components (hour, minute, AM/PM)
- * Individual inputs inherit validation classes from parent validation system
- *
- * LAYOUT STRATEGY:
- * - FLEXBOX: Responsive alignment with gap spacing
- * - WRAP BEHAVIOR: Graceful wrapping on smaller screens
- * - CENTER ALIGNMENT: Visual balance for time separator elements
- *
- * VALIDATION INTEGRATION:
- * Time inputs inherit .invalid-input class application from main validation system
- * Focus states integrate with overall form validation visual feedback patterns
- */
-
 /* Time Range Inputs Styling */
 .time-range-group {
   min-height: auto !important;     /* Override default form group height */
@@ -349,7 +172,7 @@ input[type=number] {
   padding: 0.625rem 0.5rem;
   border: 2px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: clamp(0.78rem, 0.88vw, 0.95rem);
   transition: all 0.3s ease;
   background: white;
   text-align: center;
@@ -363,47 +186,48 @@ input[type=number] {
 }
 
 .time-inputs-group span {
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 1.2vw, 1.25rem);
   font-weight: 600;
   color: #334155;
 }
 
 .time-separator {
-  font-size: 1rem;
+  font-size: clamp(0.85rem, 1vw, 1rem);
   font-weight: 600;
   color: #64748b;
   margin: 0 0.5rem;
 }
 
-/* Responsive Design */
-@media (max-width: 1024px) {
+/* ─── Media Queries — Desktop Only (1024px–2560px) ─── */
+
+/* Large Monitor / 2K */
+@media (min-width: 1921px) {
+  .process-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+}
+
+/* Standard HD Laptop */
+@media (max-width: 1440px) {
+  .process-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+}
+
+/* Small Laptop */
+@media (max-width: 1280px) {
   .process-form-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
 
-@media (max-width: 768px) {
-  .process-header-text h2 {
-    font-size: 1.5rem;
-  }
-
+/* Minimum Supported */
+@media (max-width: 1024px) {
   .process-form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
-  .process-header {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 
   .process-submit-container {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .process-header-text {
-    justify-content: center;
+    gap: 0.75rem;
   }
 }

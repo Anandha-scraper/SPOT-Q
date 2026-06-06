@@ -912,10 +912,7 @@ Follow this **exact sequence** for every file you work on:
 ║  Add ONLY if fluid layout still breaks at a specific width.      ║
 ║  ALL media queries go at BOTTOM of the CSS file.                 ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  STEP 7 — LOG CHANGES                                            ║
-║  Add change log comment block at top of CSS file.                ║
-╠══════════════════════════════════════════════════════════════════╣
-║  STEP 8 — VERIFY                                                 ║
+║  STEP 7 — VERIFY                                                 ║
 ║  Check mentally: 1024px / 1366px / 1920px / 2560px              ║
 ║  No logic changed. No class renamed. No JSX modified.            ║
 ╚══════════════════════════════════════════════════════════════════╝
@@ -996,7 +993,6 @@ Media queries are a **last resort** in SPOT-Q. A properly built `%` + `clamp()` 
 | Add overflow-x: auto to wrapper | Safe addition |
 | Add max-width + margin: auto | Safe centering |
 | Replace height with min-height | `height: 400px` → `min-height: 200px; height: auto` |
-| Add CSS comment log at top of file | Documentation |
 | Add media queries at bottom | Additive, never breaking |
 | Add `<div className="table-wrapper">` around bare table | Only if no wrapper exists; use a fresh unused class name |
 
@@ -1068,16 +1064,6 @@ This is the #1 invisible flex bug. Always add to any flex child that holds wide 
 Every `.css` file in this project must follow this structure:
 
 ```css
-/* ============================================================
-   [ComponentName / ModuleName].css
-   Location: src/styles/ComponentStyles/ OR PageStyles/Module/
-   Responsive review: YYYY-MM-DD
-   Changes:
-     - .container: 1200px → 94% max-width: 1600px
-     - .filter-bar: added flex-wrap: wrap
-     - table: wrapped in .table-wrapper overflow-x: auto
-     - headings: converted to clamp()
-   ============================================================ */
 
 /* ─── 1. CSS Variables (component-specific, if needed) ─── */
 :root { ... }
@@ -1223,7 +1209,6 @@ table          { min-width: 700px; width: 100%; }
 - Apply fixes to **CSS only** — the only exception is adding a `<div className="table-wrapper">` around a bare table
 - Use `%`, `rem`, `clamp()`, `flex`, `grid` — never introduce new fixed `px` sizes
 - Preserve all existing CSS class names exactly as written
-- Add a **change log comment block** at the top of every CSS file edited
 - Place all `@media` queries at the **very bottom** of the CSS file
 - Mentally verify layout at: `1024px / 1280px / 1366px / 1440px / 1920px / 2560px`
 - Preserve all accessibility — no `display: none` on functional elements

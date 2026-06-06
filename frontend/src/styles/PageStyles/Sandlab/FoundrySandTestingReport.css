@@ -1,6 +1,10 @@
 
+/* ─── Page Container ─── */
 .foundry-sand-testing-report-container {
-  padding: 12px 18px;
+  width: 94%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.5rem 0;
 }
 
 .foundry-sand-testing-report-header {
@@ -24,7 +28,7 @@
 }
 
 .foundry-sand-testing-report-header-text h2 {
-  font-size: 1.625rem;
+  font-size: clamp(1.2rem, 1.6vw, 1.8rem);
   font-weight: 700;
   color: #1e293b;
   margin: 0;
@@ -52,7 +56,41 @@
   min-width: 0;
 }
 
+.foundry-sand-testing-filter-group input,
+.foundry-sand-testing-filter-group select {
+  flex: 1 1 160px;
+  min-width: 130px;
+  max-width: 240px;
+  padding: 0.45rem 0.75rem;
+  font-size: clamp(0.78rem, 0.85vw, 0.95rem);
+}
+
 .foundry-sand-testing-filter-actions {
   display: flex;
   gap: 1rem;
+}
+
+/* ─── Media Queries ─── */
+
+@media (min-width: 1921px) {
+  .foundry-sand-testing-report-container {
+    max-width: 1800px;
+  }
+}
+
+@media (max-width: 1440px) {
+  .foundry-sand-testing-report-container {
+    width: 96%;
+  }
+}
+
+@media (max-width: 1024px) {
+  .foundry-sand-testing-filter-container {
+    gap: 0.75rem;
+  }
+  .foundry-sand-testing-filter-group input,
+  .foundry-sand-testing-filter-group select {
+    flex: 1 1 130px;
+    min-width: 110px;
+  }
 }

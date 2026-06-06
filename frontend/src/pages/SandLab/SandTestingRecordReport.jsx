@@ -4,6 +4,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
+import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Sandlab/SandTestingRecordReport.css';
 
 const SandTestingRecordReport = () => {

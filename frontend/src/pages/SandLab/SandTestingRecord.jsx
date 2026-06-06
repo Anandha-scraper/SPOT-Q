@@ -5,6 +5,7 @@ import Table from '../../Components/Table';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
 import { API_ENDPOINTS } from '../../config/api';
+import Sakthi from '../../Components/Sakthi';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 // Get today's date in YYYY-MM-DD format

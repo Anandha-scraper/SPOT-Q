@@ -1,5 +1,5 @@
 import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw } from 'lucide-react';
+import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { Time } from '@internationalized/date';
 import '../styles/ComponentStyles/Buttons.css';
 
@@ -52,6 +52,27 @@ export const ClearButton = ({ onClick, disabled = false, children }) => (
     <button onClick={onClick} type="button" disabled={disabled} title="Clear Filter" className="clear-btn">
       <X size={18} />
       {children || 'Clear'}
+    </button>
+  </div>
+);
+
+// Excel Download Button
+
+export const ExcelDownloadButton = ({ onClick, disabled = false, loading = false }) => (
+  <div className="excel-button-wrapper">
+    <button
+      onClick={onClick}
+      type="button"
+      disabled={disabled || loading}
+      title={loading ? 'Preparing download…' : 'Download Excel'}
+      className="excel-btn"
+    >
+      {loading ? (
+        <Loader2 size={18} className="excel-btn-spin" />
+      ) : (
+        <FileSpreadsheet size={18} />
+      )}
+      {loading ? 'Downloading…' : 'Excel'}
     </button>
   </div>
 );
@@ -436,11 +457,11 @@ export const CustomTimeInput = forwardRef(({ value, onChange, className = '', ha
   
   // Sync with external value prop
   useEffect(() => {
-    if (value) {
+    if (value && value.hour != null && value.minute != null) {
       const hour24 = value.hour;
       const displayHour = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
       const displayPeriod = hour24 >= 12 ? 'PM' : 'AM';
-      
+
       setHour(String(displayHour).padStart(2, '0'));
       setMinute(String(value.minute).padStart(2, '0'));
       setPeriod(displayPeriod);

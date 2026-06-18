@@ -99,6 +99,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+  align-items: start;
 }
 
 .qcproduction-form-group {
@@ -128,9 +129,10 @@
   background: white;
 }
 
-/* Dynamic Input Groups (TS, YS, EL) - Full row */
+/* Dynamic Input Groups (TS, YS, EL) - normal grid cells; inputs wrap within the cell */
 .qcproduction-dynamic-group {
-  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
 }
 
 .qcproduction-dynamic-label {

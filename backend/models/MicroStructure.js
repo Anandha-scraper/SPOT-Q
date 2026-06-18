@@ -26,11 +26,12 @@ const MicroStructureEntrySchema = new mongoose.Schema({
         trim: true
     },
 
+    // Numeric value bounds are validated on the frontend (validationRanges in
+    // MicroStructure.jsx); the model only enforces type/presence so it persists
+    // whatever passes that validation.
     nodularity: {
         type: Number,
-        required: true,
-        min: 0,
-        max: 100
+        required: true
     },
 
     graphiteType: {
@@ -41,69 +42,58 @@ const MicroStructureEntrySchema = new mongoose.Schema({
 
     countMin: {
         type: Number,
-        required: true,
-        min: 0
+        required: true
     },
     countMax: {
         type: Number,
-        default: 0,
-        min: 0
+        default: 0
     },
 
     sizeMin: {
         type: Number,
-        required: true,
-        min: 0
+        required: true
     },
     sizeMax: {
         type: Number,
-        default: 0,
-        min: 0
+        default: 0
     },
 
     ferriteMin: {
         type: Number,
-        required: true,
-        min: 0,
-        max: 100
+        required: true
     },
     ferriteMax: {
         type: Number,
-        default: 0,
-        min: 0,
-        max: 100
+        default: 0
     },
 
     pearliteMin: {
         type: Number,
-        required: true,
-        min: 0,
-        max: 100
+        required: true
     },
     pearliteMax: {
         type: Number,
-        default: 0,
-        min: 0,
-        max: 100
+        default: 0
     },
 
     carbideMin: {
         type: Number,
-        required: true,
-        min: 0,
-        max: 100
+        required: true
     },
     carbideMax: {
         type: Number,
-        default: 0,
-        min: 0,
-        max: 100
+        default: 0
     },
 
     remarks: {
         type: String,
         trim: true,
         default: ''
+    },
+
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, {
     timestamps: true,

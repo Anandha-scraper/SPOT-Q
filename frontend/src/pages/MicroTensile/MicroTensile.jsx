@@ -3,16 +3,14 @@ import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader, toast } from '../../Components/Alert';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
-  // Info modal hook
   const { isOpen, openModal, closeModal } = useInfoModal();
 
-  // ====================== Validation Ranges ======================
   const validationRanges = [
     {
       field: 'Date',
@@ -108,7 +106,6 @@ const MicroTensile = () => {
     }
   ];
 
-  // ====================== Field Mapping ======================
   const fieldMapping = {
     'Date': 'date',
     'DISA': 'disa',
@@ -152,7 +149,6 @@ const MicroTensile = () => {
   const [submitError, setSubmitError] = useState('');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
-  // Primary save states
   const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
@@ -161,7 +157,6 @@ const MicroTensile = () => {
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
-  // VALIDATION STATES
   const [itemValid, setItemValid] = useState(null);
   const [itemSecondValid, setItemSecondValid] = useState(null);
   const [dateCodeValid, setDateCodeValid] = useState(null);
@@ -221,11 +216,10 @@ const MicroTensile = () => {
         const num = parseFloat(value);
         if (isNaN(num) || !isFinite(num)) return { isValid: false };
         if (rule.min !== undefined && num <= rule.min && rule.field !== 'Elongation') {
-          // Micro tensile originally required > 0 for most number fields, some strictly > 0 and elongation >= 0.
-          if (rule.min === 0 && num === 0) return { isValid: false }; // Strict > 0 previously implemented
+          if (rule.min === 0 && num === 0) return { isValid: false };
           if (num < rule.min) return { isValid: false };
         } else if (rule.min !== undefined && num < rule.min) {
-           return { isValid: false }; // For elongation
+           return { isValid: false };
         }
         if (rule.max !== undefined && num > rule.max) return { isValid: false };
         break;
@@ -243,15 +237,12 @@ const MicroTensile = () => {
     return { isValid: true };
   };
 
-  // Field order for keyboard navigation
   const fieldOrder = ['date', 'disa', 'item', 'itemSecond', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
                      'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation', 'remarks', 'testedBy'];
 
-  // Only these fields must be filled before moving on Enter
   const requiredFields = ['date', 'disa', 'item', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
                           'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
 
-  // Set current date on mount
   useEffect(() => {
     const today = new Date();
     const y = today.getFullYear();
@@ -263,7 +254,6 @@ const MicroTensile = () => {
     }));
   }, []);
 
-  // Check if date+disa combination exists in database
   useEffect(() => {
     const checkDateDisaExists = async () => {
       if (!formData.date || !formData.disa) {
@@ -278,38 +268,34 @@ const MicroTensile = () => {
       try {
         setSavePrimaryLoading(true);
         setShowCombinationFound(false);
-        
+
         const startTime = Date.now();
-        
+
         const response = await fetch(`${API_ENDPOINTS.microTensile}/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
         const data = await response.json();
-        
-        // Ensure minimum 1 second loading time
+
         const elapsedTime = Date.now() - startTime;
         const remainingTime = Math.max(0, 1000 - elapsedTime);
         await new Promise(resolve => setTimeout(resolve, remainingTime));
-        
+
         setSavePrimaryLoading(false);
-        
+
         if (data.success && data.exists) {
           setShowCombinationFound(true);
-          
-          // Hide "Combination found" message after 1.5 seconds
+
           setTimeout(() => {
             setShowCombinationFound(false);
             setIsPrimarySaved(true);
             setEntryCount(data.count || 0);
           }, 1500);
         } else {
-          // Combination not found, just update states
           setIsPrimarySaved(false);
           setEntryCount(0);
         }
       } catch (error) {
-        console.error('Error checking date+disa:', error);
         setSavePrimaryLoading(false);
       }
     };
@@ -317,18 +303,15 @@ const MicroTensile = () => {
     checkDateDisaExists();
   }, [formData.date, formData.disa]);
 
-  // Add click listeners to all disabled fields to show warning
   useEffect(() => {
     const handleDisabledClick = (e) => {
       const target = e.target;
 
-      // Check if clicked element is a disabled input or select
       if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
         handleDisabledFieldClick(e);
         return;
       }
 
-      // Check if clicked on a label that's associated with a disabled field
       if (target.tagName === 'LABEL') {
         let formGroup = target.closest('.microtensile-form-group');
         if (formGroup) {
@@ -340,13 +323,11 @@ const MicroTensile = () => {
         }
       }
 
-      // Check if clicked on microtensile-form-grid (the main grid container)
       if (target.classList && target.classList.contains('microtensile-form-grid') && !isPrimarySaved) {
         handleDisabledFieldClick(e);
         return;
       }
 
-      // Check if clicked on a form-group div that contains a disabled field
       let formGroup = null;
       if (target.classList && target.classList.contains('microtensile-form-group')) {
         formGroup = target;
@@ -362,7 +343,6 @@ const MicroTensile = () => {
         }
       }
 
-      // Handle clicks on any child elements of a form group with disabled fields
       if (!isPrimarySaved) {
         const closestFormGroup = target.closest('.microtensile-form-group');
         if (closestFormGroup) {
@@ -375,7 +355,6 @@ const MicroTensile = () => {
       }
     };
 
-    // Add event listener to document to catch all clicks
     document.addEventListener('mousedown', handleDisabledClick, true);
 
     return () => {
@@ -387,17 +366,14 @@ const MicroTensile = () => {
     if (!isPrimarySaved) {
       e.preventDefault();
       e.stopPropagation();
-      
-      // Show warning
+
       setShowPrimaryWarning(true);
       setHighlightPrimaryFields(true);
-      
-      // Scroll to primary section
+
       if (primarySectionRef.current) {
         primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      
-      // Hide warning and remove highlight after 3 seconds
+
       setTimeout(() => {
         setShowPrimaryWarning(false);
         setHighlightPrimaryFields(false);
@@ -408,11 +384,9 @@ const MicroTensile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Reset primary saved state and clear all fields when date or disa changes
     if (name === 'date' || name === 'disa') {
       setIsPrimarySaved(false);
 
-      // Clear all form fields except date and disa
       setFormData(prev => ({
         date: name === 'date' ? value : prev.date,
         disa: name === 'disa' ? value : prev.disa,
@@ -431,7 +405,6 @@ const MicroTensile = () => {
         testedBy: ''
       }));
 
-      // Reset all validation states
       setItemValid(null);
       setItemSecondValid(null);
       setDateCodeValid(null);
@@ -450,12 +423,10 @@ const MicroTensile = () => {
       return;
     }
 
-    // --- RESET ITEM VALIDATION ---
     if (name === 'item') {
       setItemValid(null);
     }
 
-    // --- RESET DATE CODE VALIDATION ---
     if (name === 'dateCode') {
       setDateCodeValid(null);
       setFormData(prev => ({
@@ -466,9 +437,7 @@ const MicroTensile = () => {
       return;
     }
 
-    // --- VALIDATE HEAT CODE: allow only digits in frontend ---
     if (name === 'heatCode') {
-      // strip any non-digit characters so the field contains only numbers
       const cleaned = String(value).replace(/\D/g, '');
       setFormData(prev => ({ ...prev, [name]: cleaned }));
       setHeatCodeValid(null);
@@ -476,7 +445,6 @@ const MicroTensile = () => {
       return;
     }
 
-    // --- RESET VALIDATION for numeric fields ---
     if (name === 'barDia') {
       setBarDiaValid(null);
     }
@@ -505,36 +473,29 @@ const MicroTensile = () => {
       setElongationValid(null);
     }
 
-    // --- VALIDATE REMARKS: reset to neutral ---
     if (name === 'remarks') {
       setRemarksValid(null);
     }
 
-    // --- VALIDATE TESTED BY: reset to neutral ---
     if (name === 'testedBy') {
       setTestedByValid(null);
     }
 
-    // Handle itemSecond field
     if (name === 'itemSecond') {
-      // Handle slash-separated input for itemSecond
-      // Backend expects format: number/number/number (exactly 3 numbers, 2 slashes)
       const slashCount = (value.match(/\//g) || []).length;
 
-      // Only allow numbers and slashes, max 2 slashes
       if (slashCount <= 2) {
         setFormData(prev => ({
           ...prev,
           [name]: value
         }));
 
-        // Validate fo  mat if value is not empty
         if (value.trim() !== '') {
           const parts = value.split('/');
           const isValid = parts.length === 3 && parts.every(p => p.trim() !== '' && !isNaN(p));
           setItemSecondValid(isValid);
         } else {
-          setItemSecondValid(null); // Empty is okay (optional field)
+          setItemSecondValid(null);
         }
       }
       setErrors(prev => ({ ...prev, [name]: false }));
@@ -548,7 +509,6 @@ const MicroTensile = () => {
     setErrors(prev => ({ ...prev, [name]: false }));
   };
 
-  // Format decimal values for numeric fields
   const formatDecimalValue = (fieldName) => {
     const value = formData[fieldName];
     if (value && !isNaN(value) && value.trim() !== '') {
@@ -562,64 +522,58 @@ const MicroTensile = () => {
     }
   };
 
-  // Handle blur event for numeric fields with decimal formatting
   const handleNumericBlur = (fieldName) => {
     formatDecimalValue(fieldName);
   };
 
   const handlePrimarySubmit = async () => {
     if (!formData.date || !formData.disa) {
-      alert('Please fill in Date and DISA');
+      toast.warning('Please fill in Date and DISA');
       return;
     }
 
-    // If already processing, don't submit again
     if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
       return;
     }
 
     try {
       setSavePrimaryLoading(true);
-      
+
       const startTime = Date.now();
-      
+
       const response = await fetch(`${API_ENDPOINTS.microTensile}/save-primary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ date: formData.date, disa: formData.disa })
       });
-      
+
       const data = await response.json();
-      
-      // Ensure minimum 1 second for consistent UX
+
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, 1000 - elapsedTime);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
-      
+
       setSavePrimaryLoading(false);
-      
+
       if (data.success) {
         setShowCombinationAdded(true);
-        
-        // Hide "Combination Added" message after 1.5 seconds
+
         setTimeout(() => {
           setShowCombinationAdded(false);
           setIsPrimarySaved(true);
           setEntryCount(data.count || 0);
-          
-          // Focus on first input field
+
           setTimeout(() => {
             inputRefs.current.item?.focus();
           }, 100);
         }, 1500);
       } else {
-        alert('Failed to save primary: ' + data.message);
+        toast.error('Failed to save primary: ' + data.message);
       }
     } catch (error) {
-      console.error('Error saving primary:', error);
       setSavePrimaryLoading(false);
-      alert('Failed to save primary: ' + error.message);
+      toast.error('Failed to save primary: ' + error.message);
     }
   };
 
@@ -627,12 +581,10 @@ const MicroTensile = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
 
-      // Special handling for itemSecond field
       if (field === 'itemSecond') {
         const currentValue = formData.itemSecond;
         const slashCount = (currentValue.match(/\//g) || []).length;
 
-        // If empty, move to next field
         if (!currentValue || currentValue.trim() === '') {
           const idx = fieldOrder.indexOf(field);
           if (idx < fieldOrder.length - 1) {
@@ -641,11 +593,9 @@ const MicroTensile = () => {
           return;
         }
 
-        // Backend expects format: (number/number/number) - exactly 3 numbers, 2 slashes
         const parts = currentValue.split('/');
         const isValid = parts.length === 3 && parts.every(p => p.trim() !== '' && !isNaN(p));
 
-        // If has content and less than 2 slashes, add slash
         if (slashCount < 2 && !currentValue.endsWith('/')) {
           setFormData(prev => ({
             ...prev,
@@ -654,7 +604,6 @@ const MicroTensile = () => {
           return;
         }
 
-        // If has 2 slashes and valid format, or ends with slash after 2nd number, move to next field
         if (isValid || (slashCount === 2 && parts.length === 3)) {
           const idx = fieldOrder.indexOf(field);
           if (idx < fieldOrder.length - 1) {
@@ -664,13 +613,11 @@ const MicroTensile = () => {
         }
       }
 
-      // Format decimal for numeric fields before moving to next
       const decimalFields = ['barDia', 'gaugeLength', 'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
       if (decimalFields.includes(field)) {
         formatDecimalValue(field);
       }
 
-      // If the current field is required, only proceed when it has a value
       if (requiredFields.includes(field)) {
         const isFilled = field === 'disa'
           ? (Array.isArray(formData.disa) && formData.disa.length > 0)
@@ -691,62 +638,14 @@ const MicroTensile = () => {
     }
   };
 
-  /*
-   * Handle form submission with validation
-   * 
-   * Validation Flow:
-   * 1. Check each required field for empty/invalid values
-   * 2. If invalid, set validation state to false (shows red border)
-   * 3. If valid, set validation state to null (neutral, no color)
-   * 4. If any errors exist, show error message and stop submission
-   * 5. On successful submission, reset all validation states to null
-   * 
-   * ============================================================
-   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
-   * ============================================================
-   * This pattern ensures the cursor automatically focuses on the 
-   * FIRST error field immediately when the user clicks Submit.
-   * 
-   * HOW IT WORKS:
-   * 1. Initialize a tracking variable BEFORE validation loop:
-   *    let firstErrorField = null;
-   * 
-   * 2. In EACH validation check, set firstErrorField ONLY if it's 
-   *    still null (this captures only the first error):
-   *    if (!formData.fieldName || validation_fails) {
-   *      setFieldValid(false);
-   *      hasErrors = true;
-   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
-   *    }
-   * 
-   * 3. AFTER all validations, focus immediately using the tracking variable:
-   *    if (hasErrors) {
-   *      if (firstErrorField) {
-   *        inputRefs.current[firstErrorField]?.focus();
-   *      }
-   *      return;
-   *    }
-   * 
-   * WHY THIS WORKS ON FIRST CLICK:
-   * - Uses a plain variable (not state) to track synchronously
-   * - Doesn't depend on state updates (which are async)
-   * - Focus happens immediately in the same execution cycle
-   * 
-   * TO IMPLEMENT IN ANOTHER PAGE:
-   * - Add: let firstErrorField = null; at start of submit handler
-   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
-   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
-   * ============================================================
-   */
   const handleSubmit = async () => {
-    // Clear any previous error
     setSubmitError('');
 
     let hasErrors = false;
     let firstErrorField = null;
 
     for (const rule of validationRanges) {
-      if (rule.field === 'Date' || rule.field === 'DISA') continue; // Handled by primary save
+      if (rule.field === 'Date' || rule.field === 'DISA') continue;
 
       const mappedField = fieldMapping[rule.field];
       const validationSetter = validationSetters[mappedField];
@@ -766,7 +665,7 @@ const MicroTensile = () => {
 
     if (hasErrors) {
       setSubmitError('Enter data in correct Format');
-      
+
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
@@ -775,7 +674,6 @@ const MicroTensile = () => {
 
     setSubmitError('');
 
-    // Validate itemSecond format if provided
     if (formData.itemSecond && formData.itemSecond.trim() !== '') {
       const parts = formData.itemSecond.split('/');
       const isValidFormat = parts.length === 3 && parts.every(p => p.trim() !== '' && !isNaN(p));
@@ -792,17 +690,14 @@ const MicroTensile = () => {
     try {
       setSubmitLoading(true);
 
-      // Build item object expected by backend: { it1: string, it2?: '(234/345/456)' }
       const itemObj = {
         it1: formData.item
       };
       if (formData.itemSecond && formData.itemSecond.trim() !== '') {
-        // Ensure itemSecond is wrapped in parentheses to match backend schema
         const cleaned = formData.itemSecond.trim();
         itemObj.it2 = cleaned.startsWith('(') && cleaned.endsWith(')') ? cleaned : `(${cleaned})`;
       }
 
-      // Create payload with item object and remove itemSecond
       const payload = {
         ...formData,
         item: itemObj
@@ -821,10 +716,8 @@ const MicroTensile = () => {
       const data = await resp.json();
 
       if (data.success) {
-        // Show success animation
         setShowSuccessAnimation(true);
 
-        // Reset all fields except DISA checklist and date
         setFormData({
           date: formData.date,
           disa: formData.disa,
@@ -844,7 +737,6 @@ const MicroTensile = () => {
         });
         setErrors({});
 
-        // Reset validation states
         setItemValid(null);
         setItemSecondValid(null);
         setDateCodeValid(null);
@@ -859,26 +751,21 @@ const MicroTensile = () => {
         setRemarksValid(null);
         setTestedByValid(null);
 
-        // Increment entry count
         setEntryCount(prev => prev + 1);
 
-        // Focus on Item for next entry
         setTimeout(() => {
           inputRefs.current.item?.focus();
         }, 100);
       }
     } catch (error) {
-      console.error('Error creating micro tensile test:', error);
-      alert('Failed to create entry: ' + error.message);
+      toast.error('Failed to create entry: ' + error.message);
     } finally {
       setSubmitLoading(false);
     }
   };
 
   const getInputClassName = (fieldName, validationState) => {
-    // Show red border if invalid (validationState === false)
     if (validationState === false) return 'invalid-input';
-    // Otherwise show neutral (no color)
     return '';
   };
 
@@ -916,7 +803,7 @@ const MicroTensile = () => {
         </div>
       </div>
 
-      {/* Primary Data Section */}
+      {}
       <div ref={primarySectionRef}>
         <h3 style={{ marginTop: '1rem', marginBottom: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#25424c' }}>
           Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}
@@ -956,37 +843,37 @@ const MicroTensile = () => {
                 }}
               />
               {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
-                <div style={{ 
+                <div style={{
                   marginTop: '0.75rem',
                   display: 'flex',
                   alignItems: 'flex-start'
                 }}>
                   {savePrimaryLoading && (
-                    <InlineLoader 
-                      message="Fetching Date, Disa" 
-                      size="medium" 
-                      variant="primary" 
+                    <InlineLoader
+                      message="Fetching Date, Disa"
+                      size="medium"
+                      variant="primary"
                     />
                   )}
                   {showCombinationFound && (
-                    <InlineLoader 
-                      message="Combination found" 
-                      size="medium" 
-                      variant="success" 
+                    <InlineLoader
+                      message="Combination found"
+                      size="medium"
+                      variant="success"
                     />
                   )}
                   {showCombinationAdded && (
-                    <InlineLoader 
-                      message="Combination Added" 
-                      size="medium" 
-                      variant="success" 
+                    <InlineLoader
+                      message="Combination Added"
+                      size="medium"
+                      variant="success"
                     />
                   )}
                   {showPrimaryWarning && (
-                    <InlineLoader 
-                      message="Save Date, Disa" 
-                      size="medium" 
-                      variant="danger" 
+                    <InlineLoader
+                      message="Save Date, Disa"
+                      size="medium"
+                      variant="danger"
                     />
                   )}
                 </div>
@@ -1002,7 +889,7 @@ const MicroTensile = () => {
               />
             </div>
 
-            {/* Divider line */}
+            {}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className={`microtensile-form-group ${errors.item ? 'microtensile-error-outline' : ''}`}>
@@ -1220,10 +1107,10 @@ const MicroTensile = () => {
 
       <div className="microtensile-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
         {submitError && (
-          <InlineLoader 
-            message={submitError} 
-            size="medium" 
-            variant="danger" 
+          <InlineLoader
+            message={submitError}
+            size="medium"
+            variant="danger"
           />
         )}
         <SubmitButton

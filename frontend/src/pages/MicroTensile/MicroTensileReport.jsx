@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import EntryActions from '../../Components/EntryActions';
+import { microTensileEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
-
 const MicroTensileReport = () => {
-
-  // ========================================================================
-  // FILTER SYSTEM — fetch all once, filter client-side
-  // ========================================================================
 
   const formatDateLocal = (d) => {
     if (!d) return '';
@@ -33,6 +32,8 @@ const MicroTensileReport = () => {
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
   const itemsPerPage = 15;
@@ -43,33 +44,44 @@ const MicroTensileReport = () => {
     return Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
   }, [allEntries]);
 
-  // Fetch ALL entries once on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(API_ENDPOINTS.microTensile, { credentials: 'include' });
-        if (!response.ok) throw new Error('Failed to fetch micro tensile data');
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
-          setAllEntries(validEntries);
-
-          // Default: show only today's entries
-          const todayFiltered = validEntries.filter(r => {
-            const d = r.date || r.dateOfInspection;
-            if (!d) return false;
-            return formatDateLocal(d) === todayStr;
-          });
-          setFilteredEntries(todayFiltered);
-        }
-      } catch (error) {
-        console.error('Error fetching micro tensile data:', error);
-      } finally {
-        setLoading(false);
+  const computeFiltered = (entries) => {
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    let filtered = entries.filter(r => {
+      const d = r.date || r.dateOfInspection;
+      if (!d) return false;
+      const reportDate = formatDateLocal(d);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
-    };
+      return reportDate === toDateStr;
+    });
+    if (selectedDisa && selectedDisa !== 'All') {
+      filtered = filtered.filter(r => r.disa === selectedDisa);
+    }
+    return filtered;
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_ENDPOINTS.microTensile, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch micro tensile data');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
+        setAllEntries(validEntries);
+        setFilteredEntries(computeFiltered(validEntries));
+      }
+    } catch (error) {
+      toast.error('Failed to load micro tensile data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -127,7 +139,6 @@ const MicroTensileReport = () => {
     return String(r.item);
   };
 
-  // Sort: date desc, then disa asc
   const sortedEntries = useMemo(() => {
     return [...filteredEntries].sort((a, b) => {
       const da = new Date(a.date || a.dateOfInspection);
@@ -150,7 +161,6 @@ const MicroTensileReport = () => {
     setRemarksModal({ show: false, content: '', title: 'Remarks' });
   };
 
-  // Date rowspan grouping
   const getDateGroups = () => {
     const groups = {};
     let currentDate = null;
@@ -171,7 +181,6 @@ const MicroTensileReport = () => {
     return groups;
   };
 
-  // DISA rowspan grouping (consecutive same date+disa)
   const getDisaGroups = () => {
     const groups = {};
     let currentKey = null;
@@ -195,6 +204,73 @@ const MicroTensileReport = () => {
   const dateGroups = getDateGroups();
   const disaGroups = getDisaGroups();
 
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.microTensile, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch micro tensile data');
+      const result = await response.json();
+      if (!result.success || !result.data) throw new Error('No data received');
+
+      let rows = result.data.filter(r => {
+        const d = r.date || r.dateOfInspection;
+        if (!d) return false;
+        const rd = formatDateLocal(d);
+        return rd >= from && rd <= to;
+      });
+      if (selectedDisa && selectedDisa !== 'All') {
+        rows = rows.filter(r => r.disa === selectedDisa);
+      }
+      rows.sort((a, b) => {
+        const dateCompare = new Date(b.date || b.dateOfInspection) - new Date(a.date || a.dateOfInspection);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.disa || '').localeCompare(b.disa || '');
+      });
+
+      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date || r.dateOfInspection) },
+        { header: 'DISA', key: 'disa', width: 10 },
+        { header: 'Item', key: 'item', width: 22, value: (r) => renderItem(r) },
+        { header: 'Date Code', key: 'dateCode', width: 14 },
+        { header: 'Heat Code', key: 'heatCode', width: 14 },
+        { header: 'Bar Dia (mm)', key: 'barDia', width: 14 },
+        { header: 'Gauge Length (mm)', key: 'gaugeLength', width: 20 },
+        { header: 'Max Load', key: 'maxLoad', width: 14 },
+        { header: 'Yield Load', key: 'yieldLoad', width: 14 },
+        { header: 'Tensile Strength', key: 'tensileStrength', width: 18 },
+        { header: 'Yield Strength', key: 'yieldStrength', width: 18 },
+        { header: 'Elongation (%)', key: 'elongation', width: 14 },
+        { header: 'Tested By', key: 'testedBy', width: 10 },
+        { header: 'Remarks', key: 'remarks', width: 10 },
+      ];
+
+      await exportToExcel({
+        title: 'Micro Tensile Test Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Micro_Tensile_Test_Report',
+        sheetName: 'Micro Tensile',
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <>
       <div className="microtensile-report-header">
@@ -206,7 +282,7 @@ const MicroTensileReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="microtensile-filter-container">
         <div className="microtensile-filter-group">
           <label className="microtensile-report-filter-label">From Date</label>
@@ -226,9 +302,10 @@ const MicroTensileReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
       </div>
 
-      {/* Table */}
+      {}
       {loading ? (
         <div className="microtensile-loader-container"><div>Loading...</div></div>
       ) : (
@@ -250,12 +327,13 @@ const MicroTensileReport = () => {
                 <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Elongation (%)</th>
                 <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Tested By</th>
                 <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="reusable-table-no-records">No records found</td>
+                  <td colSpan={15} className="reusable-table-no-records">No records found</td>
                 </tr>
               ) : (
                 paginatedEntries.map((item, idx) => {
@@ -304,6 +382,9 @@ const MicroTensileReport = () => {
                       >
                         {item.remarks || '-'}
                       </td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <EntryActions entry={item} editConfig={microTensileEditConfig} onChanged={fetchData} />
+                      </td>
                     </tr>
                   );
                 })
@@ -313,7 +394,7 @@ const MicroTensileReport = () => {
         </div>
       )}
 
-      {/* Pagination */}
+      {}
       {!loading && sortedEntries.length > itemsPerPage && (
         <CustomPagination
           currentPage={currentPage}
@@ -322,7 +403,7 @@ const MicroTensileReport = () => {
         />
       )}
 
-      {/* Remarks Modal */}
+      {}
       {remarksModal.show && (
         <div className="mt-report-modal-overlay" onClick={closeRemarksModal}>
           <div className="mt-report-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -334,6 +415,14 @@ const MicroTensileReport = () => {
           </div>
         </div>
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Micro Tensile Report"
+      />
     </>
   );
 };

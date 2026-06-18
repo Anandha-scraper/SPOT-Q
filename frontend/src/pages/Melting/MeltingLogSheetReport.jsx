@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, SectionToggles } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import EntryActions from '../../Components/EntryActions';
+import { meltingEditConfig } from '../../utils/editFieldConfigs';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 import '../../styles/ComponentStyles/Table.css';
@@ -68,6 +72,8 @@ const MeltingLogSheetReport = () => {
   const [show, setShow] = useState({ primary: true, table1: true, table2: true, table3: true, table4: true, table5: true });
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Reason' });
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const itemsPerPage = 15;
 
@@ -82,83 +88,58 @@ const MeltingLogSheetReport = () => {
     setRemarksModal({ show: false, content: '', title: 'Reason' });
   };
 
-  // STEP 1: Fetch ALL entries once on mount.
-  // Uses a wide date range to get all data from the server.
-  // Store full dataset in `allEntries` (never mutated after fetch).
-  // Apply initial filter: show only today's entries by default.
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // Fetch a wide range (2 years back to today) to get all available data
-        const startDate = `${new Date().getFullYear() - 2}-01-01`;
-        const endDate = todayStr;
-        const resp = await fetch(`${API_ENDPOINTS.meltingLogs}/filter?startDate=${startDate}&endDate=${endDate}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-          }
-        });
-        const data = await resp.json();
+  // Pure filter — applies the current date-range + dropdown selections to a list.
+  // With no fromDate, shows only entries matching toDate exactly (default = today).
+  const computeFiltered = (list) => {
+    if (!toDate) return [];
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    let filtered = list.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) return reportDate >= fromDateStr && reportDate <= toDateStr;
+      return reportDate === toDateStr;
+    });
+    if (selectedShift && selectedShift.trim() !== '') filtered = filtered.filter(r => String(r.shift) === String(selectedShift));
+    if (selectedFurnace && selectedFurnace.trim() !== '') filtered = filtered.filter(r => String(r.furnaceNo) === String(selectedFurnace));
+    if (selectedPanel && selectedPanel.trim() !== '') filtered = filtered.filter(r => String(r.panel) === String(selectedPanel));
+    return filtered;
+  };
 
-        if (data.success && data.data) {
-          setAllEntries(data.data); // Store full dataset
-
-          // Default view: only today's entries
-          const todayFiltered = data.data.filter(r => {
-            if (!r.date) return false;
-            return formatDateLocal(r.date) === todayStr;
-          });
-          setFilteredEntries(todayFiltered);
+  // Fetch the full dataset (wide range) and re-apply the current view. Runs on
+  // mount and after a successful edit/delete (passed as onChanged to EntryActions).
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const startDate = `${new Date().getFullYear() - 2}-01-01`;
+      const endDate = todayStr;
+      const resp = await fetch(`${API_ENDPOINTS.meltingLogs}/filter?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
-      } catch (error) {
-        console.error('Error fetching melting log data:', error);
-      } finally {
-        setLoading(false);
+      });
+      const data = await resp.json();
+      if (data.success && data.data) {
+        setAllEntries(data.data);
+        setFilteredEntries(computeFiltered(data.data));
       }
-    };
+    } catch (error) {
+      console.error('Error fetching melting log data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
-  // STEP 2: handleFilter — Client-side filtering of `allEntries`.
-  // Filters by date range first, then by any additional dropdown selections.
-  // Always resets pagination to page 1.
+  // STEP 2: handleFilter — apply the current filters to the loaded dataset.
   const handleFilter = () => {
-    // Guard: toDate is required
-    if (!toDate) {
-      setFilteredEntries([]);
-      return;
-    }
-
-    const toDateStr = toDate;
-    const fromDateStr = fromDate || '';
-
-    // Date range filter:
-    // - If fromDate is set: entry date must be >= fromDate AND <= toDate
-    // - If fromDate is empty: show only entries matching toDate exactly
-    let filtered = allEntries.filter(r => {
-      if (!r.date) return false;
-      const reportDate = formatDateLocal(r.date);
-      if (fromDateStr) {
-        return reportDate >= fromDateStr && reportDate <= toDateStr;
-      }
-      return reportDate === toDateStr;
-    });
-
-    // Additional dropdown filters — skip if empty/All
-    if (selectedShift && selectedShift.trim() !== '') {
-      filtered = filtered.filter(r => String(r.shift) === String(selectedShift));
-    }
-    if (selectedFurnace && selectedFurnace.trim() !== '') {
-      filtered = filtered.filter(r => String(r.furnaceNo) === String(selectedFurnace));
-    }
-    if (selectedPanel && selectedPanel.trim() !== '') {
-      filtered = filtered.filter(r => String(r.panel) === String(selectedPanel));
-    }
-
-    setFilteredEntries(filtered);
+    setFilteredEntries(computeFiltered(allEntries));
     setCurrentPage(1); // Always reset to first page after filtering
   };
 
@@ -226,6 +207,111 @@ const MeltingLogSheetReport = () => {
 
   const groupInfo = getGroupInfo();
 
+  // Excel export — independent of the on-screen table filter. Uses the modal's
+  // own from/to range (defaults applied by getExportRange) plus the currently
+  // selected Shift/Furnace/Panel dropdowns, against the full fetched dataset.
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      let rows = allEntries.filter(r => {
+        if (!r.date) return false;
+        const rd = formatDateLocal(r.date);
+        return rd >= from && rd <= to;
+      });
+      if (selectedShift && selectedShift.trim() !== '') rows = rows.filter(r => String(r.shift) === String(selectedShift));
+      if (selectedFurnace && selectedFurnace.trim() !== '') rows = rows.filter(r => String(r.furnaceNo) === String(selectedFurnace));
+      if (selectedPanel && selectedPanel.trim() !== '') rows = rows.filter(r => String(r.panel) === String(selectedPanel));
+
+      rows.sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.shift || '').localeCompare(b.shift || '');
+      });
+
+      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 14, value: (r) => formatDisplayDate(r.date) },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Furnace No', key: 'furnaceNo', width: 12 },
+        { header: 'Panel', key: 'panel', width: 10 },
+        { header: 'Cumul. Liquid Metal (kgs)', key: 'cumulativeLiquidMetal', width: 18, group: 'Primary' },
+        { header: 'Final KW/Hr', key: 'finalKWHr', width: 13, group: 'Primary' },
+        { header: 'Initial KW/Hr', key: 'initialKWHr', width: 13, group: 'Primary' },
+        { header: 'Total Units', key: 'totalUnits', width: 12, group: 'Primary' },
+        { header: 'Cumul. Units', key: 'cumulativeUnits', width: 13, group: 'Primary' },
+        { header: 'Heat No', key: 'heatNo', width: 11, group: 'Charging' },
+        { header: 'Grade', key: 'grade', width: 10, group: 'Charging' },
+        { header: 'Time', key: 'chargingTime', width: 11, group: 'Charging' },
+        { header: 'If Bath', key: 'ifBath', width: 10, group: 'Charging' },
+        { header: 'Liquid Metal (kgs)', key: 'liquidMetalPressPour', width: 14, group: 'Charging' },
+        { header: 'Holder (kgs)', key: 'liquidMetalHolder', width: 13, group: 'Charging' },
+        { header: 'SG-MS Steel', key: 'sgMsSteel', width: 12, group: 'Charging' },
+        { header: 'MS Steel (Grey)', key: 'greyMsSteel', width: 14, group: 'Charging' },
+        { header: 'Returns SG', key: 'returnsSg', width: 12, group: 'Charging' },
+        { header: 'Pig Iron', key: 'pigIron', width: 10, group: 'Charging' },
+        { header: 'Borings', key: 'borings', width: 10, group: 'Charging' },
+        { header: 'Final (Kgs)', key: 'finalBath', width: 12, group: 'Charging' },
+        { header: 'Char Coal', key: 'charCoal', width: 11, group: 'Ferro Additions' },
+        { header: 'CPC (Fur)', key: 'cpcFur', width: 11, group: 'Ferro Additions' },
+        { header: 'CPC (LC)', key: 'cpcLc', width: 11, group: 'Ferro Additions' },
+        { header: 'SiC', key: 'siliconCarbideFur', width: 9, group: 'Ferro Additions' },
+        { header: 'FeSi (Fur)', key: 'ferrosiliconFur', width: 11, group: 'Ferro Additions' },
+        { header: 'FeSi (LC)', key: 'ferrosiliconLc', width: 11, group: 'Ferro Additions' },
+        { header: 'FeMn (Fur)', key: 'ferroManganeseFur', width: 11, group: 'Ferro Additions' },
+        { header: 'FeMn (LC)', key: 'ferroManganeseLc', width: 11, group: 'Ferro Additions' },
+        { header: 'Cu', key: 'cu', width: 9, group: 'Ferro Additions' },
+        { header: 'FE-Cr', key: 'cr', width: 9, group: 'Ferro Additions' },
+        { header: 'Pure Mg', key: 'pureMg', width: 10, group: 'Ferro Additions' },
+        { header: 'Lab Coin Time', key: 'labCoinTime', width: 13, group: 'Lab Coin & Timing' },
+        { header: 'Temp (°C)', key: 'labCoinTempC', width: 11, group: 'Lab Coin & Timing' },
+        { header: 'Deslagging From', key: 'deslagingTimeFrom', width: 18, group: 'Lab Coin & Timing' },
+        { header: 'Deslagging To', key: 'deslagingTimeTo', width: 18, group: 'Lab Coin & Timing' },
+        { header: 'Metal Ready', key: 'metalReadyTime', width: 18
+          , group: 'Lab Coin & Timing' },
+        { header: 'Wait Tapping From', key: 'waitingForTappingFrom', width: 15, group: 'Lab Coin & Timing' },
+        { header: 'Wait Tapping To', key: 'waitingForTappingTo', width: 14, group: 'Lab Coin & Timing' },
+        { header: 'Reason', key: 'reason', width: 20, group: 'Lab Coin & Timing' },
+        { header: 'Tapping Time', key: 'time', width: 12, group: 'Metal Tapping' },
+        { header: 'Temp °C (Non-SG)', key: 'tempCSg', width: 14, group: 'Metal Tapping' },
+        { header: 'Direct Furnace', key: 'directFurnace', width: 18, group: 'Metal Tapping' },
+        { header: 'Holder → Furnace', key: 'holderToFurnace', width: 18, group: 'Metal Tapping' },
+        { header: 'Furnace → Holder', key: 'furnaceToHolder', width: 18, group: 'Metal Tapping' },
+        { header: 'DISA No', key: 'disaNo', width: 10, group: 'Metal Tapping' },
+        { header: 'Item', key: 'item', width: 10, group: 'Metal Tapping' },
+        { header: 'F1-2-3 kW', key: 'furnace1Kw', width: 11, group: 'Electrical Readings' },
+        { header: 'F1-2-3 A', key: 'furnace1A', width: 11, group: 'Electrical Readings' },
+        { header: 'F1-2-3 V', key: 'furnace1V', width: 11, group: 'Electrical Readings' },
+        { header: 'F4 Hz', key: 'furnace4Hz', width: 10, group: 'Electrical Readings' },
+        { header: 'F4 GLD', key: 'furnace4Gld', width: 10, group: 'Electrical Readings' },
+        { header: 'F4 kW/Hr', key: 'furnace4KwHr', width: 11, group: 'Electrical Readings' },
+      ];
+
+      await exportToExcel({
+        title: 'Melting Log Sheet Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Melting_Log_Sheet_Report',
+        sheetName: 'Melting',
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // Calculate total column count for empty-row colSpan
   const totalColCount = 4
     + (show.primary ? 5 : 0)
@@ -233,10 +319,11 @@ const MeltingLogSheetReport = () => {
     + (show.table2 ? 11 : 0)
     + (show.table3 ? 8 : 0)
     + (show.table4 ? 7 : 0)
-    + (show.table5 ? 6 : 0);
+    + (show.table5 ? 6 : 0)
+    + 1; // Actions column
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper melting-page-wrapper">
       <div className="melting-report-header">
         <div className="melting-report-header-text">
           <h2>
@@ -289,6 +376,7 @@ const MeltingLogSheetReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
       </div>
 
       {/* Section Toggles */}
@@ -322,6 +410,7 @@ const MeltingLogSheetReport = () => {
                 {show.table3 && <th colSpan={8} style={{ textAlign: 'center' }}>Lab Coin &amp; Timing</th>}
                 {show.table4 && <th colSpan={7} style={{ textAlign: 'center' }}>Metal Tapping</th>}
                 {show.table5 && <th colSpan={6} style={{ textAlign: 'center' }}>Electrical Readings</th>}
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
               {/* Row 2: Sub Headers */}
               <tr>
@@ -496,6 +585,12 @@ const MeltingLogSheetReport = () => {
                       {show.table5 && <td>{row.furnace4Hz ?? '-'}</td>}
                       {show.table5 && <td>{row.furnace4Gld ?? '-'}</td>}
                       {show.table5 && <td>{row.furnace4KwHr ?? '-'}</td>}
+                      {/* Actions — only real entry rows (not primary-only placeholders) */}
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {row.primaryId && (
+                          <EntryActions entry={row} editConfig={meltingEditConfig} onChanged={fetchData} />
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -525,6 +620,14 @@ const MeltingLogSheetReport = () => {
           </div>
         </div>
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Melting Log Sheet Report"
+      />
     </div>
   );
 };

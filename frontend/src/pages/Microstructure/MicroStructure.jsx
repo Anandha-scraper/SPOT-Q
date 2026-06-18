@@ -6,6 +6,7 @@ import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useMicroStructureContext } from '../../../app.jsx';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
@@ -20,84 +21,96 @@ const MicroStructure = () => {
   };
 
   // ====================== Validation Ranges ======================
+  // Single source of truth for validation. Each rule carries the state `key` it
+  // validates (a string for single fields, a [min, max] pair for range fields),
+  // so `handleSubmit` can verify the whole form by iterating this array alone.
   const validationRanges = [
     {
       field: 'Date',
+      key: 'date',
       required: true,
       type: 'Date',
       pattern: 'DD/MM/YYYY'
     },
     {
       field: 'DISA',
+      key: 'disa',
       required: true,
       type: 'Select',
       allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
     },
     {
       field: 'Part Name',
+      key: 'partName',
       required: true,
       type: 'Text',
       pattern: 'e.g., Brake Disc'
     },
     {
       field: 'Date Code',
+      key: 'dateCode',
       required: true,
       type: 'Text',
       pattern: 'e.g., 3A15'
     },
     {
       field: 'Heat Code',
+      key: 'heatCode',
       required: true,
       type: 'Number',
       pattern: 'e.g., 20'
     },
     {
       field: 'Nodularity %',
+      key: 'nodularity',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Graphite Type',
+      key: 'graphiteType',
       type: 'Text'
     },
     // Range fields - combined min/max pairs
     {
       field: 'Count Range',
+      key: ['countMin', 'countMax'],
       type: 'NumberRange',
       min: 0,
       unit: 'count'
     },
     {
       field: 'Size Range',
+      key: ['sizeMin', 'sizeMax'],
       type: 'NumberRange',
       min: 0,
       unit: 'μm'
     },
     {
       field: 'Ferrite Range %',
+      key: ['ferriteMin', 'ferriteMax'],
       type: 'NumberRange',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Pearlite Range %',
+      key: ['pearliteMin', 'pearliteMax'],
       type: 'NumberRange',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Carbide Range %',
+      key: ['carbideMin', 'carbideMax'],
       type: 'NumberRange',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Remarks',
+      key: 'remarks',
       type: 'Text'
     }
   ];
@@ -127,6 +140,7 @@ const MicroStructure = () => {
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
+  const [primaryErrorMessage, setPrimaryErrorMessage] = useState('');
 
   // Extract form field values from context for easier access
   const date = formData.date;
@@ -187,93 +201,6 @@ const MicroStructure = () => {
   const carbideMinValid = validationStates.carbideMin;
   const carbideMaxValid = validationStates.carbideMax;
   const remarksValid = validationStates.remarks;
-
-  // Validation setters using context
-  const setDateValid = (value) => setValidation('date', value);
-  const setDisaValid = (value) => setValidation('disa', value);
-  const setPartNameValid = (value) => setValidation('partName', value);
-  const setDateCodeValid = (value) => setValidation('dateCode', value);
-  const setHeatCodeValid = (value) => setValidation('heatCode', value);
-  const setNodularityValid = (value) => setValidation('nodularity', value);
-  const setGraphiteTypeValid = (value) => setValidation('graphiteType', value);
-  const setCountMinValid = (value) => setValidation('countMin', value);
-  const setCountMaxValid = (value) => setValidation('countMax', value);
-  const setSizeMinValid = (value) => setValidation('sizeMin', value);
-  const setSizeMaxValid = (value) => setValidation('sizeMax', value);
-  const setFerriteMinValid = (value) => setValidation('ferriteMin', value);
-  const setFerriteMaxValid = (value) => setValidation('ferriteMax', value);
-  const setPearliteMinValid = (value) => setValidation('pearliteMin', value);
-  const setPearliteMaxValid = (value) => setValidation('pearliteMax', value);
-  const setCarbideMinValid = (value) => setValidation('carbideMin', value);
-  const setCarbideMaxValid = (value) => setValidation('carbideMax', value);
-  const setRemarksValid = (value) => setValidation('remarks', value);
-
-  // Range validation setters - apply validation to both min and max fields
-  const setCountRangeValid = (value) => {
-    setValidation('countMin', value);
-    setValidation('countMax', value);
-  };
-  const setSizeRangeValid = (value) => {
-    setValidation('sizeMin', value);
-    setValidation('sizeMax', value);
-  };
-  const setFerriteRangeValid = (value) => {
-    setValidation('ferriteMin', value);
-    setValidation('ferriteMax', value);
-  };
-  const setPearliteRangeValid = (value) => {
-    setValidation('pearliteMin', value);
-    setValidation('pearliteMax', value);
-  };
-  const setCarbideRangeValid = (value) => {
-    setValidation('carbideMin', value);
-    setValidation('carbideMax', value);
-  };
-
-  // ====================== Field Mapping ======================
-  // Maps validation range field names to state variable names
-  // ====================== Field Mapping ======================
-  // Maps UI labels to state variable names
-  // For range fields, maps to array of [minField, maxField]
-  const fieldMapping = {
-    'Date': 'date',
-    'DISA': 'disa',
-    'Part Name': 'partName',
-    'Date Code': 'dateCode',
-    'Heat Code': 'heatCode',
-    'Nodularity %': 'nodularity',
-    'Graphite Type': 'graphiteType',
-    // Range fields mapped to arrays
-    'Count Range': ['countMin', 'countMax'],
-    'Size Range': ['sizeMin', 'sizeMax'],
-    'Ferrite Range %': ['ferriteMin', 'ferriteMax'],
-    'Pearlite Range %': ['pearliteMin', 'pearliteMax'],
-    'Carbide Range %': ['carbideMin', 'carbideMax'],
-    'Remarks': 'remarks'
-  };
-
-  // ====================== Validation Setters ======================
-  // Maps state variable names to their validation setter functions
-  const validationSetters = {
-    'date': setDateValid,
-    'disa': setDisaValid,
-    'partName': setPartNameValid,
-    'dateCode': setDateCodeValid,
-    'heatCode': setHeatCodeValid,
-    'nodularity': setNodularityValid,
-    'graphiteType': setGraphiteTypeValid,
-    'countMin': setCountMinValid,
-    'countMax': setCountMaxValid,
-    'sizeMin': setSizeMinValid,
-    'sizeMax': setSizeMaxValid,
-    'ferriteMin': setFerriteMinValid,
-    'ferriteMax': setFerriteMaxValid,
-    'pearliteMin': setPearliteMinValid,
-    'pearliteMax': setPearliteMaxValid,
-    'carbideMin': setCarbideMinValid,
-    'carbideMax': setCarbideMaxValid,
-    'remarks': setRemarksValid
-  };
 
   // ====================== Validation Functions ======================
   /**
@@ -418,6 +345,9 @@ const MicroStructure = () => {
   // Refs for navigation
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
+
+  // Spatial arrow-key navigation across the form grid (↑/↓/←/→ move focus)
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
   // Field order for Enter key navigation
   const fieldOrder = [
@@ -586,44 +516,6 @@ const MicroStructure = () => {
     return classes;
   };
 
-  const validatePercentage = (value) => {
-    if (value === '' || value === null || value === undefined) return false;
-    const num = parseFloat(value);
-    return !isNaN(num) && num >= 0 && num <= 100;
-  };
-
-  const validateRange = (minVal, maxVal, isPercentage = false) => {
-    const min = parseFloat(minVal);
-    const max = parseFloat(maxVal);
-    
-    // If min is empty, both are invalid
-    if (minVal === '' || isNaN(min)) {
-      return { minValid: false, maxValid: false };
-    }
-    
-    // If percentage, check bounds
-    if (isPercentage && (min < 0 || min > 100)) {
-      return { minValid: false, maxValid: false };
-    }
-    
-    // If max is empty or 0, only min is needed
-    if (maxVal === '' || max === 0 || isNaN(max)) {
-      return { minValid: true, maxValid: true };
-    }
-    
-    // If percentage, check max bounds
-    if (isPercentage && (max < 0 || max > 100)) {
-      return { minValid: true, maxValid: false };
-    }
-    
-    // Check min < max
-    if (min >= max) {
-      return { minValid: false, maxValid: false };
-    }
-    
-    return { minValid: true, maxValid: true };
-  };
-
   // ====================== Handlers ======================
   
   const handleDateChange = (e) => {
@@ -655,6 +547,7 @@ const MicroStructure = () => {
     // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
+    setPrimaryErrorMessage('');
   };
 
   const handleDisaChange = (e) => {
@@ -686,8 +579,9 @@ const MicroStructure = () => {
     // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
+    setPrimaryErrorMessage('');
   };
-  
+
   const handleDisabledFieldClick = (e) => {
     if (!isPrimarySaved) {
       e.preventDefault();
@@ -710,14 +604,14 @@ const MicroStructure = () => {
     }
   };
 
-  const handleInputChange = (setter, validSetter) => (e) => {
+  const handleInputChange = (setter, fieldKey) => (e) => {
     setter(e.target.value);
-    if (validSetter) validSetter(null);
+    if (fieldKey) setValidation(fieldKey, null);
   };
 
   const handleDateCodeChange = (e) => {
     setDateCode(e.target.value.toUpperCase());
-    setDateCodeValid(null);
+    setValidation('dateCode', null);
   };
 
   const handleKeyDown = (e, field) => {
@@ -735,9 +629,12 @@ const MicroStructure = () => {
   };
 
   const handlePrimarySubmit = async () => {
+    // Clear any previous inline error
+    setPrimaryErrorMessage('');
+
     // Validate required fields
     if (!date || !disa) {
-      alert('Please fill in Date and DISA');
+      setPrimaryErrorMessage('Enter Date and DISA');
       return;
     }
 
@@ -792,12 +689,12 @@ const MicroStructure = () => {
           }, 100);
         }, 1000);
       } else {
-        alert('Failed to save primary: ' + data.message);
+        setPrimaryErrorMessage('Technical error');
       }
     } catch (error) {
       console.error('Error saving primary:', error);
       setSavePrimaryLoading(false);
-      alert('Failed to save primary: ' + error.message);
+      setPrimaryErrorMessage('Technical error');
     }
   };
 
@@ -851,6 +748,7 @@ const MicroStructure = () => {
   const handleSubmit = async () => {
     let hasErrors = false;
     let firstErrorField = null;
+    let firstErrorMessage = null;
 
     // Clear any previous error messages
     setSubmitErrorMessage('');
@@ -877,56 +775,30 @@ const MicroStructure = () => {
       remarks
     };
 
-    // Dynamic validation based on validationRanges
+    // Verify the whole form purely from validationRanges. Each rule's `key` is the
+    // state field (string) or [min, max] pair (range) it governs; mark every governed
+    // field invalid/neutral via the context setValidation.
     for (const rule of validationRanges) {
-      const mappedFields = fieldMapping[rule.field];
+      const key = rule.key;
+      if (!key) continue;
 
-      // Skip if no field mapping found
-      if (!mappedFields) continue;
+      const result = validateField(rule, key, stateData);
+      const keys = Array.isArray(key) ? key : [key];
 
-      // Validate using dynamic system
-      const result = validateField(rule, mappedFields, stateData);
-
-      // Handle setter for range fields vs single fields
-      let setter;
-      if (Array.isArray(mappedFields)) {
-        // For range fields - use appropriate range setter based on field name
-        if (rule.field === 'Count Range') {
-          setter = setCountRangeValid;
-        } else if (rule.field === 'Size Range') {
-          setter = setSizeRangeValid;
-        } else if (rule.field === 'Ferrite Range %') {
-          setter = setFerriteRangeValid;
-        } else if (rule.field === 'Pearlite Range %') {
-          setter = setPearliteRangeValid;
-        } else if (rule.field === 'Carbide Range %') {
-          setter = setCarbideRangeValid;
+      if (!result.isValid) {
+        keys.forEach(k => setValidation(k, false));
+        hasErrors = true;
+        if (!firstErrorField) {
+          firstErrorField = keys[0];
+          firstErrorMessage = result.message;
         }
       } else {
-        setter = validationSetters[mappedFields];
-      }
-
-      if (setter) {
-        if (!result.isValid) {
-          setter(false);
-          hasErrors = true;
-          if (!firstErrorField) {
-            firstErrorField = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
-          }
-          // Store first error message for display
-          if (!submitErrorMessage && result.message) {
-            setSubmitErrorMessage(result.message);
-          }
-        } else {
-          setter(null);
-        }
+        keys.forEach(k => setValidation(k, null));
       }
     }
 
     if (hasErrors) {
-      if (!submitErrorMessage) {
-        setSubmitErrorMessage('Enter data in correct format');
-      }
+      setSubmitErrorMessage(firstErrorMessage || 'Enter data in correct format');
 
       // AUTO-NAVIGATION: Focus on the first field that failed validation
       if (firstErrorField) {
@@ -1004,24 +876,7 @@ const MicroStructure = () => {
         setRemarks('');
 
         // Reset validation states
-        setDateValid(null);
-        setDisaValid(null);
-        setPartNameValid(null);
-        setDateCodeValid(null);
-        setHeatCodeValid(null);
-        setNodularityValid(null);
-        setGraphiteTypeValid(null);
-        setCountMinValid(null);
-        setCountMaxValid(null);
-        setSizeMinValid(null);
-        setSizeMaxValid(null);
-        setFerriteMinValid(null);
-        setFerriteMaxValid(null);
-        setPearliteMinValid(null);
-        setPearliteMaxValid(null);
-        setCarbideMinValid(null);
-        setCarbideMaxValid(null);
-        setRemarksValid(null);
+        resetValidation();
 
         setSubmitErrorMessage('');
         setEntryCount(prev => prev + 1);
@@ -1030,11 +885,11 @@ const MicroStructure = () => {
           inputRefs.current.partName?.focus();
         }, 100);
       } else {
-        alert('Failed to save entry: ' + data.message);
+        setSubmitErrorMessage('Technical error');
       }
     } catch (error) {
       console.error('Error saving entry:', error);
-      alert('Failed to save entry: ' + error.message);
+      setSubmitErrorMessage('Technical error');
     } finally {
       setSubmitLoading(false);
     }
@@ -1095,6 +950,7 @@ const MicroStructure = () => {
         validationRanges={validationRanges}
       />
 
+      <div ref={gridRef} onKeyDown={handleArrowKeyDown}>
       <div ref={primarySectionRef}>
         <h3 className="microstructure-section-heading">
           Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}
@@ -1134,8 +990,8 @@ const MicroStructure = () => {
                 transition: 'all 0.3s ease'
               }}
             />
-            {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
-              <div style={{ 
+            {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning || primaryErrorMessage) && (
+              <div style={{
                 marginTop: '0.75rem',
                 display: 'flex',
                 alignItems: 'flex-start'
@@ -1162,10 +1018,17 @@ const MicroStructure = () => {
                   />
                 )}
                 {showPrimaryWarning && (
-                  <InlineLoader 
-                    message="Save Date, Disa" 
-                    size="medium" 
-                    variant="danger" 
+                  <InlineLoader
+                    message="Save Date, Disa"
+                    size="medium"
+                    variant="danger"
+                  />
+                )}
+                {primaryErrorMessage && (
+                  <InlineLoader
+                    message={primaryErrorMessage}
+                    size="medium"
+                    variant="danger"
                   />
                 )}
               </div>
@@ -1182,14 +1045,15 @@ const MicroStructure = () => {
         </div>
       </div>
 
+      {/* Row 1 — identity + nodularity + graphite type */}
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Part Name</label>
           <input
             ref={el => inputRefs.current.partName = el}
             type="text"
             value={partName}
-            onChange={handleInputChange(setPartName, setPartNameValid)}
+            onChange={handleInputChange(setPartName, 'partName')}
             onKeyDown={e => handleKeyDown(e, 'partName')}
             name="partName"
             placeholder="Enter part name"
@@ -1197,7 +1061,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', partNameValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Date Code</label>
           <input
             ref={el => inputRefs.current.dateCode = el}
@@ -1211,13 +1075,13 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', dateCodeValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Heat Code</label>
           <input
             ref={el => inputRefs.current.heatCode = el}
             type="text"
             value={heatCode}
-            onChange={handleInputChange(setHeatCode, setHeatCodeValid)}
+            onChange={handleInputChange(setHeatCode, 'heatCode')}
             onKeyDown={e => handleKeyDown(e, 'heatCode')}
             name="heatCode"
             placeholder="Enter heat code"
@@ -1225,13 +1089,13 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', heatCodeValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Nodularity %</label>
           <input
             ref={el => inputRefs.current.nodularity = el}
             type="number"
             value={nodularity}
-            onChange={handleInputChange(setNodularity, setNodularityValid)}
+            onChange={handleInputChange(setNodularity, 'nodularity')}
             onKeyDown={e => handleKeyDown(e, 'nodularity')}
             name="nodularity"
             placeholder="0-100"
@@ -1242,16 +1106,13 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', nodularityValid)}
           />
         </div>
-      </div>
-
-      <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Graphite Type</label>
           <input
             ref={el => inputRefs.current.graphiteType = el}
             type="text"
             value={graphiteType}
-            onChange={handleInputChange(setGraphiteType, setGraphiteTypeValid)}
+            onChange={handleInputChange(setGraphiteType, 'graphiteType')}
             onKeyDown={e => handleKeyDown(e, 'graphiteType')}
             name="graphiteType"
             placeholder="Enter graphite type"
@@ -1259,14 +1120,18 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', graphiteTypeValid)}
           />
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+      </div>
+
+      {/* Row 2 — count, size, ferrite, pearlite, carbide ranges */}
+      <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
+        <div className="microstructure-field">
           <label>Count (Nos / mm²)</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.countMin = el}
               type="number"
               value={countMin}
-              onChange={handleInputChange(setCountMin, setCountMinValid)}
+              onChange={handleInputChange(setCountMin, 'countMin')}
               onKeyDown={e => handleKeyDown(e, 'countMin')}
               name="countMin"
               placeholder="Min"
@@ -1280,7 +1145,7 @@ const MicroStructure = () => {
               ref={el => inputRefs.current.countMax = el}
               type="number"
               value={countMax}
-              onChange={handleInputChange(setCountMax, setCountMaxValid)}
+              onChange={handleInputChange(setCountMax, 'countMax')}
               onKeyDown={e => handleKeyDown(e, 'countMax')}
               name="countMax"
               placeholder="Max"
@@ -1291,14 +1156,14 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Size</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.sizeMin = el}
               type="number"
               value={sizeMin}
-              onChange={handleInputChange(setSizeMin, setSizeMinValid)}
+              onChange={handleInputChange(setSizeMin, 'sizeMin')}
               onKeyDown={e => handleKeyDown(e, 'sizeMin')}
               name="sizeMin"
               placeholder="Min"
@@ -1312,7 +1177,7 @@ const MicroStructure = () => {
               ref={el => inputRefs.current.sizeMax = el}
               type="number"
               value={sizeMax}
-              onChange={handleInputChange(setSizeMax, setSizeMaxValid)}
+              onChange={handleInputChange(setSizeMax, 'sizeMax')}
               onKeyDown={e => handleKeyDown(e, 'sizeMax')}
               name="sizeMax"
               placeholder="Max"
@@ -1323,14 +1188,14 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Ferrite %</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.ferriteMin = el}
               type="number"
               value={ferriteMin}
-              onChange={handleInputChange(setFerriteMin, setFerriteMinValid)}
+              onChange={handleInputChange(setFerriteMin, 'ferriteMin')}
               onKeyDown={e => handleKeyDown(e, 'ferriteMin')}
               name="ferriteMin"
               placeholder="Min"
@@ -1345,7 +1210,7 @@ const MicroStructure = () => {
               ref={el => inputRefs.current.ferriteMax = el}
               type="number"
               value={ferriteMax}
-              onChange={handleInputChange(setFerriteMax, setFerriteMaxValid)}
+              onChange={handleInputChange(setFerriteMax, 'ferriteMax')}
               onKeyDown={e => handleKeyDown(e, 'ferriteMax')}
               name="ferriteMax"
               placeholder="Max"
@@ -1357,17 +1222,14 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-      </div>
-
-      <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Pearlite %</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.pearliteMin = el}
               type="number"
               value={pearliteMin}
-              onChange={handleInputChange(setPearliteMin, setPearliteMinValid)}
+              onChange={handleInputChange(setPearliteMin, 'pearliteMin')}
               onKeyDown={e => handleKeyDown(e, 'pearliteMin')}
               name="pearliteMin"
               placeholder="Min"
@@ -1382,7 +1244,7 @@ const MicroStructure = () => {
               ref={el => inputRefs.current.pearliteMax = el}
               type="number"
               value={pearliteMax}
-              onChange={handleInputChange(setPearliteMax, setPearliteMaxValid)}
+              onChange={handleInputChange(setPearliteMax, 'pearliteMax')}
               onKeyDown={e => handleKeyDown(e, 'pearliteMax')}
               name="pearliteMax"
               placeholder="Max"
@@ -1394,14 +1256,14 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '25%' }}>
+        <div className="microstructure-field">
           <label>Carbide %</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.carbideMin = el}
               type="number"
               value={carbideMin}
-              onChange={handleInputChange(setCarbideMin, setCarbideMinValid)}
+              onChange={handleInputChange(setCarbideMin, 'carbideMin')}
               onKeyDown={e => handleKeyDown(e, 'carbideMin')}
               name="carbideMin"
               placeholder="Min"
@@ -1416,7 +1278,7 @@ const MicroStructure = () => {
               ref={el => inputRefs.current.carbideMax = el}
               type="number"
               value={carbideMax}
-              onChange={handleInputChange(setCarbideMax, setCarbideMaxValid)}
+              onChange={handleInputChange(setCarbideMax, 'carbideMax')}
               onKeyDown={e => handleKeyDown(e, 'carbideMax')}
               name="carbideMax"
               placeholder="Max"
@@ -1428,13 +1290,17 @@ const MicroStructure = () => {
             />
           </div>
         </div>
-        <div className="microstructure-field" style={{ maxWidth: '33%' }}>
+      </div>
+
+      {/* Row 3 — remarks */}
+      <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
+        <div className="microstructure-field" style={{ flex: '0 0 50%', maxWidth: '50%' }}>
           <label>Remarks *</label>
           <input
             ref={el => inputRefs.current.remarks = el}
             type="text"
             value={remarks}
-            onChange={handleInputChange(setRemarks, setRemarksValid)}
+            onChange={handleInputChange(setRemarks, 'remarks')}
             onKeyDown={e => handleKeyDown(e, 'remarks')}
             name="remarks"
             placeholder="Enter remarks"
@@ -1442,6 +1308,7 @@ const MicroStructure = () => {
             className={getInputClassName('microstructure-input', remarksValid)}
           />
         </div>
+      </div>
       </div>
 
       {/* Submit Button Row */}

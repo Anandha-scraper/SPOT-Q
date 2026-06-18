@@ -5,6 +5,7 @@ import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, D
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
@@ -33,99 +34,6 @@ const MeltingLogSheet = () => {
   const [closingCombinationMsg, setClosingCombinationMsg] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
-  
-  /* ============================================================================
-   * RED VIBRATION (SHAKE) VALIDATION FLOW — REFERENCE GUIDE
-   * ============================================================================
-   * PURPOSE: When the user clicks a field or submit button without filling 
-   *          required prerequisite fields (Date → Shift → Furnace → Panel),
-   *          the missing field gets a red border + shake animation for 3 seconds.
-   *
-   * HOW IT WORKS (4 parts):
-   *
-   * ── PART 1: STATE ──
-   *   One boolean state per required field (e.g., dateErrorHighlight).
-   *   When true, the CSS class 'error-highlight' is added to that field's wrapper div.
-   *
-   * ── PART 2: CSS (MeltingLogSheet.css) ──
-   *   .error-highlight input,
-   *   .error-highlight select,
-   *   .error-highlight .date-input,
-   *   .error-highlight .custom-date-picker input {
-   *     border-color: #ef4444 !important;            ← red border
-   *     background-color: #fef2f2 !important;        ← light red background
-   *     box-shadow: 0 0 0 3px rgba(239,68,68,0.1);  ← red glow
-   *     animation: shake 0.3s ease-in-out;           ← vibration
-   *   }
-   *   @keyframes shake {
-   *     0%, 100% { transform: translateX(0); }
-   *     25%      { transform: translateX(-5px); }
-   *     75%      { transform: translateX(5px); }
-   *   }
-   *
-   * ── PART 3: TRIGGER FUNCTION ──
-   *   triggerHighlight(setter) → toggles state off→on (via requestAnimationFrame)
-   *   to re-trigger the CSS animation even on repeated clicks, then auto-dismisses
-   *   after 3 seconds.
-   *
-   * ── PART 4: WHERE IT IS CALLED (3 places) ──
-   *   a) onMouseDownCapture on each field div → highlights its prerequisite
-   *      e.g., clicking Shift when Date is empty → shakes Date field
-   *   b) handleValueFieldClick → for value fields (Cumulative, KWHr etc.)
-   *      highlights the first missing prerequisite
-   *   c) handlePrimarySubmit → validates all required fields on submit
-   *
-   * ── TO REUSE ON ANOTHER PAGE ──
-   *   1. Copy PART 1 states + PART 3 functions below
-   *   2. Copy the CSS classes (.error-highlight + @keyframes shake)
-   *   3. Add 'error-highlight' class to field wrapper divs conditionally
-   *   4. Call triggerHighlight(setter) + showFieldMessage() on click/submit
-   *
-   * ============================================================================
-   * SUBMIT BUTTON — SHOW / HIDE LOGIC WITH ALERT MESSAGES
-   * ============================================================================
-   *
-   * BUTTON 1: "Save Primary" (first-time save)
-   * ─────────────────────────────────────────────
-   * VISIBLE WHEN (ALL must be true):
-   *   1. All 4 key fields filled (date, shift, furnaceNo, panel)
-   *   2. AND one of these is true:
-   *      - fetchingPrimary = true  → shows "Fetching Primary..." loader
-   *      - showCombinationFound    → shows "Combination found" message
-   *      - showCombinationSaved    → shows "Combination saved" message
-   *      - !isPrimaryDataSaved     → shows actual "Save Primary" button
-   * HIDDEN WHEN:
-   *   - Any key field is empty
-   *   - OR data already saved AND no loader/message active
-   *
-   * BUTTON 2: "Update Primary Data" (re-save after editing)
-   * ─────────────────────────────────────────────
-   * VISIBLE WHEN (ALL must be true):
-   *   1. isPrimaryDataSaved = true   → data was saved once
-   *   2. isPrimaryDirty() = true     → user changed a value from saved state
-   *   3. !hasInvalidNumericInput()   → no red-bordered invalid numbers
-   * HIDDEN WHEN:
-   *   - Not yet saved (Button 1 handles that)
-   *   - OR no changes made (values match saved snapshot)
-   *   - OR any numeric input is invalid
-   *
-   * CSS:
-   *   .melting-primary-btn-wrapper.show → max-height:100px, opacity:1 (slide-in)
-   *   .melting-primary-btn-wrapper.hide → max-height:0, opacity:0 (slide-out)
-   *   .melting-combination-msg-transition → fade/scale animation for messages
-   *   .melting-combination-msg-closing   → exit animation (opacity:0, translateY)
-   *
-   * ALERT 1: "Save Primary Data first"
-   *   Shown when user clicks Table 1–5 without saving primary data.
-   *   Triggered by onClickCapture on each table wrapper div.
-   *   State: showPrimaryWarning → auto-dismisses after 3s.
-   *
-   * ALERT 2: Missing prerequisite message (e.g., "Select Date first")
-   *   Shown when user clicks a dependent field without filling prerequisite.
-   *   Triggered by showFieldMessage() → sets primaryFieldMessage state.
-   *   Auto-dismisses after 3s via fieldMessageTimer.
-   * ============================================================================
-   */
 
   // ── PART 1: Error highlight states (one per required field) ──
   const [dateErrorHighlight, setDateErrorHighlight] = useState(false);
@@ -210,6 +118,9 @@ const MeltingLogSheet = () => {
   const cumulativeUnitsRef = useRef(null);
   const primarySaveButtonRef = useRef(null);
   const primarySectionRef = useRef(null);
+
+  // Spatial arrow-key navigation across the whole form (matches Process page).
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
   // Table input refs for Enter key navigation
   // Table 1
@@ -472,13 +383,11 @@ const MeltingLogSheet = () => {
     },
     {
       field: 'Grade',
-      required: true,
       type: 'Text',
       allowedValues:['SG','FG']
     },
     {
       field: 'Charging Time',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
@@ -615,7 +524,6 @@ const MeltingLogSheet = () => {
     // TABLE 3 - Lab Analysis
     {
       field: 'Lab Coin Time',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
@@ -627,31 +535,26 @@ const MeltingLogSheet = () => {
     },
     {
       field: 'Deslag Time From',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
     {
-      field: 'Deslag Time To',
-      required: true,
+      field: 'Deslag Time To',                       
       type: 'Time',
       pattern: 'HH:MM'
     },
     {
       field: 'Metal Ready Time',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
     {
       field: 'Waiting for Tapping From',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
     {
       field: 'Waiting for Tapping To',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
@@ -663,7 +566,6 @@ const MeltingLogSheet = () => {
     // TABLE 4 - Temperature Monitoring
     {
       field: 'Temp Time',
-      required: true,
       type: 'Time',
       pattern: 'HH:MM'
     },
@@ -1796,59 +1698,47 @@ const MeltingLogSheet = () => {
 
   // Transform frontend table state into the format the backend expects
   const combineTime = (hour, minute) => {
-    if (!hour && !minute) return '';
+    if (!hour && !minute) return '-';
     const h = String(hour || '0').padStart(2, '0');
     const m = String(minute || '0').padStart(2, '0');
     return `${h}:${m}`;
   };
 
-  // Helper function to convert empty numeric values to 0
-  const convertEmptyToZero = (data, numericFields) => {
-    const result = { ...data };
-    numericFields.forEach(field => {
-      if (result[field] === '' || result[field] === null || result[field] === undefined) {
-        result[field] = 0;
-      }
-    });
+  // Store empty/blank values as '-' (hyphen) rather than 0 or '' — matches the
+  // Process entry convention so empty cells read as '-' in reports and exports.
+  const blankToDash = (v) => (v === '' || v === null || v === undefined ? '-' : v);
+  const dashifyEmpties = (obj) => {
+    const result = {};
+    Object.keys(obj).forEach(k => { result[k] = blankToDash(obj[k]); });
     return result;
   };
 
   const prepareTableData = (tableNum, rawData) => {
     switch (tableNum) {
       case 1:
-        return {
-          ...convertEmptyToZero(rawData, [
-            'ifBath', 'liquidMetalPressPour', 'liquidMetalHolder', 'sgMsSteel', 
-            'greyMsSteel', 'returnsSg', 'pigIron', 'borings', 'finalBath'
-          ]),
+        return dashifyEmpties({
+          ...rawData,
           chargingTime: combineTime(rawData.chargingTimeHour, rawData.chargingTimeMinute)
-        };
+        });
       case 2:
-        return convertEmptyToZero(rawData, [
-          'charCoal', 'cpcFur', 'cpcLc', 'siliconCarbideFur', 'ferrosiliconFur',
-          'ferrosiliconLc', 'ferroManganeseFur', 'ferroManganeseLc', 'cu', 'cr', 'pureMg', 'ironPyrite'
-        ]);
+        return dashifyEmpties({ ...rawData });
       case 3:
-        return {
-          ...convertEmptyToZero(rawData, ['labCoinTempC']),
+        return dashifyEmpties({
+          ...rawData,
           labCoinTime: combineTime(rawData.labCoinTimeHour, rawData.labCoinTimeMinute),
           deslagingTimeFrom: combineTime(rawData.deslagingTimeFromHour, rawData.deslagingTimeFromMinute),
           deslagingTimeTo: combineTime(rawData.deslagingTimeToHour, rawData.deslagingTimeToMinute),
           metalReadyTime: combineTime(rawData.metalReadyTimeHour, rawData.metalReadyTimeMinute),
           waitingForTappingFrom: combineTime(rawData.waitingForTappingFromHour, rawData.waitingForTappingFromMinute),
-          waitingForTappingTo: combineTime(rawData.waitingForTappingToHour, rawData.waitingForTappingToMinute),
-          reason: rawData.reason
-        };
+          waitingForTappingTo: combineTime(rawData.waitingForTappingToHour, rawData.waitingForTappingToMinute)
+        });
       case 4:
-        return {
-          ...convertEmptyToZero(rawData, ['tempCSg', 'directFurnace', 'holderToFurnace', 'furnaceToHolder']),
+        return dashifyEmpties({
+          ...rawData,
           time: combineTime(rawData.timeHour, rawData.timeMinute)
-        };
+        });
       case 5:
-        return convertEmptyToZero(rawData, [
-          'furnace1Kw', 'furnace1A', 'furnace1V', 'furnace2Kw', 'furnace2A', 'furnace2V',
-          'furnace3Kw', 'furnace3A', 'furnace3V', 'furnace4Hz', 'furnace4Gld', 'furnace4KwHr'
-        ]);
+        return dashifyEmpties({ ...rawData });
       default:
         return rawData;
     }
@@ -1966,7 +1856,7 @@ const MeltingLogSheet = () => {
           <Sakthi onComplete={() => setShowSakthi(false)} />
         </div>
       )}
-      <div className="page-wrapper">
+      <div className="page-wrapper melting-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       {/* Header */}
       <div className="cupola-holder-header">
         <div className="cupola-holder-header-text">

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
@@ -20,23 +22,19 @@ const ImpactReport = () => {
 
   const todayStr = getTodayLocal();
 
-  // --- Filter States ---
-  const [fromDate, setFromDate] = useState('');               // Start date (optional — empty means no lower bound)
-  const [toDate, setToDate] = useState(todayStr);             // End date (required — defaults to today)
-  const [allEntries, setAllEntries] = useState([]);            // Full dataset fetched once from API
-  const [filteredEntries, setFilteredEntries] = useState([]);  // Filtered subset shown in table
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(todayStr);
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);          // Pagination — reset to 1 on every filter/clear
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
 
   const itemsPerPage = 15;
 
-  // FILTER BUTTON ENABLE LOGIC:
-  // Enabled when: toDate exists AND (fromDate is empty OR toDate > fromDate)
   const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
 
-  // STEP 1: Fetch ALL entries once on mount.
-  // Store full dataset in `allEntries` (never mutated after fetch).
-  // Apply initial filter: show only today's entries by default.
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -50,7 +48,6 @@ const ImpactReport = () => {
         if (result.success && result.data) {
           setAllEntries(result.data);
 
-          // Default view: only today's entries
           const todayFiltered = result.data.filter(r => {
             if (!r.date) return false;
             return formatDateLocal(r.date) === todayStr;
@@ -58,7 +55,7 @@ const ImpactReport = () => {
           setFilteredEntries(todayFiltered);
         }
       } catch (error) {
-        console.error('Error fetching impact data:', error);
+        toast.error('Failed to load impact data. Please refresh.');
       } finally {
         setLoading(false);
       }
@@ -66,8 +63,6 @@ const ImpactReport = () => {
     fetchData();
   }, []);
 
-  // STEP 2: handleFilter — Client-side filtering of `allEntries`.
-  // Filters by date range. Always resets pagination to page 1.
   const handleFilter = () => {
     if (!toDate) {
       setFilteredEntries([]);
@@ -77,9 +72,6 @@ const ImpactReport = () => {
     const toDateStr = toDate;
     const fromDateStr = fromDate || '';
 
-    // Date range filter:
-    // - If fromDate is set: entry date must be >= fromDate AND <= toDate
-    // - If fromDate is empty: show only entries matching toDate exactly
     const filtered = allEntries.filter(r => {
       if (!r.date) return false;
       const reportDate = formatDateLocal(r.date);
@@ -93,12 +85,9 @@ const ImpactReport = () => {
     setCurrentPage(1);
   };
 
-  // STEP 3: handleClear — Reset all filters to defaults.
-  // Shows only today's entries (same as initial load), resets dates and pagination.
   const handleClear = () => {
     setFromDate('');
     setToDate(todayStr);
-    // Re-filter to today's entries only (not all entries)
     const todayFiltered = allEntries.filter(r => {
       if (!r.date) return false;
       return formatDateLocal(r.date) === todayStr;
@@ -113,17 +102,14 @@ const ImpactReport = () => {
     return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
   };
 
-  // Sort entries by date descending
   const sortedEntries = useMemo(() => {
     return [...filteredEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [filteredEntries]);
 
-  // Pagination
   const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
 
-  // Group calculation for date rowSpan
   const getGroupInfo = () => {
     const groups = {};
     let currentDate = null;
@@ -147,6 +133,60 @@ const ImpactReport = () => {
 
   const dateGroups = getGroupInfo();
 
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`${API_ENDPOINTS.impactTests}/filter?startDate=2000-01-01&endDate=2099-12-31`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch impact data');
+      const result = await response.json();
+      if (!result.success || !result.data) throw new Error('No data received');
+
+      const rows = result.data
+        .filter(r => {
+          if (!r.date) return false;
+          const rd = formatDateLocal(r.date);
+          return rd >= from && rd <= to;
+        })
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },
+        { header: 'Part Name', key: 'partName', width: 24 },
+        { header: 'Date Code', key: 'dateCode', width: 14 },
+        { header: 'Specification', key: 'specification', width: 28 },
+        { header: 'Observed Value', key: 'observedValue', width: 18, value: (r) => (r.observedValue !== undefined && r.observedValue !== null ? r.observedValue : '-') },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      await exportToExcel({
+        title: 'Impact Test Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Impact_Test_Report',
+        sheetName: 'Impact',
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <>
       <div className="impact-report-header">
@@ -158,7 +198,7 @@ const ImpactReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="impact-filter-container">
         <div className="impact-filter-group">
           <label>From Date</label>
@@ -178,9 +218,10 @@ const ImpactReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
       </div>
 
-      {/* Table */}
+      {}
       {loading ? (
         <div className="impact-loader-container">
           <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Loading...</div>
@@ -233,7 +274,7 @@ const ImpactReport = () => {
         </div>
       )}
 
-      {/* Pagination */}
+      {}
       {!loading && sortedEntries.length > itemsPerPage && (
         <CustomPagination
           currentPage={currentPage}
@@ -241,6 +282,14 @@ const ImpactReport = () => {
           onPageChange={setCurrentPage}
         />
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Impact Report"
+      />
     </>
   );
 };

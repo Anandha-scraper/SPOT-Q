@@ -1,18 +1,22 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown } from '../../Components/Buttons';
+import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
 const ITEMS_PER_PAGE = 20;
 
+const todayISO = () => new Date().toISOString().split('T')[0];
+
 const CupolaHolderLogSheetReport = () => {
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
 
-  // Filter states
-  const [startDate, setStartDate] = useState('');
+  // Filter states — Start Date defaults to today (matches the data loaded on mount)
+  const [startDate, setStartDate] = useState(todayISO());
   const [endDate, setEndDate] = useState('');
   const [selectedShift, setSelectedShift] = useState('');
   const [selectedHolder, setSelectedHolder] = useState('');
@@ -32,15 +36,16 @@ const CupolaHolderLogSheetReport = () => {
   // Remark modal
   const [remarkModal, setRemarkModal] = useState({ open: false, text: '' });
 
+  // Excel export
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   // Load today's data on mount
   useEffect(() => {
     loadCurrentData();
   }, []);
 
-  const getCurrentDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+  const getCurrentDate = () => todayISO();
 
   const loadCurrentData = async () => {
     const currentDate = getCurrentDate();
@@ -96,7 +101,7 @@ const CupolaHolderLogSheetReport = () => {
   };
 
   const clearFilters = () => {
-    setStartDate('');
+    setStartDate(todayISO());
     setEndDate('');
     setSelectedShift('');
     setSelectedHolder('');
@@ -107,7 +112,9 @@ const CupolaHolderLogSheetReport = () => {
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
 
   const anySection = Object.values(show).some(Boolean);
+  const allSections = Object.values(show).every(Boolean);
   const clearSections = () => setShow({ additions: false, tapping: false, pouring: false, electrical: false, remarks: false });
+  const checkAllSections = () => setShow({ additions: true, tapping: true, pouring: true, electrical: true, remarks: true });
 
   // Format date to DD/MM/YYYY
   const formatDate = (d) => {
@@ -177,8 +184,82 @@ const CupolaHolderLogSheetReport = () => {
     whiteSpace: 'nowrap'
   };
 
+  // Excel export — fetches the modal's date range fresh from the API, applies the
+  // currently selected Shift/Holder dropdowns, then builds a grouped .xlsx.
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(
+        `${API_ENDPOINTS.cupolaLogs}/filter?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`,
+        { method: 'GET', credentials: 'include', headers: { 'Content-Type': 'application/json' } }
+      );
+      if (!response.ok) throw new Error('Failed to fetch cupola data');
+      const data = await response.json();
+      if (!data?.success) throw new Error('No data received');
+
+      let rows = Array.isArray(data.data) ? data.data : [];
+      if (selectedShift) rows = rows.filter(r => r.shift === selectedShift);
+      if (selectedHolder) rows = rows.filter(r => String(r.holderNumber || r.holderno) === selectedHolder);
+
+      rows.sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.shift || '').localeCompare(b.shift || '');
+      });
+
+      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 14, value: (r) => formatDate(r.date) },
+        { header: 'Shift', key: 'shift', width: 10, value: (r) => fmtVal(r.shift) },
+        { header: 'Holder No', key: 'holderNumber', width: 11, value: (r) => fmtVal(r.holderNumber || r.holderno) },
+        { header: 'Heat No', key: 'heatNo', width: 11, value: (r) => fmtVal(r.heatNo) },
+        { header: 'CPC', key: 'cpc', width: 10, group: 'Additions', value: (r) => fmtVal(r.cpc) },
+        { header: 'Fe Sl', key: 'FeSl', width: 10, group: 'Additions', value: (r) => fmtVal(r.FeSl ?? r.mFeSl) },
+        { header: 'Fe Mn', key: 'feMn', width: 10, group: 'Additions', value: (r) => fmtVal(r.feMn) },
+        { header: 'SIC', key: 'sic', width: 10, group: 'Additions', value: (r) => fmtVal(r.sic) },
+        { header: 'Pure Mg', key: 'pureMg', width: 10, group: 'Additions', value: (r) => fmtVal(r.pureMg) },
+        { header: 'Cu', key: 'cu', width: 10, group: 'Additions', value: (r) => fmtVal(r.cu) },
+        { header: 'Fe Cr', key: 'feCr', width: 10, group: 'Additions', value: (r) => fmtVal(r.feCr) },
+        { header: 'Actual Time', key: 'actualTime', width: 12, group: 'Tapping', value: (r) => fmtVal(r.actualTime) },
+        { header: 'Tapping Time', key: 'tappingTime', width: 12, group: 'Tapping', value: (r) => fmtVal(r.tappingTime) },
+        { header: 'Temp °C', key: 'tappingTemp', width: 11, group: 'Tapping', value: (r) => fmtVal(r.tappingTemp) },
+        { header: 'Metal (KG)', key: 'metalKg', width: 12, group: 'Tapping', value: (r) => fmtVal(r.metalKg) },
+        { header: 'DISA LINE', key: 'disaLine', width: 11, group: 'Pouring', value: (r) => fmtVal(r.disaLine) },
+        { header: 'IND FUR', key: 'indFur', width: 11, group: 'Pouring', value: (r) => fmtVal(r.indFur) },
+        { header: 'BAIL NO', key: 'bailNo', width: 11, group: 'Pouring', value: (r) => fmtVal(r.bailNo) },
+        { header: 'TAP', key: 'tap', width: 10, group: 'Electrical', value: (r) => fmtVal(r.tap) },
+        { header: 'KW', key: 'kw', width: 10, group: 'Electrical', value: (r) => fmtVal(r.kw) },
+        { header: 'Remarks', key: 'remarks', width: 24, value: (r) => fmtVal(r.remarks) },
+      ];
+
+      await exportToExcel({
+        title: 'Cupola Holder Log Sheet Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Cupola_Holder_Log_Sheet_Report',
+        sheetName: 'Cupola Holder',
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper melting-page-wrapper">
       {/* Header */}
       <div className="cupola-holder-report-header">
         <div className="cupola-holder-report-header-text">
@@ -211,6 +292,7 @@ const CupolaHolderLogSheetReport = () => {
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
         <ClearButton onClick={clearFilters}>Clear</ClearButton>
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
       </div>
 
       {/* Section Checkboxes */}
@@ -236,6 +318,20 @@ const CupolaHolderLogSheetReport = () => {
               <span style={{ fontSize: '0.9rem', color: 'inherit' }}>{label}</span>
             </label>
           ))}
+          {!allSections && (
+            <button
+              onClick={checkAllSections}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.45rem 0.85rem', border: '1.5px solid #0ea5e9',
+                borderRadius: '6px', background: '#f0f9ff', color: '#0ea5e9',
+                fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                transition: 'all 0.2s ease', minHeight: '38px'
+              }}
+            >
+              ✓ Select All
+            </button>
+          )}
           {anySection && (
             <button
               onClick={clearSections}
@@ -469,6 +565,14 @@ const CupolaHolderLogSheetReport = () => {
           </div>
         </div>
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Cupola Holder Log Sheet Report"
+      />
     </div>
   );
 };

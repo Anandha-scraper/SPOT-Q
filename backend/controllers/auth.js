@@ -3,6 +3,7 @@ const LoginActivity = require('../models/LoginActivity');
 const { generateToken } = require('../utils/jwt');
 const { keepLastNLoginActivitiesForUser, cleanupLoginActivity } = require('../utils/cleanupLoginActivity');
 const { hashPassword, comparePassword } = require('../utils/password');
+const { parseDurationMs, getEditWindowMs } = require('../utils/duration');
 // Centralized Department List
 const DEPARTMENTS = [
     'Melting', 'Sand Lab', 'Moulding', 'Process', 'Micro Tensile',
@@ -30,26 +31,17 @@ exports.login = async (req, res) => {
         }
         // Generate fresh JWT token for this login
         const token = generateToken(user._id);
-        // Convert JWT_EXPIRE to seconds 
-        const expiresInSeconds = (() => {
-         const expire = process.env.JWT_EXPIRE;
-         if (!isNaN(expire)) return parseInt(expire); 
-        // strings like '1h', '8h', '1d'
-         const match = expire.match(/^(\d+)([smhd])$/);
-         if (!match) return 60;// Default to 60 seconds if format is invalid 
-         const value = parseInt(match[1]);
-         const unit = match[2];
-         const multipliers = { s: 1, m: 60, h: 3600, d: 86400 };
-        return value * multipliers[unit];
-    })();
+        // Convert JWT_EXPIRE (e.g. '8h', '1d', or raw seconds) to ms.
+        // Default to 8h if missing/malformed (logged by parseDurationMs).
+        const expiresInMs = parseDurationMs(process.env.JWT_EXPIRE, 8 * 60 * 60 * 1000);
 
-        const expiresAt = new Date(Date.now() + (expiresInSeconds * 1000)).toISOString();
+        const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
         // Set JWT token in httpOnly cookie
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: expiresInSeconds * 1000
+            maxAge: expiresInMs
         });
 
         // Async Audit Logging
@@ -73,7 +65,8 @@ exports.login = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            expiresAt, 
+            expiresAt,
+            editWindowMs: getEditWindowMs(),
             user: {
                 id: user._id,
                 employeeId: user.employeeId,
@@ -90,7 +83,7 @@ exports.login = async (req, res) => {
 
 // PROTECTED USER ACTIONS
 exports.verify = async (req, res) => {
-    res.status(200).json({ success: true, user: req.user });
+    res.status(200).json({ success: true, user: req.user, editWindowMs: getEditWindowMs() });
 };
 
 exports.logout = async (req, res) => {

@@ -171,13 +171,13 @@ exports.createEntry = async (req, res) => {
         if (!document) {
             document = await MicroStructure.create({ date, entries: [], savedDisas: [] });
         }
-        document.entries.push(entryData);
+        document.entries.push({ ...entryData, createdBy: req.user._id });
         await document.save();
 
-        res.status(201).json({ 
-            success: true, 
+        res.status(201).json({
+            success: true,
             data: document.entries[document.entries.length - 1],
-            message: 'MicroStructure record added successfully.' 
+            message: 'MicroStructure record added successfully.'
         });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -209,5 +209,41 @@ exports.filterEntries = async (req, res) => {
         res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Filtering failed.' });
+    }
+};
+
+/** 5. UPDATE / DELETE A SINGLE ENTRY (admin or creator within edit window) **/
+// req.targetDoc / req.targetEntry are resolved & authorized by editWindow middleware.
+
+const PROTECTED_ENTRY_FIELDS = ['_id', 'createdBy', 'createdAt', 'updatedAt', 'date'];
+
+exports.updateEntry = async (req, res) => {
+    try {
+        const updates = { ...req.body };
+        PROTECTED_ENTRY_FIELDS.forEach(f => delete updates[f]);
+
+        req.targetEntry.set(updates);
+        await req.targetDoc.save();
+
+        res.status(200).json({
+            success: true,
+            data: req.targetEntry,
+            message: 'MicroStructure entry updated successfully.'
+        });
+    } catch (error) {
+        console.error('Error updating micro structure entry:', error);
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteEntry = async (req, res) => {
+    try {
+        req.targetEntry.deleteOne();
+        await req.targetDoc.save();
+
+        res.status(200).json({ success: true, message: 'MicroStructure entry deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting micro structure entry:', error);
+        res.status(400).json({ success: false, message: error.message });
     }
 };

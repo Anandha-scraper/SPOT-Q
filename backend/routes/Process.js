@@ -5,8 +5,12 @@ const {
     createEntry,
     checkDateDisaEntries,
     savePrimary,
-    getPartNames
+    getPartNames,
+    updateEntry,
+    deleteEntry
 } = require('../controllers/Process');
+const Process = require('../models/Process');
+const { resolveAndAuthorize } = require('../middleware/editWindow');
 
 router.route('/')
     .get(getAllEntries)
@@ -20,5 +24,9 @@ router.route('/save-primary')
 
 router.route('/part-names')
     .get(getPartNames);
+
+router.route('/:id')
+    .put(resolveAndAuthorize(Process, { mode: 'nested', action: 'edit' }), updateEntry)
+    .delete(resolveAndAuthorize(Process, { mode: 'nested', action: 'delete' }), deleteEntry);
 
 module.exports = router;

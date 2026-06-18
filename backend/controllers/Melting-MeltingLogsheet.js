@@ -181,7 +181,10 @@ exports.filterByDateRange = async (req, res) => {
                             furnace1V: entry.electricalReadings?.furnace1?.v,
                             furnace4Hz: entry.electricalReadings?.furnace4?.hz,
                             furnace4Gld: entry.electricalReadings?.furnace4?.gld,
-                            furnace4KwHr: entry.electricalReadings?.furnace4?.kwhr
+                            furnace4KwHr: entry.electricalReadings?.furnace4?.kwhr,
+                            // Edit/delete gating (mirrors Process)
+                            createdAt: entry.createdAt,
+                            createdBy: entry.createdBy
                         });
                     }
                 }
@@ -257,7 +260,8 @@ exports.createTableEntry = async (req, res) => {
                 furnace2: { kw: data.furnace2Kw, a: data.furnace2A, v: data.furnace2V },
                 furnace3: { kw: data.furnace3Kw, a: data.furnace3A, v: data.furnace3V },
                 furnace4: { hz: data.furnace4Hz, gld: data.furnace4Gld, kwhr: data.furnace4KwHr }
-            }
+            },
+            createdBy: req.user?._id
         };
 
         primary.entries.push(entry);
@@ -267,8 +271,85 @@ exports.createTableEntry = async (req, res) => {
             success: true, 
             data: doc, 
             entryCount: primary.entries.length,
-            message: 'Entry saved successfully.' 
+            message: 'Entry saved successfully.'
         });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+/** 3b. PER-ENTRY EDIT / DELETE (report row actions) **/
+
+// Maps the flat field names used by the report/edit-modal to the nested paths
+// in the entry sub-document. Only these fields are editable.
+const FLAT_TO_PATH = {
+    heatNo: 'heatno',
+    grade: 'grade',
+    chargingTime: 'chargingkgs.time',
+    ifBath: 'chargingkgs.ifbath',
+    liquidMetalPressPour: 'chargingkgs.liquidmetal.presspour',
+    liquidMetalHolder: 'chargingkgs.liquidmetal.holder',
+    sgMsSteel: 'chargingkgs.sqmssteel',
+    greyMsSteel: 'chargingkgs.greymssteel',
+    returnsSg: 'chargingkgs.returnSg',
+    pigIron: 'chargingkgs.pigiron',
+    borings: 'chargingkgs.borings',
+    finalBath: 'chargingkgs.finalbath',
+    charCoal: 'charcoal',
+    cpcFur: 'cpc.fur',
+    cpcLc: 'cpc.lc',
+    siliconCarbideFur: 'siliconcarbide.fur',
+    ferrosiliconFur: 'ferroSilicon.fur',
+    ferrosiliconLc: 'ferroSilicon.lc',
+    ferroManganeseFur: 'ferroManganese.fur',
+    ferroManganeseLc: 'ferroManganese.lc',
+    cu: 'cu',
+    cr: 'cr',
+    pureMg: 'pureMg',
+    ironPyrite: 'ironPyrite',
+    labCoinTime: 'labCoin.time',
+    labCoinTempC: 'labCoin.tempC',
+    deslagingTimeFrom: 'deslagingTime.from',
+    deslagingTimeTo: 'deslagingTime.to',
+    metalReadyTime: 'metalReadyTime',
+    waitingForTappingFrom: 'waitingForTapping.from',
+    waitingForTappingTo: 'waitingForTapping.to',
+    reason: 'reason',
+    time: 'metalTapping.time',
+    tempCSg: 'metalTapping.tempCSg',
+    directFurnace: 'directFurnace',
+    holderToFurnace: 'holderToFurnace',
+    furnaceToHolder: 'furnaceToHolder',
+    disaNo: 'disaNo',
+    item: 'item',
+    furnace1Kw: 'electricalReadings.furnace1.kw',
+    furnace1A: 'electricalReadings.furnace1.a',
+    furnace1V: 'electricalReadings.furnace1.v',
+    furnace4Hz: 'electricalReadings.furnace4.hz',
+    furnace4Gld: 'electricalReadings.furnace4.gld',
+    furnace4KwHr: 'electricalReadings.furnace4.kwhr'
+};
+
+// req.targetDoc / req.targetEntry are resolved & authorized by editWindow middleware.
+exports.updateEntry = async (req, res) => {
+    try {
+        const entry = req.targetEntry;
+        Object.keys(req.body).forEach(flatKey => {
+            const path = FLAT_TO_PATH[flatKey];
+            if (path) entry.set(path, req.body[flatKey]);
+        });
+        await req.targetDoc.save();
+        res.status(200).json({ success: true, message: 'Melting entry updated successfully.' });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteEntry = async (req, res) => {
+    try {
+        req.targetEntry.deleteOne();
+        await req.targetDoc.save();
+        res.status(200).json({ success: true, message: 'Melting entry deleted successfully.' });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
     }

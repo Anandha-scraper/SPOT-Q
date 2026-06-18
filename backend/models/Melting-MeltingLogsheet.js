@@ -1,97 +1,103 @@
 const mongoose = require('mongoose');
 
-// Sub-schema for a single table entry (one row of all 5 tables)
+// Sub-schema for a single table entry (one row of all 5 tables).
+// Optional value fields use Mixed with a '-' default so an empty cell is stored
+// as '-' (hyphen) rather than 0/'' — matching the Process entry convention.
+const Mixed = mongoose.Schema.Types.Mixed;
 const EntrySchema = new mongoose.Schema({
     // Table 1 - Charging Details
-    heatno: { type: Number, default: 0 },
-    grade: { type: String, default: '' },
+    heatno: { type: Mixed, default: '-' },
+    grade: { type: String, default: '-' },
     chargingkgs: {
-        time: { type: String, default: '' },
-        ifbath: { type: Number, default: 0 },
+        time: { type: String, default: '-' },
+        ifbath: { type: Mixed, default: '-' },
         liquidmetal: {
-            presspour: { type: Number, default: 0 },
-            holder: { type: Number, default: 0 }
+            presspour: { type: Mixed, default: '-' },
+            holder: { type: Mixed, default: '-' }
         },
-        sqmssteel: { type: Number, default: 0 },
-        greymssteel: { type: Number, default: 0 },
-        returnSg: { type: Number, default: 0 },
-        pigiron: { type: Number, default: 0 },
-        borings: { type: Number, default: 0 },
-        finalbath: { type: Number, default: 0 }
+        sqmssteel: { type: Mixed, default: '-' },
+        greymssteel: { type: Mixed, default: '-' },
+        returnSg: { type: Mixed, default: '-' },
+        pigiron: { type: Mixed, default: '-' },
+        borings: { type: Mixed, default: '-' },
+        finalbath: { type: Mixed, default: '-' }
     },
 
     // Table 2 - Additions
-    charcoal: { type: Number, default: 0 },
+    charcoal: { type: Mixed, default: '-' },
     cpc: {
-        fur: { type: Number, default: 0 },
-        lc: { type: Number, default: 0 }
+        fur: { type: Mixed, default: '-' },
+        lc: { type: Mixed, default: '-' }
     },
     siliconcarbide: {
-        fur: { type: Number, default: 0 }
+        fur: { type: Mixed, default: '-' }
     },
     ferroSilicon: {
-        fur: { type: Number, default: 0 },
-        lc: { type: Number, default: 0 }
+        fur: { type: Mixed, default: '-' },
+        lc: { type: Mixed, default: '-' }
     },
     ferroManganese: {
-        fur: { type: Number, default: 0 },
-        lc: { type: Number, default: 0 }
+        fur: { type: Mixed, default: '-' },
+        lc: { type: Mixed, default: '-' }
     },
-    cu: { type: Number, default: 0 },
-    cr: { type: Number, default: 0 },
-    pureMg: { type: Number, default: 0 },
-    ironPyrite: { type: Number, default: 0 },
+    cu: { type: Mixed, default: '-' },
+    cr: { type: Mixed, default: '-' },
+    pureMg: { type: Mixed, default: '-' },
+    ironPyrite: { type: Mixed, default: '-' },
 
     // Table 3 - Timing Details
     labCoin: {
-        time: { type: String, default: '' },
-        tempC: { type: Number, default: 0 }
+        time: { type: String, default: '-' },
+        tempC: { type: Mixed, default: '-' }
     },
     deslagingTime: {
-        from: { type: String, default: '' },
-        to: { type: String, default: '' }
+        from: { type: String, default: '-' },
+        to: { type: String, default: '-' }
     },
-    metalReadyTime: { type: String, default: '' },
+    metalReadyTime: { type: String, default: '-' },
     waitingForTapping: {
-        from: { type: String, default: '' },
-        to: { type: String, default: '' }
+        from: { type: String, default: '-' },
+        to: { type: String, default: '-' }
     },
-    reason: { type: String, default: '' },
+    reason: { type: String, default: '-' },
 
     // Table 4 - Metal Tapping
     metalTapping: {
-        time: { type: String, default: '' },
-        tempCSg: { type: Number, default: 0 }
+        time: { type: String, default: '-' },
+        tempCSg: { type: Mixed, default: '-' }
     },
-    directFurnace: { type: Number, default: 0 },
-    holderToFurnace: { type: Number, default: 0 },
-    furnaceToHolder: { type: Number, default: 0 },
-    disaNo: { type: String, default: '' },
-    item: { type: String, default: '' },
+    directFurnace: { type: Mixed, default: '-' },
+    holderToFurnace: { type: Mixed, default: '-' },
+    furnaceToHolder: { type: Mixed, default: '-' },
+    disaNo: { type: String, default: '-' },
+    item: { type: String, default: '-' },
 
     // Table 5 - Electrical Readings
     electricalReadings: {
         furnace1: {
-            kw: { type: Number, default: 0 },
-            v: { type: Number, default: 0 },
-            a: { type: Number, default: 0 }
+            kw: { type: Mixed, default: '-' },
+            v: { type: Mixed, default: '-' },
+            a: { type: Mixed, default: '-' }
         },
         furnace2: {
-            kw: { type: Number, default: 0 },
-            v: { type: Number, default: 0 },
-            a: { type: Number, default: 0 }
+            kw: { type: Mixed, default: '-' },
+            v: { type: Mixed, default: '-' },
+            a: { type: Mixed, default: '-' }
         },
         furnace3: {
-            kw: { type: Number, default: 0 },
-            v: { type: Number, default: 0 },
-            a: { type: Number, default: 0 }
+            kw: { type: Mixed, default: '-' },
+            v: { type: Mixed, default: '-' },
+            a: { type: Mixed, default: '-' }
         },
         furnace4: {
-            hz: { type: Number, default: 0 },
-            gld: { type: Number, default: 0 },
-            kwhr: { type: Number, default: 0 }
+            hz: { type: Mixed, default: '-' },
+            gld: { type: Mixed, default: '-' },
+            kwhr: { type: Mixed, default: '-' }
         }
-    }
+    },
+
+    // Stamped on creation so non-admins can edit their own entry within EDIT_TIME.
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { _id: true, timestamps: true });
 
 // Sub-schema for a primary combination (shift + furnace + panel)

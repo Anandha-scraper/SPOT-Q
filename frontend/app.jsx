@@ -49,7 +49,7 @@ const getCurrentDate = () => {
 const ImpactContext = createContext();
 
 const initialImpactFormData = {
-  date: '',
+  date: getCurrentDate(),
   partName: '',
   dateCode: '',
   specification: '',
@@ -407,9 +407,11 @@ const ProtectedLayout = () => {
 };
 
 const App = () => {
-  const { user, loading, logoutLoading } = useContext(AuthContext);
+  const { user, loading, logoutLoading, initializing } = useContext(AuthContext);
 
-  if (loading) {
+  // Block rendering until the backend session has been verified on startup,
+  // so protected pages never flash from stale localStorage.
+  if (loading || initializing) {
     return null;
   }
 

@@ -503,6 +503,31 @@
 
 /* Responsive adjustments */
 @media (max-width: 968px) {
+  .tensile-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tensile-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tensile-submit-container {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .tensile-submit-container > *,
+  .tensile-submit-right {
+    width: 100%;
+  }
+
+  .tensile-submit-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .tensile-filter-grid {
     grid-template-columns: 1fr;
   }
@@ -510,7 +535,7 @@
   .tensile-filter-btn-container {
     width: 100%;
   }
-  
+
   .modal-container {
     max-width: 95%;
   }

@@ -1,141 +1,19 @@
-/*
- * =====================================================================================
- * DYNAMIC FORM VALIDATION SYSTEM - COMPREHENSIVE TECHNICAL ARCHITECTURE
- * =====================================================================================
- *
- * VALIDATION ARCHITECTURE OVERVIEW:
- * This implements a declarative, rule-based validation engine using the Strategy Pattern
- * with React hooks for state management and dependency injection for validation setters.
- *
- * CORE DESIGN PATTERNS:
- * 1. STRATEGY PATTERN - validateField() delegates to type-specific validation strategies
- * 2. OBSERVER PATTERN - useState hooks observe form state changes, trigger re-renders
- * 3. DEPENDENCY INJECTION - validationSetters object injects state setters into validator
- * 4. DECORATOR PATTERN - getInputClassName() decorates inputs with validation styles
- * 5. FACTORY PATTERN - validationRanges config factory creates validation rules
- *
- * =====================================================================================
- * VALIDATION RULE ENGINE SPECIFICATION
- * =====================================================================================
- *
- * RULE SCHEMA (validationRanges):
- * {
- *   field: string,              // UI label (acts as primary key for field mapping)
- *   required: boolean,          // Mandatory field validation flag
- *   type: ValidationTypeEnum,   // Type-specific validation strategy selector
- *   min?: number,              // Boundary validation (inclusive lower bound)
- *   max?: number,              // Boundary validation (inclusive upper bound)
- *   unit?: string,             // User-facing unit display (non-functional)
- *   pattern?: string,          // Example/regex pattern (documentation only)
- *   allowedValues?: string[]   // Enum constraint for Select type (whitelist approach)
- * }
- *
- * SUPPORTED VALIDATION TYPES:
- * - Text: String validation with sanitization
- * - Number: Float validation with boundary checks + NaN/Infinity guards
- * - Integer: Number validation + integer constraint
- * - Select: Enum validation against allowedValues whitelist
- * - Date: ISO date format validation
- * - Time Range: Bi-directional range validation (min < max constraint)
- * - Number Range: Numeric range validation with cross-field dependencies
- *
- * =====================================================================================
- * FIELD MAPPING STRATEGY
- * =====================================================================================
- *
- * MAPPING PATTERNS:
- * fieldMapping = {
- *   'UI_LABEL': 'formData_property',           // 1:1 mapping (single field)
- *   'RANGE_LABEL': ['minField', 'maxField']   // 1:2 mapping (range fields)
- * }
- *
- * MAPPING RESOLUTION FLOW:
- * 1. UI label → fieldMapping lookup → formData property name(s)
- * 2. Array check determines single vs range field validation strategy
- * 3. Range fields get bidirectional validation (min < max + individual constraints)
- *
- * =====================================================================================
- * STATE MANAGEMENT ARCHITECTURE
- * =====================================================================================
- *
- * VALIDATION STATE ENUM:
- * - null:  Pristine/neutral state (no visual feedback)
- * - false: Invalid state (error styling applied via CSS classes)
- * - true:  Valid state (DEPRECATED - not used, kept for compatibility)
- *
- * STATE TRANSITION MODEL:
- * User Input → handleChange() → setState(null)           // Reset to neutral
- * Form Submit → validation → setState(false|null)       // Apply validation result
- * Field Focus → no state change                         // Preserve validation state
- *
- * VALIDATION SETTERS INJECTION:
- * validationSetters object maps formData properties to useState setter functions,
- * enabling the validation engine to update component state without tight coupling.
- *
- * =====================================================================================
- * VALIDATION EXECUTION FLOW
- * =====================================================================================
- *
- * SUBMIT VALIDATION PIPELINE:
- * 1. Iterate validationRanges[] (rule-based validation)
- * 2. Resolve field mapping (UI label → formData property)
- * 3. Execute validateField() with strategy pattern
- * 4. Inject validation result into component state via setters
- * 5. Aggregate validation results for submit decision
- * 6. Apply CSS classes for visual feedback
- *
- * FIELD VALIDATION ALGORITHM:
- * validateField(rule, mappedFields, formData) → {isValid, message}
- * - Range validation: Array.isArray() check → bidirectional validation
- * - Single validation: browser validity API + custom rules + type strategies
- * - Error aggregation: first error wins, short-circuit evaluation
- *
- * INPUT SANITIZATION PATTERNS:
- * - Number inputs: NaN/Infinity guards, scientific notation filtering
- * - Text inputs: Character whitelist filtering (alphanumeric + specific symbols)
- * - Date inputs: ISO format normalization
- * - Integer inputs: decimal truncation validation
- *
- * =====================================================================================
- * IMPLEMENTATION REFERENCE FOR OTHER PAGES
- * =====================================================================================
- *
- * 1. CONFIGURE VALIDATION RULES:
- * const validationRanges = [...] // Copy rule schema from above
- *
- * 2. DEFINE FIELD MAPPING:
- * const fieldMapping = {...} // Map UI labels to formData properties
- *
- * 3. SETUP VALIDATION STATE:
- * const [fieldValid, setFieldValid] = useState(null); // Per field state
- *
- * 4. CREATE SETTER INJECTION MAP:
- * const validationSetters = {'property': setFieldValid} // After useState
- *
- * 5. IMPLEMENT VALIDATION PIPELINE:
- * // Copy validateField function + submit validation loop from this file
- *
- * 6. APPLY VISUAL FEEDBACK:
- * className={getInputClassName('field', fieldValidState)} // CSS decoration
- *
- * =====================================================================================
- */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader, toast } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { useProcessContext } from '../../../app.jsx';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
   const { isOpen, openModal, closeModal } = useInfoModal();
 
-  // Get shared state from context (persists when navigating between Entry and Report)
   const {
     formData,
     setFormData,
@@ -151,30 +29,6 @@ export default function ProcessControl() {
     setEntryCount
   } = useProcessContext();
 
-  // =====================================================================================
-  // VALIDATION RULE CONFIGURATION MATRIX
-  // =====================================================================================
-  //
-  // RULE SCHEMA IMPLEMENTATION:
-  // Each validation rule follows a declarative configuration pattern where:
-  // - field: Acts as primary key for UI-to-data mapping resolution
-  // - required: Boolean flag triggering mandatory validationConstraintError
-  // - type: Enum selector for validation strategy dispatch
-  // - min/max: Boundary constraints with inclusive validation logic
-  // - allowedValues: Enumeration constraint using whitelist validation pattern
-  //
-  // VALIDATION BEHAVIOR MATRIX:
-  // required:true  + empty value  → ValidationError (user feedback required)
-  // required:false + empty value  → auto-populate with "-" (database normalization)
-  // required:false + valid value  → store actual value (data preservation)
-  //
-  // TYPE-SPECIFIC VALIDATION STRATEGIES:
-  // - Text: UTF-8 string validation with character sanitization
-  // - Number: IEEE-754 float validation + boundary constraint checking
-  // - Integer: Number validation + modulo-1 constraint (integer verification)
-  // - Select: Enumeration validation using Array.includes() whitelist check
-  // - Date: ISO-8601 format validation with browser Date API integration
-  // - Time Range/Number Range: Cross-field validation with min<max constraint
   const validationRanges = [
     {
       field: 'Date',
@@ -270,6 +124,7 @@ export default function ProcessControl() {
     {
       field: 'Time of Pouring (Range)',
       type: 'Time Range',
+      max:'60min',
       pattern: 'HH:MM - HH:MM'
     },
     {
@@ -393,27 +248,6 @@ export default function ProcessControl() {
     }
   ];
 
-  // =====================================================================================
-  // FIELD MAPPING RESOLUTION MATRIX - UI LABEL TO FORM DATA BINDING
-  // =====================================================================================
-  //
-  // MAPPING ARCHITECTURE:
-  // This implements a key-value lookup table for decoupling UI presentation layer
-  // from data persistence layer. Enables internationalization and UI refactoring
-  // without breaking data model contracts.
-  //
-  // MAPPING STRATEGIES:
-  // 1. SINGLE FIELD MAPPING: 'UI Label' → 'formDataProperty' (1:1 relationship)
-  // 2. RANGE FIELD MAPPING: 'Range Label' → ['minField', 'maxField'] (1:2 relationship)
-  //
-  // RESOLUTION ALGORITHM:
-  // fieldMapping[uiLabel] → string|array → validateField() strategy dispatch
-  // - typeof string: Single field validation pathway
-  // - typeof array: Range validation pathway with cross-field constraints
-  //
-  // VALIDATION INTEGRATION:
-  // UI validation rules reference fieldMapping keys for property resolution,
-  // enabling dynamic form validation without hardcoded field references.
   const fieldMapping = {
     'Date': 'date',
     'DISA': 'disa',
@@ -451,10 +285,9 @@ export default function ProcessControl() {
     'Remarks': 'remarks'
   };
 
-
-
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [submitLoading, setSubmitLoading] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);
@@ -463,30 +296,6 @@ export default function ProcessControl() {
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
-  // =====================================================================================
-  // VALIDATION STATE MANAGEMENT - REACT HOOKS PATTERN
-  // =====================================================================================
-  //
-  // STATE ARCHITECTURE:
-  // Each form field maintains independent validation state using React useState hook.
-  // This follows the Single Responsibility Principle - each state manages one field's
-  // validation status without coupling to other field states.
-  //
-  // STATE ENUMERATION:
-  // - null:  PRISTINE/NEUTRAL (no validation feedback, default state)
-  // - false: INVALID (triggers error CSS classes, user feedback required)
-  // - true:  VALID (legacy state, preserved for backward compatibility, unused)
-  //
-  // STATE LIFECYCLE:
-  // Initial → null (component mount)
-  // User Input → null (handleChange resets to neutral)
-  // Submit Validation → false|null (validation result determines final state)
-  //
-  // REACT OPTIMIZATION:
-  // Individual useState hooks prevent unnecessary re-renders across unrelated fields.
-  // Each setter function has stable identity, enabling React.memo optimizations.
-
-  // Basic field validation states
   const [dateValid, setDateValid] = useState(null);
   const [disaValid, setDisaValid] = useState(null);
   const [partNameValid, setPartNameValid] = useState(null);
@@ -502,8 +311,7 @@ export default function ProcessControl() {
   const [tappingWtValid, setTappingWtValid] = useState(null);
   const [streamInoculantValid, setStreamInoculantValid] = useState(null);
   const [remarksValid, setRemarksValid] = useState(null);
-  
-  // Metal Composition validation states
+
   const [metalCValid, setMetalCValid] = useState(null);
   const [metalSiValid, setMetalSiValid] = useState(null);
   const [metalMnValid, setMetalMnValid] = useState(null);
@@ -512,8 +320,7 @@ export default function ProcessControl() {
   const [metalMgFLValid, setMetalMgFLValid] = useState(null);
   const [metalCuValid, setMetalCuValid] = useState(null);
   const [metalCrValid, setMetalCrValid] = useState(null);
-  
-  // Corrective Addition validation states
+
   const [corrCValid, setCorrCValid] = useState(null);
   const [corrSiValid, setCorrSiValid] = useState(null);
   const [corrMnValid, setCorrMnValid] = useState(null);
@@ -521,8 +328,7 @@ export default function ProcessControl() {
   const [corrCrValid, setCorrCrValid] = useState(null);
   const [corrCuValid, setCorrCuValid] = useState(null);
   const [corrSnValid, setCorrSnValid] = useState(null);
-  
-  // Other optional fields
+
   const [conNoValid, setConNoValid] = useState(null);
   const [tappingTimeValid, setTappingTimeValid] = useState(null);
   const [mgValid, setMgValid] = useState(null);
@@ -530,37 +336,13 @@ export default function ProcessControl() {
   const [recOfMgValid, setRecOfMgValid] = useState(null);
   const [pTimeValid, setPTimeValid] = useState(null);
 
-  // Submit error message state
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
-  // Part name dropdown states
   const [partNameSuggestions, setPartNameSuggestions] = useState([]);
   const [showPartNameDropdown, setShowPartNameDropdown] = useState(false);
   const [filteredPartNames, setFilteredPartNames] = useState([]);
   const partNameDropdownRef = useRef(null);
 
-  // =====================================================================================
-  // VALIDATION SETTERS DEPENDENCY INJECTION MAP
-  // =====================================================================================
-  //
-  // DEPENDENCY INJECTION PATTERN:
-  // This object implements the Dependency Injection pattern by mapping form data
-  // property names to their corresponding React state setter functions. This enables
-  // the validation engine to update component state without direct coupling to hooks.
-  //
-  // ARCHITECTURAL BENEFITS:
-  // - LOOSE COUPLING: Validation logic doesn't need direct references to setters
-  // - EXTENSIBILITY: New fields can be added without modifying validation core logic
-  // - TESTABILITY: Setters can be mocked/stubbed for unit testing
-  // - CONSISTENCY: Centralized mapping ensures uniform validation behavior
-  //
-  // CRITICAL ORDERING CONSTRAINT:
-  // This object MUST be declared AFTER all useState hook declarations to ensure
-  // setter functions exist in scope before being referenced in this mapping.
-  //
-  // LOOKUP ALGORITHM:
-  // formDataProperty → validationSetters[property] → setState function
-  // Used by validation engine to inject validation results into component state.
   const validationSetters = {
     'date': setDateValid,
     'disa': setDisaValid,
@@ -597,54 +379,12 @@ export default function ProcessControl() {
     'remarks': setRemarksValid
   };
 
-  // =====================================================================================
-  // CSS DECORATOR FUNCTION - DYNAMIC CLASS APPLICATION
-  // =====================================================================================
-  //
-  // DECORATOR PATTERN IMPLEMENTATION:
-  // This function implements the Decorator pattern by conditionally applying CSS classes
-  // to input elements based on validation state, enabling visual feedback without
-  // modifying the core input component structure.
-  //
-  // STATE-TO-CLASS MAPPING:
-  // validationState === false → 'invalid-input' CSS class (error styling)
-  // validationState !== false → '' (neutral/default styling)
-  //
-  // VISUAL FEEDBACK PIPELINE:
-  // Validation Error → setState(false) → getInputClassName() → 'invalid-input' CSS
   const getInputClassName = (fieldName, validationState) => {
-    // Show red border if invalid (validationState === false)
     if (validationState === false) return 'invalid-input';
-    // Otherwise show neutral (no color)
     return '';
   };
 
-  // =====================================================================================
-  // FIELD VALIDATION STRATEGY ENGINE - CORE VALIDATION LOGIC
-  // =====================================================================================
-  //
-  // STRATEGY PATTERN IMPLEMENTATION:
-  // This function implements the Strategy pattern by dispatching validation logic
-  // based on field type and structure (single vs range fields). Each validation
-  // type follows a specific strategy while maintaining consistent return interface.
-  //
-  // VALIDATION ALGORITHMS:
-  // 1. RANGE FIELD STRATEGY: Array.isArray() check → bidirectional validation
-  // 2. SINGLE FIELD STRATEGY: Type-specific validation + boundary constraints
-  // 3. BROWSER API INTEGRATION: Uses inputElement.validity for native validation
-  // 4. CUSTOM VALIDATION: Implements business rules beyond HTML5 validation
-  //
-  // RETURN INTERFACE:
-  // { isValid: boolean, message?: string }
-  // - isValid: Core validation result (true/false)
-  // - message: Human-readable error description for user feedback
-  //
-  // ERROR HANDLING STRATEGY:
-  // - FAIL-FAST: Return first validation error encountered
-  // - EARLY-EXIT: Skip further validation on first failure
-  // - DESCRIPTIVE ERRORS: Provide specific error messages for each failure type
   const validateField = (rule, mappedFields, formData) => {
-    // Handle range fields (arrays)
     if (Array.isArray(mappedFields)) {
       const [minField, maxField] = mappedFields;
       const minValue = formData[minField];
@@ -652,20 +392,17 @@ export default function ProcessControl() {
       const minInput = inputRefs?.current?.[minField];
       const maxInput = inputRefs?.current?.[maxField];
 
-      // Check if browser considers input intuitively invalid (e.g. typing 'e' in type "number")
-      if ((minInput && minInput.validity && minInput.validity.badInput) || 
+      if ((minInput && minInput.validity && minInput.validity.badInput) ||
           (maxInput && maxInput.validity && maxInput.validity.badInput)) {
         return { isValid: false, message: `${rule.field} must contain valid numbers` };
       }
 
-      // For range fields, check if both values exist when required
       if (rule.required) {
         if (!minValue || !maxValue) {
           return { isValid: false, message: `${rule.field} is required` };
         }
       }
 
-      // Validate range values if they exist
       if (minValue && maxValue) {
         const min = parseFloat(minValue);
         const max = parseFloat(maxValue);
@@ -682,44 +419,34 @@ export default function ProcessControl() {
       return { isValid: true };
     }
 
-    // Handle single fields
     const fieldName = mappedFields;
     const value = formData[fieldName];
     const inputElement = inputRefs?.current?.[fieldName];
 
-    // Check if the browser considers the input intuitively invalid (e.g. 'e' pushed to type "number")
-    // This catches invalid strings that are reflected as empty in 'value'
     if (inputElement && inputElement.validity && inputElement.validity.badInput) {
       return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
     }
 
-    // Check required fields
     if (rule.required) {
       if (!value || (typeof value === 'string' && value.trim() === '')) {
         return { isValid: false, message: `${rule.field} is required` };
       }
     }
 
-    // If field is empty and not required, it's valid
     if (!value || (typeof value === 'string' && value.trim() === '')) {
       return { isValid: true };
     }
 
-    // Type-specific validation
     switch (rule.type) {
       case 'Number':
       case 'Integer':
-        // Enhanced number validation to catch edge cases that type="number" allows
         const stringValue = String(value).trim();
 
-        // Check for invalid characters that browsers allow in number inputs
-        // but aren't valid for our use case
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/; // e, E, +, multiple dots, multiple signs
+        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
         if (invalidNumberPattern.test(stringValue)) {
           return { isValid: false, message: `${rule.field} must be a valid number` };
         }
 
-        // Additional check for values ending with invalid characters
         if (/[eE.+-]$/.test(stringValue)) {
           return { isValid: false, message: `${rule.field} must be a valid number` };
         }
@@ -729,7 +456,6 @@ export default function ProcessControl() {
           return { isValid: false, message: `${rule.field} must be a valid number` };
         }
 
-        // Check min/max constraints
         if (rule.min !== undefined && num < rule.min) {
           return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
         }
@@ -737,7 +463,6 @@ export default function ProcessControl() {
           return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
         }
 
-        // For Integer type, check if it's actually an integer
         if (rule.type === 'Integer' && !Number.isInteger(num)) {
           return { isValid: false, message: `${rule.field} must be a whole number` };
         }
@@ -749,7 +474,6 @@ export default function ProcessControl() {
           return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
         }
 
-        // Special validation for Date Code pattern (1 digit, 1 letter, 2 digits)
         if (rule.field === 'Date Code') {
           const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
           if (!dateCodePattern.test(textValue)) {
@@ -765,7 +489,6 @@ export default function ProcessControl() {
         break;
 
       case 'Date':
-        // Basic date validation - could be enhanced based on specific requirements
         if (value && typeof value === 'string' && value.trim() !== '') {
           const dateValue = new Date(value);
           if (isNaN(dateValue.getTime())) {
@@ -775,14 +498,12 @@ export default function ProcessControl() {
         break;
 
       default:
-        // For any other types, just check if it's not empty when required
         break;
     }
 
     return { isValid: true };
   };
 
-  // Set current date on mount only if date is not already set (preserves context data)
   useEffect(() => {
     if (!formData.date) {
       const today = new Date();
@@ -797,7 +518,6 @@ export default function ProcessControl() {
     }
   }, []);
 
-  // Fetch part names from database on mount
   useEffect(() => {
     const fetchPartNames = async () => {
       try {
@@ -810,13 +530,11 @@ export default function ProcessControl() {
           setPartNameSuggestions(data.data);
         }
       } catch (error) {
-        console.error('Error fetching part names:', error);
       }
     };
     fetchPartNames();
   }, []);
 
-  // Handle click outside part name dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (partNameDropdownRef.current && !partNameDropdownRef.current.contains(event.target)) {
@@ -827,7 +545,6 @@ export default function ProcessControl() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Check if date+disa combination exists in database
   useEffect(() => {
     const checkDateDisaExists = async () => {
       if (!formData.date || !formData.disa) {
@@ -842,38 +559,34 @@ export default function ProcessControl() {
       try {
         setSavePrimaryLoading(true);
         setShowCombinationFound(false);
-        
+
         const startTime = Date.now();
-        
+
         const response = await fetch(`${API_ENDPOINTS.process}/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
           method: 'GET',
           credentials: 'include'
         });
         const data = await response.json();
-        
-        // Ensure minimum 1 second loading time
+
         const elapsedTime = Date.now() - startTime;
         const remainingTime = Math.max(0, 1000 - elapsedTime);
         await new Promise(resolve => setTimeout(resolve, remainingTime));
-        
+
         setSavePrimaryLoading(false);
-        
+
         if (data.success && data.exists) {
           setShowCombinationFound(true);
-          
-          // Hide "Combination found" message after 1.5 seconds
+
           setTimeout(() => {
             setShowCombinationFound(false);
             setIsPrimarySaved(true);
             setEntryCount(data.count || 0);
           }, 1500);
         } else {
-          // Combination not found, just update states
           setIsPrimarySaved(false);
           setEntryCount(0);
         }
       } catch (error) {
-        console.error('Error checking date+disa:', error);
         setSavePrimaryLoading(false);
       }
     };
@@ -881,14 +594,11 @@ export default function ProcessControl() {
     checkDateDisaExists();
   }, [formData.date, formData.disa]);
 
-  // Reset pouring time validation when time values change (validation only happens on submit)
   useEffect(() => {
-    // Only reset to neutral, never set to invalid during input
     setPouringTimeValid(null);
     setSubmitErrorMessage('');
   }, [pouringFromTime, pouringToTime]);
 
-  // Validate tapping time when time value changes
   useEffect(() => {
     if (tappingTime) {
       setTappingTimeValid(null);
@@ -897,18 +607,15 @@ export default function ProcessControl() {
     }
   }, [tappingTime]);
 
-  // Add click listeners to all disabled fields to show warning
   useEffect(() => {
     const handleDisabledClick = (e) => {
       const target = e.target;
 
-      // Check if clicked element is a disabled input or select
       if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
         handleDisabledFieldClick(e);
         return;
       }
 
-      // Check if clicked on a label that's associated with a disabled field
       if (target.tagName === 'LABEL') {
         let formGroup = target.closest('.process-form-group');
         if (formGroup) {
@@ -920,13 +627,11 @@ export default function ProcessControl() {
         }
       }
 
-      // Check if clicked on process-form-grid (the main grid container)
       if (target.classList && target.classList.contains('process-form-grid') && !isPrimarySaved) {
         handleDisabledFieldClick(e);
         return;
       }
 
-      // Check if clicked on a form-group div that contains a disabled field
       let formGroup = null;
       if (target.classList && target.classList.contains('process-form-group')) {
         formGroup = target;
@@ -942,7 +647,6 @@ export default function ProcessControl() {
         }
       }
 
-      // Handle clicks on any child elements of a form group with disabled fields
       if (!isPrimarySaved) {
         const closestFormGroup = target.closest('.process-form-group');
         if (closestFormGroup) {
@@ -955,7 +659,6 @@ export default function ProcessControl() {
       }
     };
 
-    // Add event listener to document to catch all clicks
     document.addEventListener('mousedown', handleDisabledClick, true);
 
     return () => {
@@ -976,10 +679,8 @@ export default function ProcessControl() {
     switch (name) {
       case 'date':
       case 'disa':
-        // Reset primary saved state when date or disa changes
         setIsPrimarySaved(false);
-        
-        // Clear all form fields except date and disa
+
         setFormData(prev => ({
           date: name === 'date' ? value : prev.date,
           disa: name === 'disa' ? value : prev.disa,
@@ -994,13 +695,11 @@ export default function ProcessControl() {
           mg: '', resMgConvertor: '', recOfMg: '', streamInoculant: '',
           pTime: '', remarks: ''
         }));
-        
-        // Reset all time fields
+
         setPouringFromTime(null);
         setPouringToTime(null);
         setTappingTime(null);
-        
-        // Reset all validation states
+
         setPartNameValid(null);
         setDatecodeValid(null);
         setHeatcodeValid(null);
@@ -1143,12 +842,9 @@ export default function ProcessControl() {
       return;
     }
 
-    // Handle Part Name - only allow uppercase letters, numbers, and common separators
     if (name === 'partName') {
-      // Convert to uppercase and keep only allowed characters (A-Z, 0-9, -, _, space)
       const sanitizedValue = value.toUpperCase().replace(/[^A-Z0-9\-_ ]/g, '');
       setFormData({...formData, [name]: sanitizedValue});
-      // Filter suggestions based on input - limit to 2 suggestions
       if (sanitizedValue) {
         const filtered = partNameSuggestions.filter(pn =>
           pn.toUpperCase().includes(sanitizedValue)
@@ -1162,9 +858,7 @@ export default function ProcessControl() {
       return;
     }
 
-    // Handle PP Code and Treatment No - only allow integers (no decimals)
     if (name === 'ppCode' || name === 'treatmentNo') {
-      // Remove any non-digit characters (including decimal points)
       const sanitizedValue = value.replace(/[^0-9]/g, '');
       setFormData({...formData, [name]: sanitizedValue});
       return;
@@ -1172,26 +866,21 @@ export default function ProcessControl() {
 
     setFormData({...formData, [name]: value});
   };
-  
-  // Handle blur event for PP Code and Treatment No to add leading zero
+
   const handleIntegerBlur = (fieldName) => {
     const value = formData[fieldName];
     if (value && value.length === 1) {
-      // Add leading zero if single digit
       setFormData(prev => ({...prev, [fieldName]: '0' + value}));
     }
   };
 
-  // Handle part name selection from dropdown
   const handlePartNameSelect = (partName) => {
     setFormData(prev => ({...prev, partName}));
     setShowPartNameDropdown(false);
     setPartNameValid(null);
-    // Move focus to next field
     inputRefs.current.datecode?.focus();
   };
 
-  // Handle part name input focus - only show suggestions when there's input
   const handlePartNameFocus = () => {
     if (formData.partName) {
       const filtered = partNameSuggestions.filter(pn =>
@@ -1205,25 +894,21 @@ export default function ProcessControl() {
     }
   };
 
-
   const handleKeyDown = (e, field) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = fieldOrder.indexOf(field);
-      
-      // Special case: from Cr field to Pouring From Time
+
       if (field === 'metalCompositionCr') {
         inputRefs.current.pouringFromTime?.focus();
         return;
       }
-      
-      // Special case: from conNo to tappingTime
+
       if (field === 'conNo') {
         inputRefs.current.tappingTime?.focus();
         return;
       }
-      
-      // If on remarks field (last field), move to submit button
+
       if (field === 'remarks') {
         inputRefs.current.submitBtn?.focus();
       } else if (idx < fieldOrder.length - 1) {
@@ -1237,16 +922,13 @@ export default function ProcessControl() {
       e.preventDefault();
       e.stopPropagation();
 
-      // Show warning
       setShowPrimaryWarning(true);
       setHighlightPrimaryFields(true);
 
-      // Scroll to primary section
       if (primarySectionRef.current) {
         primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
 
-      // Hide warning and remove highlight after 3 seconds
       setTimeout(() => {
         setShowPrimaryWarning(false);
         setHighlightPrimaryFields(false);
@@ -1255,31 +937,27 @@ export default function ProcessControl() {
   };
 
   const handlePrimarySubmit = async () => {
-    // Validate required fields
     if (!formData.date || !formData.disa) {
-      alert('Please fill in Date and DISA');
-      
-      // Auto-focus on the first empty field
+      toast.warning('Please fill in Date and DISA');
+
       if (!formData.date) {
         inputRefs.current.date?.focus();
       } else if (!formData.disa) {
         inputRefs.current.disa?.focus();
       }
-      
+
       return;
     }
 
-    // If already processing, don't submit again
     if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
       return;
     }
 
     try {
       setSavePrimaryLoading(true);
-      
+
       const startTime = Date.now();
-      
-      // Call save-primary API to save date+disa and get entry count
+
       const response = await fetch(`${API_ENDPOINTS.process}/save-primary`, {
         method: 'POST',
         headers: {
@@ -1303,128 +981,43 @@ export default function ProcessControl() {
       } else {
         data = { success: false, message: 'Empty response from server' };
       }
-      
-      // Ensure minimum 1 second for consistent UX
+
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, 1000 - elapsedTime);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
-      
+
       setSavePrimaryLoading(false);
-      
+
       if (data.success) {
         setShowCombinationAdded(true);
-        
-        // Hide "Combination Added" message after 1 second
+
         setTimeout(() => {
           setShowCombinationAdded(false);
           setIsPrimarySaved(true);
           setEntryCount(data.count || 0);
-          // Focus on Part Name field after primary is saved
           setTimeout(() => {
             inputRefs.current.partName?.focus();
           }, 100);
         }, 1000);
       } else {
-        alert('Failed to save primary: ' + data.message);
+        toast.error('Failed to save primary: ' + data.message);
       }
     } catch (error) {
-      console.error('Error saving primary:', error);
       setSavePrimaryLoading(false);
-      alert('Failed to save primary: ' + error.message);
+      toast.error('Failed to save primary: ' + error.message);
     }
   };
 
-  // =====================================================================================
-  // FORM SUBMISSION VALIDATION PIPELINE - ORCHESTRATION LAYER
-  // =====================================================================================
-  //
-  // PIPELINE ARCHITECTURE:
-  // This function orchestrates the complete form validation and submission workflow
-  // using an iterator pattern over validation rules with fail-fast error handling.
-  //
-  // VALIDATION EXECUTION FLOW:
-  // 1. ERROR STATE INITIALIZATION: Reset validation state + error accumulators
-  // 2. RULE ITERATION: Process each validationRanges rule via for-of loop
-  // 3. FIELD MAPPING RESOLUTION: UI label → formData property transformation
-  // 4. VALIDATION STRATEGY DISPATCH: Route to appropriate validation function
-  // 5. STATE INJECTION: Apply validation results via dependency-injected setters
-  // 6. ERROR AGGREGATION: Collect failures + focus management for UX
-  // 7. SUBMISSION DECISION: Proceed only if all validations pass
-  // 8. API INTEGRATION: Execute form submission to backend endpoint
-  //
-  // ERROR HANDLING PATTERNS:
-  // - FAIL-FAST: Stop processing on first critical error
-  // - ERROR ACCUMULATION: Collect all validation errors for batch feedback
-  // - FOCUS MANAGEMENT: Auto-focus first invalid field for keyboard accessibility
-  // - USER FEEDBACK: Display descriptive error messages via UI components
-  //
-  // ASYNC OPERATION FLOW:
-  // Client Validation → API Request → Server Response → UI State Update → User Feedback
-  //
-  // ACCESSIBILITY FOCUS PATTERN IMPLEMENTATION:
-  // Track first error field synchronously (not via React state) for immediate focus:
-  // let firstErrorField = null; → capture first error → inputRefs.current[field]?.focus()
-  /*
-   * Handle form submission with validation
-   * 
-   * Validation Flow:
-   * 1. Check each required field for empty/invalid values
-   * 2. If invalid, set validation state to false (shows red border)
-   * 3. If valid, set validation state to null (neutral, no color)
-   * 4. If any errors exist, show error message and stop submission
-   * 5. On successful submission, reset all validation states to null
-   * 
-   * ============================================================
-   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
-   * ============================================================
-   * This pattern ensures the cursor automatically focuses on the 
-   * FIRST error field immediately when the user clicks Submit.
-   * 
-   * HOW IT WORKS:
-   * 1. Initialize a tracking variable BEFORE validation loop:
-   *    let firstErrorField = null;
-   * 
-   * 2. In EACH validation check, set firstErrorField ONLY if it's 
-   *    still null (this captures only the first error):
-   *    if (!formData.fieldName || validation_fails) {
-   *      setFieldValid(false);
-   *      hasErrors = true;
-   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
-   *    }
-   * 
-   * 3. AFTER all validations, focus immediately using the tracking variable:
-   *    if (hasErrors) {
-   *      if (firstErrorField) {
-   *        inputRefs.current[firstErrorField]?.focus();
-   *      }
-   *      return;
-   *    }
-   * 
-   * WHY THIS WORKS ON FIRST CLICK:
-   * - Uses a plain variable (not state) to track synchronously
-   * - Doesn't depend on state updates (which are async)
-   * - Focus happens immediately in the same execution cycle
-   * 
-   * TO IMPLEMENT IN ANOTHER PAGE:
-   * - Add: let firstErrorField = null; at start of submit handler
-   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
-   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
-   * ============================================================
-   */
   const handleSubmit = async () => {
     let hasErrors = false;
     let firstErrorField = null;
 
-    // Clear any previous error messages
     setSubmitErrorMessage('');
 
-    // Dynamic validation based on validationRanges
     for (const rule of validationRanges) {
       const mappedFields = fieldMapping[rule.field];
 
-      // Skip special cases that need custom logic
       if (rule.field === 'Time of Pouring (Range)') {
-        // Custom validation for pouring time range
         if (rule.required && (!pouringFromTime || !pouringToTime)) {
           setPouringTimeValid(false);
           hasErrors = true;
@@ -1453,7 +1046,6 @@ export default function ProcessControl() {
       }
 
       if (rule.field === 'Tapping Time') {
-        // Custom validation for tapping time
         if (rule.required && !tappingTime) {
           setTappingTimeValid(false);
           hasErrors = true;
@@ -1464,16 +1056,12 @@ export default function ProcessControl() {
         continue;
       }
 
-      // Skip if no field mapping found
       if (!mappedFields) continue;
 
-      // Validate using dynamic system
       const result = validateField(rule, mappedFields, formData);
 
-      // Handle setter for range fields vs single fields
       let setter;
       if (Array.isArray(mappedFields)) {
-        // For pouring temperature range - use pouringTempValid setter
         setter = setPouringTempValid;
       } else {
         setter = validationSetters[mappedFields];
@@ -1490,11 +1078,9 @@ export default function ProcessControl() {
       }
     }
 
-    // Handle error state
     if (hasErrors) {
       setSubmitErrorMessage('Fill required Field in Correct format');
 
-      // Auto-focus on first error field
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
       }
@@ -1505,7 +1091,6 @@ export default function ProcessControl() {
     try {
       setSubmitLoading(true);
 
-      // Format time from Time objects
       let timeOfPouring = '';
       if (pouringFromTime && pouringToTime) {
         const formatTime = (time) => {
@@ -1517,7 +1102,6 @@ export default function ProcessControl() {
         timeOfPouring = `${formatTime(pouringFromTime)} - ${formatTime(pouringToTime)}`;
       }
 
-      // Format tapping time
       let tappingTimeStr = '';
       if (tappingTime) {
         const hour = tappingTime.hour % 12 || 12;
@@ -1526,26 +1110,21 @@ export default function ProcessControl() {
         tappingTimeStr = `${hour}:${minute} ${period}`;
       }
 
-      // Prepare payload with proper formatting for optional fields
       const payload = { ...formData };
 
-      // Format time fields
       payload.timeOfPouring = timeOfPouring || '-';
       payload.tappingTime = tappingTimeStr || '-';
 
-      // Format non-required fields to use "-" when empty based on validationRanges
       for (const rule of validationRanges) {
         const mappedField = fieldMapping[rule.field];
-        if (!mappedField || Array.isArray(mappedField)) continue; // Skip range fields and unmapped fields
+        if (!mappedField || Array.isArray(mappedField)) continue;
 
-        // If field is not required (no required property OR required: false), set empty values to "-"
-        const isRequired = rule.required === true; // Only true if explicitly set to true
+        const isRequired = rule.required === true;
         if (!isRequired && (!payload[mappedField] || payload[mappedField].toString().trim() === '')) {
           payload[mappedField] = '-';
         }
       }
 
-      // Handle special time fields that aren't in validationRanges
       if (!payload.timeOfPouring || payload.timeOfPouring.trim() === '') {
         payload.timeOfPouring = '-';
       }
@@ -1553,8 +1132,6 @@ export default function ProcessControl() {
         payload.tappingTime = '-';
       }
 
-      // Send all data (primary + other fields) combined to backend
-      // Backend will find existing document by date+disa and update it, or create new one
       const response = await fetch(`${API_ENDPOINTS.process}`, {
         method: 'POST',
         headers: {
@@ -1570,18 +1147,13 @@ export default function ProcessControl() {
         try {
           data = JSON.parse(rawResponse);
         } catch (parseError) {
-          console.error('Failed to parse server response:', rawResponse);
           throw new Error('Invalid server response');
         }
       } else {
         data = { success: false, message: 'Empty response from server' };
       }
 
-      // Enhanced error handling for 400 Bad Request
       if (!response.ok) {
-        console.error('HTTP Error:', response.status, response.statusText);
-        console.error('Response data:', data);
-        console.error('Payload sent:', payload);
 
         if (response.status === 400) {
           const errorMessage = data?.message || `Bad Request (${response.status}): Please check your input data format`;
@@ -1592,35 +1164,30 @@ export default function ProcessControl() {
       }
 
       if (data.success) {
-        // Show Sakthi loader
         setShowSakthi(true);
 
-        // Get current date
         const today = new Date();
         const y = today.getFullYear();
         const m = String(today.getMonth() + 1).padStart(2, '0');
         const d = String(today.getDate()).padStart(2, '0');
         const currentDate = `${y}-${m}-${d}`;
 
-        // Reset all fields except primary data (date and disa)
-        const resetData = { 
+        const resetData = {
           date: currentDate
         };
         Object.keys(formData).forEach(key => {
           if (key !== 'date' && key !== 'disa') {
             resetData[key] = '';
           } else if (key === 'disa') {
-            resetData[key] = formData.disa; // Keep disa
+            resetData[key] = formData.disa;
           }
         });
         setFormData(resetData);
-        
-        // Reset time states
+
         setPouringFromTime(null);
         setPouringToTime(null);
         setTappingTime(null);
-        
-        // Reset all validation states to null
+
         setPartNameValid(null);
         setDatecodeValid(null);
         setHeatcodeValid(null);
@@ -1655,29 +1222,22 @@ export default function ProcessControl() {
         setStreamInoculantValid(null);
         setPTimeValid(null);
         setRemarksValid(null);
-        
-        // Reset error states
+
         setSubmitErrorMessage('');
 
-        // Reset part name dropdown state
         setShowPartNameDropdown(false);
         setFilteredPartNames([]);
 
-        // Increment entry count
         setEntryCount(prev => prev + 1);
-        
-        // Keep primary locked, focus on Part Name for next entry
+
         setTimeout(() => {
           inputRefs.current.partName?.focus();
         }, 100);
       }
     } catch (error) {
-      console.error('Error saving process control entry:', error);
 
-      // Show error message to user
       setSubmitErrorMessage(error.message || 'Failed to save data. Please check your input and try again.');
 
-      // Focus on first field if available
       if (inputRefs.current.partName) {
         inputRefs.current.partName.focus();
       }
@@ -1685,7 +1245,7 @@ export default function ProcessControl() {
       setSubmitLoading(false);
     }
   };
-  
+
   const handleSubmitKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -1731,7 +1291,7 @@ export default function ProcessControl() {
         </div>
       </div>
 
-      {/* Info Modal */}
+      {}
       <InfoCard
         isOpen={isOpen}
         onClose={closeModal}
@@ -1739,8 +1299,8 @@ export default function ProcessControl() {
         validationRanges={validationRanges}
       />
 
-      <div className="process-form-grid">
-            {/* Primary Data Section */}
+      <div className="process-form-grid" ref={gridRef} onKeyDown={handleArrowKeyDown}>
+            {}
             <div ref={primarySectionRef} className="section-header primary-data-header">
               <h3>Primary Data {isPrimarySaved && <span style={{ fontWeight: 400, fontSize: '0.875rem', color: '#5B9AA9' }}>(Entries: {entryCount})</span>}</h3>
             </div>
@@ -1781,37 +1341,37 @@ export default function ProcessControl() {
                 }}
               />
               {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
-                <div style={{ 
+                <div style={{
                   marginTop: '0.75rem',
                   display: 'flex',
                   alignItems: 'flex-start'
                 }}>
                   {savePrimaryLoading && (
-                    <InlineLoader 
-                      message="Fetching Date, Disa" 
-                      size="medium" 
-                      variant="primary" 
+                    <InlineLoader
+                      message="Fetching Date, Disa"
+                      size="medium"
+                      variant="primary"
                     />
                   )}
                   {showCombinationFound && (
-                    <InlineLoader 
-                      message="Combination found" 
-                      size="medium" 
-                      variant="success" 
+                    <InlineLoader
+                      message="Combination found"
+                      size="medium"
+                      variant="success"
                     />
                   )}
                   {showCombinationAdded && (
-                    <InlineLoader 
-                      message="Combination Added" 
-                      size="medium" 
-                      variant="success" 
+                    <InlineLoader
+                      message="Combination Added"
+                      size="medium"
+                      variant="success"
                     />
                   )}
                   {showPrimaryWarning && (
-                    <InlineLoader 
-                      message="Save Date, Disa" 
-                      size="medium" 
-                      variant="danger" 
+                    <InlineLoader
+                      message="Save Date, Disa"
+                      size="medium"
+                      variant="danger"
                     />
                   )}
                 </div>
@@ -1827,7 +1387,7 @@ export default function ProcessControl() {
               />
             </div>
 
-            {/* Divider line to separate primary data from other inputs */}
+            {}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className="process-form-group" ref={partNameDropdownRef} style={{ position: 'relative' }}>
@@ -1890,12 +1450,12 @@ export default function ProcessControl() {
 
             <div className="process-form-group">
               <label>Date Code </label>
-              <input 
-                ref={el => inputRefs.current.datecode = el} 
-                type="text" 
-                name="datecode" 
-                value={formData.datecode} 
-                onChange={handleChange} 
+              <input
+                ref={el => inputRefs.current.datecode = el}
+                type="text"
+                name="datecode"
+                value={formData.datecode}
+                onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'datecode')}
                 placeholder="e.g., 6F25"
                 disabled={!isPrimarySaved}
@@ -1905,12 +1465,12 @@ export default function ProcessControl() {
 
             <div className="process-form-group">
               <label>Heat Code </label>
-              <input 
-                ref={el => inputRefs.current.heatcode = el} 
-                type="number" 
-                name="heatcode" 
-                value={formData.heatcode} 
-                onChange={handleChange} 
+              <input
+                ref={el => inputRefs.current.heatcode = el}
+                type="number"
+                name="heatcode"
+                value={formData.heatcode}
+                onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'heatcode')}
                 placeholder="Enter number only"
                 disabled={!isPrimarySaved}
@@ -1920,12 +1480,12 @@ export default function ProcessControl() {
 
             <div className="process-form-group">
               <label>Qty. Of Moulds </label>
-              <input 
-                ref={el => inputRefs.current.quantityOfMoulds = el} 
-                type="number" 
-                name="quantityOfMoulds" 
-                value={formData.quantityOfMoulds} 
-                onChange={handleChange} 
+              <input
+                ref={el => inputRefs.current.quantityOfMoulds = el}
+                type="number"
+                name="quantityOfMoulds"
+                value={formData.quantityOfMoulds}
+                onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'quantityOfMoulds')}
                 placeholder="Enter quantity"
                 disabled={!isPrimarySaved}
@@ -2058,7 +1618,7 @@ export default function ProcessControl() {
               </div>
             </div>
 
-            {/* Divider line */}
+            {}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '0.5rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className="process-form-group" style={{ gridColumn: '1 / -1' }}>
@@ -2091,13 +1651,13 @@ export default function ProcessControl() {
               <div className="process-form-group" style={{ flex: '1', minWidth: '280px' }}>
                 <label>Pouring Temp (°C) </label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input 
-                    ref={el => inputRefs.current.pouringTemperatureMin = el} 
-                    type="number" 
-                    name="pouringTemperatureMin" 
-                    step="0.01" 
-                    value={formData.pouringTemperatureMin} 
-                    onChange={handleChange} 
+                  <input
+                    ref={el => inputRefs.current.pouringTemperatureMin = el}
+                    type="number"
+                    name="pouringTemperatureMin"
+                    step="0.01"
+                    value={formData.pouringTemperatureMin}
+                    onChange={handleChange}
                     onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMin')}
                     placeholder="Min"
                     disabled={!isPrimarySaved}
@@ -2105,13 +1665,13 @@ export default function ProcessControl() {
                     style={{ flex: 1 }}
                   />
                   <span style={{ fontWeight: '600', color: '#64748b' }}>-</span>
-                  <input 
-                    ref={el => inputRefs.current.pouringTemperatureMax = el} 
-                    type="number" 
-                    name="pouringTemperatureMax" 
-                    step="0.01" 
-                    value={formData.pouringTemperatureMax} 
-                    onChange={handleChange} 
+                  <input
+                    ref={el => inputRefs.current.pouringTemperatureMax = el}
+                    type="number"
+                    name="pouringTemperatureMax"
+                    step="0.01"
+                    value={formData.pouringTemperatureMax}
+                    onChange={handleChange}
                     onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMax')}
                     placeholder="Max"
                     disabled={!isPrimarySaved}
@@ -2122,12 +1682,12 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>PP Code </label>
-                <input 
-                  ref={el => inputRefs.current.ppCode = el} 
-                  type="text" 
-                  name="ppCode" 
-                  value={formData.ppCode} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.ppCode = el}
+                  type="text"
+                  name="ppCode"
+                  value={formData.ppCode}
+                  onChange={handleChange}
                   onBlur={() => handleIntegerBlur('ppCode')}
                   onKeyDown={e => handleKeyDown(e, 'ppCode')}
                   placeholder="Enter number only"
@@ -2139,12 +1699,12 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>Treatment No </label>
-                <input 
-                  ref={el => inputRefs.current.treatmentNo = el} 
-                  type="text" 
-                  name="treatmentNo" 
-                  value={formData.treatmentNo} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.treatmentNo = el}
+                  type="text"
+                  name="treatmentNo"
+                  value={formData.treatmentNo}
+                  onChange={handleChange}
                   onBlur={() => handleIntegerBlur('treatmentNo')}
                   onKeyDown={e => handleKeyDown(e, 'treatmentNo')}
                   placeholder="Enter number only"
@@ -2157,31 +1717,31 @@ export default function ProcessControl() {
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>F/C No. </label>
                 <select
-                  ref={el => inputRefs.current.fcNo = el} 
-                  name="fcNo" 
-                  value={formData.fcNo} 
-                  onChange={handleChange} 
+                  ref={el => inputRefs.current.fcNo = el}
+                  name="fcNo"
+                  value={formData.fcNo}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'fcNo')}
-                  disabled={!isPrimarySaved}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                  disabled={!isPrimarySaved}
                   className={getInputClassName('fcNo', fcNoValid)}
                 >
                   <option value="">Select F/C No.</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
-                  <option value="4">4</option>                                                                                                                                                                                                                                                                                                                                                    
+                  <option value="4">4</option>
                   <option value="H1">H1</option>
                   <option value="H2">H2</option>
                 </select>
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>Heat No </label>
-                <input 
-                  ref={el => inputRefs.current.heatNo = el} 
-                  type="text" 
-                  name="heatNo" 
-                  value={formData.heatNo} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.heatNo = el}
+                  type="text"
+                  name="heatNo"
+                  value={formData.heatNo}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'heatNo')}
                   placeholder="Enter Heat No"
                   disabled={!isPrimarySaved}
@@ -2190,12 +1750,12 @@ export default function ProcessControl() {
               </div>
               <div className="process-form-group" style={{ flex: '1', minWidth: '130px' }}>
                 <label>Con No </label>
-                <input 
-                  ref={el => inputRefs.current.conNo = el} 
-                  type="number" 
-                  name="conNo" 
-                  value={formData.conNo} 
-                  onChange={handleChange} 
+                <input
+                  ref={el => inputRefs.current.conNo = el}
+                  type="number"
+                  name="conNo"
+                  value={formData.conNo}
+                  onChange={handleChange}
                   onKeyDown={e => handleKeyDown(e, 'conNo')}
                   placeholder="Enter number only"
                   disabled={!isPrimarySaved}
@@ -2325,7 +1885,7 @@ export default function ProcessControl() {
               </div>
             </div>
 
-            {/* Divider line */}
+            {}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '0.5rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className="additional-fields-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -2423,11 +1983,11 @@ export default function ProcessControl() {
 
             <div className="process-form-group" style={{ gridColumn: '1 / -1' }}>
               <label>Remarks </label>
-              <textarea 
-                ref={el => inputRefs.current.remarks = el} 
-                name="remarks" 
-                value={formData.remarks} 
-                onChange={handleChange} 
+              <textarea
+                ref={el => inputRefs.current.remarks = el}
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'remarks')}
                 placeholder="Enter any additional notes..."
                 maxLength={200}
@@ -2439,7 +1999,7 @@ export default function ProcessControl() {
       </div>
 
       <div className="process-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-        {/* Error message display near submit button */}
+        {}
         {submitErrorMessage && (
           <div style={{ flex: 1, marginRight: '0.5rem' }}>
             <InlineLoader

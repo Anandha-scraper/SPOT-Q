@@ -28,9 +28,9 @@ exports.getAllEntries = async (req, res) => {
             if (doc.entries && doc.entries.length > 0) {
                 doc.entries.forEach(entry => {
                     flatEntries.push({
-                        _id: entry._id,
                         date: doc.date,
-                        ...entry.toObject()
+                        ...entry.toObject(),
+                        _id: entry._id
                     });
                 });
             } else {
@@ -68,7 +68,7 @@ exports.createEntry = async (req, res) => {
             // Create new document with this entry
             document = await Process.create({
                 date,
-                entries: [{ disa, ...entryData }]
+                entries: [{ disa, ...entryData, createdBy: req.user._id }]
             });
             return res.status(201).json({
                 success: true,
@@ -78,7 +78,7 @@ exports.createEntry = async (req, res) => {
         }
 
         // Add new entry (multiple entries allowed per DISA on same date)
-        document.entries.push({ disa, ...entryData });
+        document.entries.push({ disa, ...entryData, createdBy: req.user._id });
 
         await document.save();
 
@@ -219,6 +219,42 @@ exports.savePrimary = async (req, res) => {
 
     } catch (error) {
         console.error('Error saving primary:', error);
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+/** 7. UPDATE / DELETE A SINGLE ENTRY (admin or creator within edit window) **/
+// req.targetDoc / req.targetEntry are resolved & authorized by editWindow middleware.
+
+const PROTECTED_ENTRY_FIELDS = ['_id', 'createdBy', 'createdAt', 'updatedAt', 'date'];
+
+exports.updateEntry = async (req, res) => {
+    try {
+        const updates = { ...req.body };
+        PROTECTED_ENTRY_FIELDS.forEach(f => delete updates[f]);
+
+        req.targetEntry.set(updates);
+        await req.targetDoc.save();
+
+        res.status(200).json({
+            success: true,
+            data: req.targetEntry,
+            message: 'Process entry updated successfully.'
+        });
+    } catch (error) {
+        console.error('Error updating process entry:', error);
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteEntry = async (req, res) => {
+    try {
+        req.targetEntry.deleteOne();
+        await req.targetDoc.save();
+
+        res.status(200).json({ success: true, message: 'Process entry deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting process entry:', error);
         res.status(400).json({ success: false, message: error.message });
     }
 };

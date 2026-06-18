@@ -198,7 +198,19 @@ input[type=number] {
   margin: 0 0.5rem;
 }
 
-/* ─── Media Queries — Desktop Only (1024px–2560px) ─── */
+/* Submit / action button row */
+.process-submit-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ─── Media Queries ─── */
 
 /* Large Monitor / 2K */
 @media (min-width: 1921px) {
@@ -229,5 +241,39 @@ input[type=number] {
 
   .process-submit-container {
     gap: 0.75rem;
+  }
+}
+
+/* Tablet */
+@media (max-width: 968px) {
+  .process-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .process-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .process-submit-container {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .process-submit-container > * {
+    width: 100%;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  .process-header-text h2 {
+    font-size: 1.375rem;
+  }
+
+  .time-range-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
   }
 }

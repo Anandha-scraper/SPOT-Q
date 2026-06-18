@@ -41,6 +41,7 @@
   flex-wrap: wrap;
   align-items: flex-end;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .process-filter-group {
@@ -64,6 +65,7 @@
   gap: 1.5rem;
   flex-wrap: wrap;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .process-report-toggle-label {

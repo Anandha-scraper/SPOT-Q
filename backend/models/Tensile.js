@@ -60,6 +60,11 @@ const TensileEntrySchema = new mongoose.Schema({
 
     testedBy: {
         type: String
+    },
+
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, {
     timestamps: true,

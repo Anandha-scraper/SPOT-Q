@@ -12,8 +12,32 @@ export const AuthProvider = ({ children }) => {
     });
     
     const [expiresAt, setExpiresAt] = useState(localStorage.getItem('expiresAt') || null);
+    const [editWindowMs, setEditWindowMs] = useState(() => {
+        const stored = localStorage.getItem('editWindowMs');
+        return stored ? Number(stored) : 0;
+    });
     const [loading, setLoading] = useState(false);
     const [logoutLoading, setLogoutLoading] = useState(false);
+    // If we restored a user from localStorage, we must verify the backend session
+    // before trusting it. Block protected rendering until that check resolves.
+    const [initializing, setInitializing] = useState(() => {
+        const storedUser = localStorage.getItem('user');
+        return !!(storedUser && storedUser !== 'undefined');
+    });
+
+    // Synchronously drop the local session (no loader/delay). Used when a stale or
+    // expired session is detected, so protected content never lingers on screen.
+    const clearSession = useCallback(() => {
+        setUser(null);
+        setExpiresAt(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('expiresAt');
+        localStorage.removeItem('expiresAtReadable');
+        localStorage.removeItem('editWindowMs');
+        localStorage.removeItem('token');
+        // Best-effort cookie clear on the backend (don't block on it).
+        fetch(API_ENDPOINTS.logout, { method: 'POST', credentials: 'include' }).catch(() => {});
+    }, []);
 
     // Logout function: Clears all memory and calls backend to clear cookie
     const logout = useCallback(async () => {
@@ -36,9 +60,11 @@ export const AuthProvider = ({ children }) => {
         
         setUser(null);
         setExpiresAt(null);
+        setEditWindowMs(0);
         localStorage.removeItem('user');
         localStorage.removeItem('expiresAt');
         localStorage.removeItem('expiresAtReadable');
+        localStorage.removeItem('editWindowMs');
         localStorage.removeItem('token'); // Clean up old token if exists
         
         setLogoutLoading(false);
@@ -52,23 +78,28 @@ export const AuthProvider = ({ children }) => {
         const checkExpiration = () => {
             const now = new Date().getTime();
             const expiry = new Date(expiresAt).getTime();
-            
+
             if (now >= expiry) {
-                console.warn("Token expired. Logging out...");
-                logout();
+                console.warn("Token expired. Clearing session...");
+                clearSession();
             }
         };
         checkExpiration();
         const interval = setInterval(checkExpiration, 10000); // Check every 10 sec
-        
-        return () => clearInterval(interval);
-    }, [expiresAt, logout]);
 
-    // Verify token on mount - check if cookie still exists
+        return () => clearInterval(interval);
+    }, [expiresAt, clearSession]);
+
+    // Verify the backend session on mount BEFORE trusting the restored user.
+    // Protected routes are gated on `initializing`, so nothing renders until this
+    // resolves — closing the "stale localStorage renders as logged-in" hole.
     useEffect(() => {
         const verifySession = async () => {
-            // Only verify if we have user data in localStorage
-            if (!user) return;
+            // Nothing restored from localStorage => nothing to verify.
+            if (!user) {
+                setInitializing(false);
+                return;
+            }
 
             try {
                 const response = await fetch(API_ENDPOINTS.verify, {
@@ -76,13 +107,21 @@ export const AuthProvider = ({ children }) => {
                 });
 
                 if (!response.ok) {
-                    // Cookie is invalid or missing - logout
-                    console.warn('Session invalid. Logging out...');
-                    logout();
+                    // Cookie is invalid or missing - drop the stale session.
+                    console.warn('Session invalid. Clearing session...');
+                    clearSession();
+                } else {
+                    const data = await response.json();
+                    if (data && data.editWindowMs != null) {
+                        setEditWindowMs(data.editWindowMs);
+                        localStorage.setItem('editWindowMs', String(data.editWindowMs));
+                    }
                 }
             } catch (error) {
                 console.error('Session verification failed:', error);
-                logout();
+                clearSession();
+            } finally {
+                setInitializing(false);
             }
         };
 
@@ -116,12 +155,14 @@ export const AuthProvider = ({ children }) => {
                 // Save to State
                 setUser(data.user);
                 setExpiresAt(data.expiresAt);
-                
+                if (data.editWindowMs != null) setEditWindowMs(data.editWindowMs);
+
                 // Save to LocalStorage
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('expiresAt', data.expiresAt);
                 localStorage.setItem('expiresAtReadable', readableExpiry);
-                
+                if (data.editWindowMs != null) localStorage.setItem('editWindowMs', String(data.editWindowMs));
+
                 setLoading(false);
                 return data;
             } else {
@@ -141,8 +182,11 @@ export const AuthProvider = ({ children }) => {
         setExpiresAt,
         loading,
         logoutLoading,
+        initializing,
+        editWindowMs,
         login,
         logout,
+        clearSession,
         // Check if user is Admin based on role or department
         isAdmin: user?.role === 'admin' || user?.department === 'Admin'
     };

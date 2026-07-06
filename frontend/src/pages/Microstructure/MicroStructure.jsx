@@ -5,7 +5,7 @@ import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
-import { useMicroStructureContext } from '../../../app.jsx';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
@@ -129,7 +129,7 @@ const MicroStructure = () => {
     setIsPrimarySaved,
     entryCount,
     setEntryCount
-  } = useMicroStructureContext();
+  } = useDepartmentForm('micro-structure');
 
   // Local UI states that don't need to persist
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);

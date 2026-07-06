@@ -78,7 +78,6 @@ export const exportToExcel = async ({
 
   // Lazy-load exceljs so it stays out of the initial bundle (loaded on first download)
   const ExcelJS = (await import('exceljs')).default;
-
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'SPOT-Q';
   workbook.created = new Date();

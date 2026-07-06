@@ -5,7 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
-import { useQcProductionContext } from '../../../app.jsx';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
@@ -164,7 +164,7 @@ const QcProductionDetails = () => {
     submitErrorMessage,
     setSubmitErrorMessage,
     resetFormData
-  } = useQcProductionContext();
+  } = useDepartmentForm('qc-production');
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [showSakthi, setShowSakthi] = useState(false);

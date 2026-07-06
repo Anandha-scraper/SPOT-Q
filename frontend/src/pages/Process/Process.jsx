@@ -8,7 +8,7 @@ import { InlineLoader, toast } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { useProcessContext } from '../../../app.jsx';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
@@ -27,7 +27,7 @@ export default function ProcessControl() {
     setIsPrimarySaved,
     entryCount,
     setEntryCount
-  } = useProcessContext();
+  } = useDepartmentForm('process');
 
   const validationRanges = [
     {

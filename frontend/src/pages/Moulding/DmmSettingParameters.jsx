@@ -66,24 +66,6 @@ const formatTimeToString = (timeObj) => {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`;
 };
 
-// -- Inline locked-overlay wrapper (unique to this page) --
-const DmmLockedField = ({ locked, onLockedClick, children }) => {
-  if (!locked) return children;
-  return (
-    <div className="dmm-locked-wrapper">
-      {children}
-      <div
-        className="dmm-locked-overlay"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (onLockedClick) onLockedClick();
-        }}
-      />
-    </div>
-  );
-};
-
 const DmmSettingParameters = () => {
   const navigate = useNavigate();
   const [primaryData, setPrimaryData] = useState({
@@ -106,10 +88,8 @@ const DmmSettingParameters = () => {
   const [lockedFields, setLockedFields] = useState({ operatorName: false });
   const [existingParametersCount, setExistingParametersCount] = useState(0);
 
-  // Progressive unlock derived booleans
-  const isShiftUnlocked = !!primaryData.date && !!primaryData.machine;
-  const isOperatorUnlocked = !!primaryData.date && !!primaryData.machine && !!primaryData.shift;
-  const isFormUnlocked = isPrimaryDataSaved || lockedFields.operatorName; // saved or fetched existing data
+  // Form unlocks once primary data is saved or an existing combination is loaded
+  const isFormUnlocked = isPrimaryDataSaved || lockedFields.operatorName;
 
   // Submit feedback message (replaces alert())
   const [submitMessage, setSubmitMessage] = useState('');
@@ -165,38 +145,32 @@ const DmmSettingParameters = () => {
   };
 
 
-  // -- PART 3e: handleLockedClick -- called when user clicks a locked element --
-  const handleLockedClick = useCallback((requiredField) => {
-    if (requiredField === 'machine') {
-      triggerHighlight(setMachineErrorHighlight);
-      setPrimaryFieldMessage('Select Machine first');
-      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
-      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
-      const el = document.getElementById('machine-field');
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.focus(), 300); }
-    } else if (requiredField === 'shift') {
-      triggerHighlight(setShiftErrorHighlight);
-      setPrimaryFieldMessage('Select Shift first');
-      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
-      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
-      const el = document.getElementById('shift-field');
-      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => el.focus(), 300); }
-    } else if (requiredField === 'primary') {
-      setPrimaryFieldMessage('Save Primary data first');
-      if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
-      fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
-      const wrapper = document.querySelector('.dmm-primary-status-wrapper');
-      if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+  // -- Process-style single lock warning: when the shift-parameter form is
+  //    locked, clicking any field shows one message + scrolls to the primary. --
+  const showFormLockWarning = useCallback(() => {
+    setPrimaryFieldMessage('Save primary data first');
+    if (fieldMessageTimer.current) clearTimeout(fieldMessageTimer.current);
+    fieldMessageTimer.current = setTimeout(() => { setPrimaryFieldMessage(''); fieldMessageTimer.current = null; }, 3000);
+    const wrapper = document.querySelector('.dmm-primary-status-wrapper') || document.querySelector('.primary-section');
+    if (wrapper) wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
 
-  // -- PART 3g: getLockedRequiredField -- returns what user needs to do next --
-  const getLockedRequiredField = () => {
-    if (!primaryData.machine) return 'machine';
-    if (!primaryData.shift) return 'shift';
-    if (!isFormUnlocked) return 'primary';
-    return null;
-  };
+  // Document-level capture listener (Process pattern): catch clicks on the
+  // locked shift-parameter form / submit button and show the lock warning.
+  useEffect(() => {
+    const handleLockedInteraction = (e) => {
+      if (isFormUnlocked) return;
+      const target = e.target;
+      if (!target || !target.closest) return;
+      if (target.closest('.dmm-shift-form-grid') || target.closest('.dmm-submit-btn-wrapper')) {
+        e.preventDefault();
+        e.stopPropagation();
+        showFormLockWarning();
+      }
+    };
+    document.addEventListener('mousedown', handleLockedInteraction, true);
+    return () => document.removeEventListener('mousedown', handleLockedInteraction, true);
+  }, [isFormUnlocked, showFormLockWarning]);
 
 
   // ── Helper: show submit feedback message using InlineLoader ──
@@ -678,324 +652,285 @@ const DmmSettingParameters = () => {
   };
 
   const renderRow = () => {
-    const formLocked = !isFormUnlocked;
-    const onLock = () => { const req = getLockedRequiredField(); if (req) handleLockedClick(req); };
+    // Per-input lock (Process pattern): every field is natively disabled until
+    // the primary data is saved / an existing combination is loaded.
+    const fieldsDisabled = !primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary || !isFormUnlocked;
 
     return (
     <div className="dmm-form-grid dmm-shift-form-grid">
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group full-width">
-          <label>Customer</label>
-          <input
-            type="text"
-            ref={shiftFirstInputRef}
-            value={currentRow.customer}
-            onChange={(e) => handleInputChange("customer", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., ABC Industries"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('customer')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Item Description</label>
-          <input
-            type="text"
-            value={currentRow.itemDescription}
-            onChange={(e) => handleInputChange("itemDescription", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., Engine Block Casting"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('itemDescription')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Time</label>
-          <CustomTimeInput
-            value={createTimeFromString(currentRow.time)}
-            onChange={(timeObj) => handleInputChange("time", formatTimeToString(timeObj))}
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            hasError={shiftValidationErrors['time'] === false}
-            onEnterPress={() => {
-              if (ppThicknessRef.current) {
-                ppThicknessRef.current.focus();
-              }
-            }}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>PP Thickness (mm)</label>
-          <input
-            type="number"
-            ref={ppThicknessRef}
-            value={currentRow.ppThickness}
-            onChange={(e) => handleInputChange("ppThickness", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 25.5"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('ppThickness')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>PP Height (mm)</label>
-          <input
-            type="number"
-            value={currentRow.ppHeight}
-            onChange={(e) => handleInputChange("ppHeight", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 150.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('ppHeight')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>SP Thickness (mm)</label>
-          <input
-            type="number"
-            value={currentRow.spThickness}
-            onChange={(e) => handleInputChange("spThickness", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 30.2"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('spThickness')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>SP Height (mm)</label>
-          <input
-            type="number"
-            value={currentRow.spHeight}
-            onChange={(e) => handleInputChange("spHeight", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 180.5"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('spHeight')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Core Mask Thickness (mm)</label>
-          <input
-            type="number"
-            value={currentRow.coreMaskThickness}
-            onChange={(e) => handleInputChange("coreMaskThickness", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 12.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('coreMaskThickness')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Core Mask Height Outside (mm)</label>
-          <input
-            type="number"
-            value={currentRow.coreMaskHeightOutside}
-            onChange={(e) => handleInputChange("coreMaskHeightOutside", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 95.5"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('coreMaskHeightOutside')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Core Mask Height Inside (mm)</label>
-          <input
-            type="number"
-            value={currentRow.coreMaskHeightInside}
-            onChange={(e) => handleInputChange("coreMaskHeightInside", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 85.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('coreMaskHeightInside')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Sand Shot Pressure (Bar)</label>
-          <input
-            type="number"
-            value={currentRow.sandShotPressureBar}
-            onChange={(e) => handleInputChange("sandShotPressureBar", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 6.5"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('sandShotPressureBar')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Correction Shot Time (s)</label>
-          <input
-            type="number"
-            value={currentRow.correctionShotTime}
-            onChange={(e) => handleInputChange("correctionShotTime", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 2.5"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('correctionShotTime')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Squeeze Pressure (Kg/cm²)</label>
-          <input
-            type="number"
-            value={currentRow.squeezePressure}
-            onChange={(e) => handleInputChange("squeezePressure", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 45.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('squeezePressure')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>PP Stripping Acceleration</label>
-          <input
-            type="number"
-            value={currentRow.ppStrippingAcceleration}
-            onChange={(e) => handleInputChange("ppStrippingAcceleration", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 3.2"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('ppStrippingAcceleration')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>PP Stripping Distance</label>
-          <input
-            type="number"
-            value={currentRow.ppStrippingDistance}
-            onChange={(e) => handleInputChange("ppStrippingDistance", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 120.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('ppStrippingDistance')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>SP Stripping Acceleration</label>
-          <input
-            type="number"
-            value={currentRow.spStrippingAcceleration}
-            onChange={(e) => handleInputChange("spStrippingAcceleration", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 2.8"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('spStrippingAcceleration')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>SP Stripping Distance</label>
-          <input
-            type="number"
-            value={currentRow.spStrippingDistance}
-            onChange={(e) => handleInputChange("spStrippingDistance", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 140.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('spStrippingDistance')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Mould Thickness ±10mm</label>
-          <input
-            type="number"
-            value={currentRow.mouldThicknessPlus10}
-            onChange={(e) => handleInputChange("mouldThicknessPlus10", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 250.0"
-            step="any"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('mouldThicknessPlus10')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>
-            <span>Close-Up Force / Pressure</span>
-          </label>
-          <input
-            type="text"
-            value={currentRow.closeUpForceMouldCloseUpPressure}
-            onChange={(e) => handleInputChange("closeUpForceMouldCloseUpPressure", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., 800 kN / 55 bar"
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('closeUpForceMouldCloseUpPressure')}
-          />
-        </div>
-      </DmmLockedField>
-      <DmmLockedField locked={formLocked} onLockedClick={onLock}>
-        <div className="dmm-form-group">
-          <label>Remarks</label>
-          <input
-            type="text"
-            value={currentRow.remarks}
-            onChange={(e) => handleInputChange("remarks", e.target.value)}
-            onKeyDown={handleShiftKeyDown}
-            placeholder="e.g., All parameters OK"
-            maxLength={60}
-            disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
-            className={getInputClassName('remarks')}
-            style={{ resize: 'none' }}
-          />
-        </div>
-      </DmmLockedField>
+      <div className="dmm-form-group full-width">
+        <label>Customer</label>
+        <input
+          type="text"
+          ref={shiftFirstInputRef}
+          value={currentRow.customer}
+          onChange={(e) => handleInputChange("customer", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., ABC Industries"
+          disabled={fieldsDisabled}
+          className={getInputClassName('customer')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Item Description</label>
+        <input
+          type="text"
+          value={currentRow.itemDescription}
+          onChange={(e) => handleInputChange("itemDescription", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., Engine Block Casting"
+          disabled={fieldsDisabled}
+          className={getInputClassName('itemDescription')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Time</label>
+        <CustomTimeInput
+          value={createTimeFromString(currentRow.time)}
+          onChange={(timeObj) => handleInputChange("time", formatTimeToString(timeObj))}
+          disabled={fieldsDisabled}
+          hasError={shiftValidationErrors['time'] === false}
+          onEnterPress={() => {
+            if (ppThicknessRef.current) {
+              ppThicknessRef.current.focus();
+            }
+          }}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>PP Thickness (mm)</label>
+        <input
+          type="number"
+          ref={ppThicknessRef}
+          value={currentRow.ppThickness}
+          onChange={(e) => handleInputChange("ppThickness", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 25.5"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('ppThickness')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>PP Height (mm)</label>
+        <input
+          type="number"
+          value={currentRow.ppHeight}
+          onChange={(e) => handleInputChange("ppHeight", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 150.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('ppHeight')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>SP Thickness (mm)</label>
+        <input
+          type="number"
+          value={currentRow.spThickness}
+          onChange={(e) => handleInputChange("spThickness", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 30.2"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('spThickness')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>SP Height (mm)</label>
+        <input
+          type="number"
+          value={currentRow.spHeight}
+          onChange={(e) => handleInputChange("spHeight", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 180.5"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('spHeight')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Core Mask Thickness (mm)</label>
+        <input
+          type="number"
+          value={currentRow.coreMaskThickness}
+          onChange={(e) => handleInputChange("coreMaskThickness", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 12.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('coreMaskThickness')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Core Mask Height Outside (mm)</label>
+        <input
+          type="number"
+          value={currentRow.coreMaskHeightOutside}
+          onChange={(e) => handleInputChange("coreMaskHeightOutside", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 95.5"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('coreMaskHeightOutside')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Core Mask Height Inside (mm)</label>
+        <input
+          type="number"
+          value={currentRow.coreMaskHeightInside}
+          onChange={(e) => handleInputChange("coreMaskHeightInside", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 85.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('coreMaskHeightInside')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Sand Shot Pressure (Bar)</label>
+        <input
+          type="number"
+          value={currentRow.sandShotPressureBar}
+          onChange={(e) => handleInputChange("sandShotPressureBar", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 6.5"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('sandShotPressureBar')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Correction Shot Time (s)</label>
+        <input
+          type="number"
+          value={currentRow.correctionShotTime}
+          onChange={(e) => handleInputChange("correctionShotTime", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 2.5"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('correctionShotTime')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Squeeze Pressure (Kg/cm²)</label>
+        <input
+          type="number"
+          value={currentRow.squeezePressure}
+          onChange={(e) => handleInputChange("squeezePressure", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 45.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('squeezePressure')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>PP Stripping Acceleration</label>
+        <input
+          type="number"
+          value={currentRow.ppStrippingAcceleration}
+          onChange={(e) => handleInputChange("ppStrippingAcceleration", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 3.2"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('ppStrippingAcceleration')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>PP Stripping Distance</label>
+        <input
+          type="number"
+          value={currentRow.ppStrippingDistance}
+          onChange={(e) => handleInputChange("ppStrippingDistance", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 120.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('ppStrippingDistance')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>SP Stripping Acceleration</label>
+        <input
+          type="number"
+          value={currentRow.spStrippingAcceleration}
+          onChange={(e) => handleInputChange("spStrippingAcceleration", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 2.8"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('spStrippingAcceleration')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>SP Stripping Distance</label>
+        <input
+          type="number"
+          value={currentRow.spStrippingDistance}
+          onChange={(e) => handleInputChange("spStrippingDistance", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 140.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('spStrippingDistance')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Mould Thickness ±10mm</label>
+        <input
+          type="number"
+          value={currentRow.mouldThicknessPlus10}
+          onChange={(e) => handleInputChange("mouldThicknessPlus10", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 250.0"
+          step="any"
+          disabled={fieldsDisabled}
+          className={getInputClassName('mouldThicknessPlus10')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>
+          <span>Close-Up Force / Pressure</span>
+        </label>
+        <input
+          type="text"
+          value={currentRow.closeUpForceMouldCloseUpPressure}
+          onChange={(e) => handleInputChange("closeUpForceMouldCloseUpPressure", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., 800 kN / 55 bar"
+          disabled={fieldsDisabled}
+          className={getInputClassName('closeUpForceMouldCloseUpPressure')}
+        />
+      </div>
+      <div className="dmm-form-group">
+        <label>Remarks</label>
+        <input
+          type="text"
+          value={currentRow.remarks}
+          onChange={(e) => handleInputChange("remarks", e.target.value)}
+          onKeyDown={handleShiftKeyDown}
+          placeholder="e.g., All parameters OK"
+          maxLength={60}
+          disabled={fieldsDisabled}
+          className={getInputClassName('remarks')}
+          style={{ resize: 'none' }}
+        />
+      </div>
     </div>
     );
   };
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper">
       {allSubmitting && (
         <div className="dmm-loader-overlay">
           <Sakthi onComplete={() => {}} />
@@ -1070,12 +1005,7 @@ const DmmSettingParameters = () => {
                 className=""
               />
             </div>
-            <DmmLockedField
-              locked={!isShiftUnlocked}
-             
-              onLockedClick={() => handleLockedClick('machine')}
-            >
-              <div 
+              <div
                 className={`dmm-form-group ${shiftErrorHighlight ? 'dmm-error-highlight' : ''}`}
               >
                 <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
@@ -1102,16 +1032,10 @@ const DmmSettingParameters = () => {
                   <option value="3">Shift 3</option>
                 </select>
               </div>
-            </DmmLockedField>
           </div>
-          
+
           {/* Operator Fields Row */}
           <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
-            <DmmLockedField
-              locked={!isOperatorUnlocked}
-             
-              onLockedClick={() => handleLockedClick(!primaryData.machine ? 'machine' : 'shift')}
-            >
               <div className="dmm-form-group">
                 <label>Operator Name</label>
                 <input
@@ -1132,12 +1056,6 @@ const DmmSettingParameters = () => {
                   style={lockedFields.operatorName ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}}
                 />
               </div>
-            </DmmLockedField>
-            <DmmLockedField
-              locked={!isOperatorUnlocked}
-             
-              onLockedClick={() => handleLockedClick(!primaryData.machine ? 'machine' : 'shift')}
-            >
               <div className="dmm-form-group">
                 <label>Operated By</label>
                 <input
@@ -1157,7 +1075,6 @@ const DmmSettingParameters = () => {
                   placeholder="Enter name"
                 />
               </div>
-            </DmmLockedField>
           </div>
 
           {/* Primary status area: fetching ? combination found/saved ? Save Primary button */}
@@ -1237,39 +1154,17 @@ const DmmSettingParameters = () => {
         {/* Submit Entry button � visible only after combination check completes */}
         <div className={`dmm-submit-btn-wrapper${!fetchingPrimary && !showCombinationFound && !showCombinationSaved ? ' show' : ''}`}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-            {!isFormUnlocked ? (
-              <div className="dmm-submit-locked-wrapper">
-                <button
-                  type="button"
-                  className="dmm-submit-btn dmm-submit-btn-locked"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    const req = getLockedRequiredField();
-                    if (req) handleLockedClick(req);
-                  }}
-                >
-                  <Lock size={18} />
-                  Submit Entry
-                </button>
-                <div className="dmm-submit-locked-overlay" />
-              </div>
-            ) : (
-              <button
-                type="button"
-                ref={shiftSubmitRef}
-                onClick={handleSubmitAll}
-                onKeyDown={handleSubmitButtonKeyDown}
-                disabled={allSubmitting || fetchingPrimary}
-                className="dmm-submit-btn"
-                style={{
-                  opacity: (allSubmitting || fetchingPrimary) ? 0.6 : 1,
-                  cursor: (allSubmitting || fetchingPrimary) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {allSubmitting ? <Loader2 size={18} className="spinner" /> : <Save size={18} />}
-                {allSubmitting ? 'Saving...' : 'Submit Entry'}
-              </button>
-            )}
+            <button
+              type="button"
+              ref={shiftSubmitRef}
+              onClick={handleSubmitAll}
+              onKeyDown={handleSubmitButtonKeyDown}
+              disabled={!isFormUnlocked || allSubmitting || fetchingPrimary}
+              className="dmm-submit-btn"
+            >
+              {allSubmitting ? <Loader2 size={18} className="spinner" /> : (!isFormUnlocked ? <Lock size={18} /> : <Save size={18} />)}
+              {allSubmitting ? 'Saving...' : 'Submit Entry'}
+            </button>
           </div>
         </div>
     </div>

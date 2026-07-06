@@ -6,6 +6,7 @@ import Sakthi from '../../Components/Sakthi';
 import { InlineLoader, toast } from '../../Components/Alert';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
@@ -126,32 +127,22 @@ const MicroTensile = () => {
 
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
-  const [formData, setFormData] = useState({
-    date: '',
-    disa: '',
-    item: '',
-    itemSecond: '',
-    dateCode: '',
-    heatCode: '',
-    barDia: '',
-    gaugeLength: '',
-    maxLoad: '',
-    yieldLoad: '',
-    tensileStrength: '',
-    yieldStrength: '',
-    elongation: '',
-    remarks: '',
-    testedBy: ''
-  });
+  // Draft form state + primary-lock flags persist across Form <-> Report navigation.
+  const {
+    formData,
+    setFormData,
+    isPrimarySaved,
+    setIsPrimarySaved,
+    entryCount,
+    setEntryCount
+  } = useDepartmentForm('micro-tensile');
 
   const [errors, setErrors] = useState({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
-  const [isPrimarySaved, setIsPrimarySaved] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  const [entryCount, setEntryCount] = useState(0);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);

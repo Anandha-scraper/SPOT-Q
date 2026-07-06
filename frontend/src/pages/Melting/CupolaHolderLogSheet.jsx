@@ -4,7 +4,9 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { InlineLoader } from '../../Components/Alert';
+import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
@@ -13,11 +15,8 @@ const CupolaHolderLogSheet = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
 
   // Primary Data — Date defaults to today (still editable; future dates blocked by the picker)
-  const [primaryData, setPrimaryData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    shift: '',
-    holderNumber: ''
-  });
+  // Draft containers persist across Form <-> Report navigation (shared context).
+  const { primaryData, setPrimaryData, inputRows, setInputRows } = useDepartmentForm('cupola-holder-log-sheet');
 
   const [primaryLoading, setPrimaryLoading] = useState(false);
   const [primarySavedVisual, setPrimarySavedVisual] = useState(false);
@@ -116,9 +115,10 @@ const CupolaHolderLogSheet = () => {
     remarks: ''
   });
 
-  const [inputRows, setInputRows] = useState([createEmptyRow()]);
+  // inputRows draft state now comes from the shared context (see destructure above).
 
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showEntryLoader, setShowEntryLoader] = useState(false);
 
   // Submitted rows displayed above the input rows
   const [submittedRows, setSubmittedRows] = useState([]);
@@ -201,7 +201,7 @@ const CupolaHolderLogSheet = () => {
     { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
     { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
     { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
-    { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'] },
+    { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
     { key: 'indFur', field: 'IND FUR', type: 'Text' },
     { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
     { key: 'tap',    field: 'TAP',     type: 'Text' },
@@ -584,6 +584,8 @@ const CupolaHolderLogSheet = () => {
         setSubmitAttempted(false);
         setErrorMessage('');
         setFocusedField(null);
+        // Show branded loader after successful entry save
+        setShowEntryLoader(true);
       } else {
         alert('Error: ' + result.message);
       }
@@ -702,6 +704,22 @@ const CupolaHolderLogSheet = () => {
   const fmtVal = (v) => (v !== undefined && v !== null && v !== '' && v !== 0) ? v : '-';
 
   return (
+    <>
+      {/* Entry save loader overlay */}
+      {showEntryLoader && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          background: 'rgba(15, 23, 42, 0.82)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <Sakthi message="Entry saved" onComplete={() => setShowEntryLoader(false)} />
+        </div>
+      )}
     <div
       className="page-wrapper melting-page-wrapper"
       ref={gridRef}
@@ -1091,6 +1109,7 @@ const CupolaHolderLogSheet = () => {
       </div>
       </div>
     </div>
+    </>
   );
 };
 

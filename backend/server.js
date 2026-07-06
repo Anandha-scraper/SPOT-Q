@@ -7,18 +7,17 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT;
 if (!PORT) {
-  console.error('❌ PORT is not defined in .env — server cannot start.');
+  console.error(' PORT is not defined in .env — server cannot start.');
   process.exit(1);
 }
 
 
-// 1. Global Middleware
+// 1. Global Middlewa
 // Configure CORS to accept requests from development and production
 const allowedOrigins = [
-    'http://localhost:3000', // Development
-    'http://localhost:5173', // Vite dev server
-    process.env.FRONTEND_URL // Production URL from environment variable
-].filter(Boolean); // Remove undefined values
+    'http://localhost:3000',   // Vite dev server
+    process.env.FRONTEND_URL  // Production URL
+].filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {

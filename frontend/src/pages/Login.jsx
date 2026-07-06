@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { EyeButton } from "../Components/Buttons";
 import Loader from "../Components/Loader";
-import { API_ENDPOINTS, API_URL } from "../config/api";
+import { API_ENDPOINTS } from "../config/api";
 import "../styles/PageStyles/Login.css";
 
 const Login = () => {
@@ -31,7 +31,7 @@ const Login = () => {
       if (!isMounted) return;
       
       try {
-        const response = await fetch(`${API_URL}/api/health`, {
+        const response = await fetch('/api/health', {
           method: 'GET',
           cache: 'no-cache',
         });

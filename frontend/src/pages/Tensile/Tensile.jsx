@@ -7,6 +7,7 @@ import Sakthi from '../../Components/Sakthi';
 import { InlineLoader } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
@@ -128,22 +129,8 @@ const Tensile = () => {
     return today.toISOString().split('T')[0];
   };
 
-  const [formData, setFormData] = useState({
-    dateOfInspection: getCurrentDate(),
-    item: '',
-    dateCode: '',
-    heatCode: '',
-    dia: '',
-    lo: '',
-    li: '',
-    breakingLoad: '',
-    yieldLoad: '',
-    uts: '',
-    ys: '',
-    elongation: '',
-    remarks: '',
-    testedBy: ''
-  });
+  // Draft form state persists across Form <-> Report navigation (shared context).
+  const { formData, setFormData } = useDepartmentForm('tensile');
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');

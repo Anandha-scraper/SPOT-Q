@@ -174,18 +174,30 @@ const DisamaticProduct = () => {
   const ppOperatorRef = useRef(null);
   const primarySaveButtonRef = useRef(null);
   const primarySectionRef = useRef(null);
+  const lockedWarningTimerRef = useRef(null);
 
-  // Handler: click on locked section (primary not saved) -> show warning, scroll to primary
-  const handleLockedSectionClick = (e) => {
-    if (isPrimaryDataSaved) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setShowPrimaryWarning(true);
-    if (primarySectionRef.current) {
-      primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    setTimeout(() => setShowPrimaryWarning(false), 3000);
-  };
+  // Document-level capture listener (Process pattern): while primary data is
+  // not saved, a click anywhere in a locked section (disabled inputs have
+  // pointer-events:none so the click passes through) shows one warning +
+  // scrolls to the primary section. Replaces the per-section onMouseDownCapture.
+  useEffect(() => {
+    const handleLockedInteraction = (e) => {
+      if (isPrimaryDataSaved) return;
+      const target = e.target;
+      if (target && target.closest && target.closest('.disamatic-section')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowPrimaryWarning(true);
+        if (primarySectionRef.current) {
+          primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (lockedWarningTimerRef.current) clearTimeout(lockedWarningTimerRef.current);
+        lockedWarningTimerRef.current = setTimeout(() => setShowPrimaryWarning(false), 3000);
+      }
+    };
+    document.addEventListener('mousedown', handleLockedInteraction, true);
+    return () => document.removeEventListener('mousedown', handleLockedInteraction, true);
+  }, [isPrimaryDataSaved]);
 
   // Helper function for null-based validation classes (null = neutral, false = error)
   const getValidationClass = (validationState) => {
@@ -2207,7 +2219,7 @@ const DisamaticProduct = () => {
   };
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper">
       {/* Header */}
       <div className="disamatic-header">
         <div className="disamatic-header-text">
@@ -2497,7 +2509,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Production Table — onMouseDownCapture intercepts clicks when primary not saved */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Production Table {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2725,7 +2737,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Next Shift Plan Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Next Shift Plan {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -2864,7 +2876,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Delays Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Delays {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -3046,7 +3058,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Mould Hardness Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Mould Hardness {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -3452,7 +3464,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Pattern Temp Table */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <div className="disamatic-section-header">
           <h3 className="disamatic-section-title">Pattern Temperature {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
           <div className="disamatic-section-actions">
@@ -3606,7 +3618,7 @@ const DisamaticProduct = () => {
       </div>
 
       {/* Event Section */}
-      <div className="disamatic-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6 }} onMouseDownCapture={!isPrimaryDataSaved ? handleLockedSectionClick : undefined}>
+      <div className="disamatic-section">
         <h3 className="disamatic-section-title">
           Significant Events & Maintenance 
           {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}

@@ -688,7 +688,7 @@ const DisamaticProductReport = () => {
   ];
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper">
       <div className="disamatic-report-header">
         <div className="disamatic-report-header-text">
           <h2>

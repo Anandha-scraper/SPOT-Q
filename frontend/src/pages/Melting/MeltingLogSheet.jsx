@@ -5,22 +5,21 @@ import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, D
 import { InlineLoader } from '../../Components/Alert';
 import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
   // Primary: Date, Shift, Furnace No., Panel, Cumulative Liquid metal, Final KWHr, Initial KWHr, Total Units, Cumulative Units
-  const [primaryData, setPrimaryData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    shift: '',
-    furnaceNo: '',
-    panel: '',
-    cumulativeLiquidMetal: '',
-    finalKWHr: '',
-    initialKWHr: '',
-    totalUnits: '',
-    cumulativeUnits: ''
-  });
+  // Draft containers persist across Form <-> Report navigation (shared context).
+  const {
+    primaryData, setPrimaryData,
+    table1, setTable1,
+    table2, setTable2,
+    table3, setTable3,
+    table4, setTable4,
+    table5, setTable5
+  } = useDepartmentForm('melting-log-sheet');
   const [primaryLoading, setPrimaryLoading] = useState(false);
   const [primaryId, setPrimaryId] = useState(null);
   const [fetchingPrimary, setFetchingPrimary] = useState(false);
@@ -226,75 +225,7 @@ const MeltingLogSheet = () => {
            cumulativeUnitsValid === false;
   };
   
-  const [table1, setTable1] = useState({
-    heatNo: '',
-    grade: '',
-    chargingTimeHour: '',
-    chargingTimeMinute: '',
-    ifBath: '',
-    liquidMetalPressPour: '',
-    liquidMetalHolder: '',
-    sgMsSteel: '',
-    greyMsSteel: '',
-    returnsSg: '',
-    pigIron: '',
-    borings: '',
-    finalBath: ''
-  });
-  const [table2, setTable2] = useState({
-    charCoal: '',
-    cpcFur: '',
-    cpcLc: '',
-    siliconCarbideFur: '',
-    ferrosiliconFur: '',
-    ferrosiliconLc: '',
-    ferroManganeseFur: '',
-    ferroManganeseLc: '',
-    cu: '',
-    cr: '',
-    pureMg: '',
-    ironPyrite: ''
-  });
-  const [table3, setTable3] = useState({
-    labCoinTimeHour: '',
-    labCoinTimeMinute: '',
-    labCoinTempC: '',
-    deslagingTimeFromHour: '',
-    deslagingTimeFromMinute: '',
-    deslagingTimeToHour: '',
-    deslagingTimeToMinute: '',
-    metalReadyTimeHour: '',
-    metalReadyTimeMinute: '',
-    waitingForTappingFromHour: '',
-    waitingForTappingFromMinute: '',
-    waitingForTappingToHour: '',
-    waitingForTappingToMinute: '',
-    reason: ''
-  });
-  const [table4, setTable4] = useState({
-    timeHour: '',
-    timeMinute: '',
-    tempCSg: '',
-    directFurnace: '',
-    holderToFurnace: '',
-    furnaceToHolder: '',
-    disaNo: '',
-    item: ''
-  });
-  const [table5, setTable5] = useState({
-    furnace1Kw: '',
-    furnace1A: '',
-    furnace1V: '',
-    furnace2Kw: '',
-    furnace2A: '',
-    furnace2V: '',
-    furnace3Kw: '',
-    furnace3A: '',
-    furnace3V: '',
-    furnace4Hz: '',
-    furnace4Gld: '',
-    furnace4KwHr: ''
-  });
+  // table1..table5 draft state now comes from the shared context (see destructure above).
 
   // Validation states (null = neutral/no border, false = invalid/red border - no green used)
   // Table 1 validations

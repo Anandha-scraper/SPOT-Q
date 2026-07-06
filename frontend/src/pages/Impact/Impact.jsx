@@ -5,7 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Sakthi from '../../Components/Sakthi';
 import { InlineLoader, toast } from '../../Components/Alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
-import { useImpactContext } from '../../../app.jsx';
+import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/Impact.css';
@@ -75,7 +75,7 @@ const Impact = () => {
     submitErrorMessage,
     setSubmitErrorMessage,
     resetFormData
-  } = useImpactContext();
+  } = useDepartmentForm('impact');
 
   const isDateSelected = formData.date && formData.date.trim() !== '';
 

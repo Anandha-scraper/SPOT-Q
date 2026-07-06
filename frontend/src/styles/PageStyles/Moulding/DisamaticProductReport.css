@@ -1,5 +1,15 @@
 /* Disamatic Product - Report Page Styles */
 
+/* Full-width layout (matches Process/Melting): override the shared
+   .page-wrapper's centered 94%/max-width/padding. Shared by the Disamatic
+   and DMM report pages. */
+.page-wrapper.moulding-page-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* Header Section */
 .disamatic-report-header {
   width: 100%;

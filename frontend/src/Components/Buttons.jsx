@@ -1,5 +1,5 @@
 import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
-import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Settings, Filter, X, Pencil, Trash2, Plus, Minus, Save, RefreshCw, FileSpreadsheet, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Time } from '@internationalized/date';
 import '../styles/ComponentStyles/Buttons.css';
 
@@ -55,6 +55,34 @@ export const ClearButton = ({ onClick, disabled = false, children }) => (
     </button>
   </div>
 );
+
+// Entry Navigation Button (prev / next for date-range browsing)
+export const EntryNavButton = ({ direction = 'next', onClick, disabled = false, title }) => {
+  const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
+  return (
+    <div className="filter-button-wrapper" style={{ display: 'inline-block' }}>
+      <button
+        onClick={onClick}
+        type="button"
+        disabled={disabled}
+        title={title || (direction === 'prev' ? 'Previous entry' : 'Next entry')}
+        style={{
+          padding: '0',
+          width: '38px',
+          minHeight: '38px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: disabled
+            ? 'linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%)'
+            : 'linear-gradient(135deg, #FF7F50 0%, #FF6A3D 100%)'
+        }}
+      >
+        <Icon size={18} />
+      </button>
+    </div>
+  );
+};
 
 // Excel Download Button
 

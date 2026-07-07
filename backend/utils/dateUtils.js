@@ -1,34 +1,37 @@
 // backend/utils/dateUtils.js
 const mongoose = require('mongoose');
-const ensureDateDocument = async (Model, dateString) => {
+const ensureDateDocument = async (Model, dateString, extraQuery = {}, extraFields = {}) => {
     // 1. Convert YYYY-MM-DD to a clean UTC Date object (00:00:00)
     const [year, month, day] = dateString.split('-').map(Number);
     const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
     const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-    
+
     // 2. Find document using date range to handle any timezone variations
-    let document = await Model.findOne({ 
-        date: { 
-            $gte: startOfDay, 
-            $lte: endOfDay 
-        } 
+    let document = await Model.findOne({
+        date: {
+            $gte: startOfDay,
+            $lte: endOfDay
+        },
+        ...extraQuery
     });
-    
+
     // 3. If not found, create with exact start of day
     if (!document) {
         try {
             document = await Model.create({
                 date: startOfDay,
-                entries: []
+                entries: [],
+                ...extraFields
             });
         } catch (error) {
             // Handle race condition - if another request created it simultaneously
             if (error.code === 11000) { // Duplicate key error
-                document = await Model.findOne({ 
-                    date: { 
-                        $gte: startOfDay, 
-                        $lte: endOfDay 
-                    } 
+                document = await Model.findOne({
+                    date: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    },
+                    ...extraQuery
                 });
             } else {
                 throw error;

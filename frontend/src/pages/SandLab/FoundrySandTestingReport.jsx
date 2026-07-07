@@ -1,55 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { FilterButton, ClearButton, ShiftDropdown, DisaDropdown } from '../../Components/Buttons';
+import { FilterButton, ClearButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
 const FoundrySandTestingReport = () => {
+  const getCurrentDate = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isRangeMode, setIsRangeMode] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
-  // Filter states
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [shift, setShift] = useState('');
-  const [sandPlant, setSandPlant] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(getCurrentDate());
+  const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
 
-  const getCurrentDate = () => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
+  const cacheRef = useRef({});
+
+
+
+  useEffect(() => { fetchSingleDate(getCurrentDate()); }, []);
+
+  // Fetch a single date's records (uses the in-memory cache for instant re-view)
+  const fetchSingleDate = async (date) => {
+    setError('');
+    setExpandedId(null);
+    setIsRangeMode(false);
+
+    if (cacheRef.current[date] !== undefined) {
+      setEntries(cacheRef.current[date]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
+      cacheRef.current[date] = list;
+      setEntries(list);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setEntries([]);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async (fromDate = null, toDate = null, shiftFilter = '', sandPlantFilter = '') => {
+  // Fetch a date range (summary/expandable view)
+  const fetchRange = async (from, to) => {
     setLoading(true);
     setError('');
     setExpandedId(null);
     try {
-      const from = fromDate || getCurrentDate();
-      const to = toDate || from;
-      const rangeMode = toDate && toDate !== fromDate;
-
-      let url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-        let filtered = data.data;
-        if (shiftFilter) filtered = filtered.filter(e => e.shift === shiftFilter);
-        if (sandPlantFilter) filtered = filtered.filter(e => e.sandPlant === sandPlantFilter);
-        setEntries(filtered);
-        setIsRangeMode(!!rangeMode);
-        if (filtered.length === 0) setError('No data found for the selected filters');
-      } else {
-        setEntries([]);
-        setIsRangeMode(!!rangeMode);
-      }
+      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
+      setEntries(list);
+      setIsRangeMode(true);
+      if (list.length === 0) setError('No data found for the selected filters');
     } catch (err) {
       console.error('Error fetching data:', err);
       setEntries([]);
@@ -60,19 +82,27 @@ const FoundrySandTestingReport = () => {
   };
 
   const handleFilter = () => {
-    if (!startDate) { alert('Please select a From date'); return; }
-    if (endDate && new Date(endDate) < new Date(startDate)) { alert('To date cannot be before From date'); return; }
-    fetchData(startDate, endDate || null, shift, sandPlant);
+    const to = toDate || getCurrentDate();
+    if (fromDate) {
+      if (new Date(to) < new Date(fromDate)) { alert('To date cannot be before From date'); return; }
+      setIsFiltered(true);
+      fetchRange(fromDate, to);
+    } else {
+      // No From ⇒ view the single "To" date
+      setIsFiltered(false);
+      fetchSingleDate(to);
+    }
   };
 
   const handleClear = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setShift('');
-    setSandPlant('');
-    setExpandedId(null);
-    fetchData();
+    const today = getCurrentDate();
+    setFromDate('');
+    setToDate(today);
+    setIsFiltered(false);
+    fetchSingleDate(today);
   };
+
+
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -238,9 +268,6 @@ const FoundrySandTestingReport = () => {
   const renderDetail = (record, idx, total) => (
     <div key={record._id || idx} style={{ marginBottom: '2.5rem', borderBottom: idx < total - 1 ? '3px solid #e2e8f0' : 'none', paddingBottom: idx < total - 1 ? '2rem' : 0 }}>
       {/* Primary Info */}
-      <h3 className="foundry-section-header" style={{ marginTop: '1.5rem' }}>
-        Primary {record.date ? `( ${formatDate(record.date)} )` : ''} {record.shift ? `- Shift ${record.shift}` : ''} {record.sandPlant ? `- ${record.sandPlant}` : ''}
-      </h3>
       <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
         <div>
           <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Sand Plant</span>
@@ -308,46 +335,38 @@ const FoundrySandTestingReport = () => {
             Foundry Sand Testing Note - Report
           </h2>
         </div>
+        {!isRangeMode && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', fontWeight: 600, color: '#1e293b' }}>
+            {entries.length === 1 && entries[0].shift && <span>{entries[0].shift}</span>}
+            {entries.length === 1 && entries[0].sandPlant && <span>Sand Plant: {entries[0].sandPlant}</span>}
+          </div>
+        )}
       </div>
 
       {/* Filter Section */}
-      <div className="foundry-sand-testing-filter-container">
+      <div className="foundry-sand-testing-filter-container"> 
         <div className="foundry-sand-testing-filter-group">
           <label style={{ fontWeight: 600 }}>From</label>
           <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            max={getCurrentDate()}
           />
         </div>
         <div className="foundry-sand-testing-filter-group">
           <label style={{ fontWeight: 600 }}>To</label>
           <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={!startDate}
-          />
-        </div>
-        <div className="foundry-sand-testing-filter-group">
-          <label style={{ fontWeight: 600 }}>Shift</label>
-          <ShiftDropdown
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
-            disabled={!startDate}
-          />
-        </div>
-        <div className="foundry-sand-testing-filter-group">
-          <label style={{ fontWeight: 600 }}>Sand Plant</label>
-          <DisaDropdown
-            value={sandPlant}
-            onChange={(e) => setSandPlant(e.target.value)}
-            name="sandPlant"
-            disabled={!startDate}
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            min={fromDate || undefined}
+            max={getCurrentDate()}
           />
         </div>
         <div className="foundry-sand-testing-filter-actions">
-          <FilterButton onClick={handleFilter} disabled={!startDate || loading} />
-          <ClearButton onClick={handleClear} disabled={!startDate && !endDate && !shift && !sandPlant} />
+          <FilterButton onClick={handleFilter} disabled={loading} />
+          {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
         </div>
+
       </div>
 
       {/* Error / Loading */}

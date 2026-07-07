@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Info, X } from 'lucide-react';
 import '../styles/ComponentStyles/Info.css';

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { PencilLine, Trash2, BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { PencilLine, Trash2, BookOpenCheck } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, EntryNavButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
-import Sakthi from '../../Components/Sakthi';
+
 import '../../styles/PageStyles/Sandlab/SandTestingRecordReport.css';
 
 const SandTestingRecordReport = () => {
@@ -18,9 +18,15 @@ const SandTestingRecordReport = () => {
   };
 
   const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+  const [endDate, setEndDate] = useState(getCurrentDate()); // "To" defaults to today; "From" optional
   const [datesList, setDatesList] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentEntryIndex, setCurrentEntryIndex] = useState(0);
+  const [isRangeMode, setIsRangeMode] = useState(false);
+
+  // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
+  const cacheRef = useRef({});
+
+  const [currentDate, setCurrentDate] = useState(getCurrentDate());
   const [isFiltered, setIsFiltered] = useState(false);
   const [table1Data, setTable1Data] = useState({
     table1a: {
@@ -64,23 +70,25 @@ const SandTestingRecordReport = () => {
   const [table5Data, setTable5Data] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Function to fetch data for a single date
+  // Function to fetch data for a single date (cached in memory for instant re-view)
   const fetchDataForDate = async (date) => {
+    if (cacheRef.current[date] !== undefined) {
+      return cacheRef.current[date];
+    }
     try {
       const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/date/${date}`, {
         credentials: 'include'
       });
-      
+
       if (!response.ok) {
         return null;
       }
 
       const result = await response.json();
-      
-      if (result.success && result.data && result.data.length > 0) {
-        return result.data[0];
-      }
-      return null;
+
+      const record = (result.success && result.data && result.data.length > 0) ? result.data[0] : null;
+      cacheRef.current[date] = record;
+      return record;
     } catch (error) {
       console.error(`Error fetching data for ${date}:`, error);
       return null;
@@ -232,52 +240,51 @@ const SandTestingRecordReport = () => {
   };
 
   // Main function to fetch and display data
-  const fetchData = async () => {
+  // Accept explicit params to avoid reading stale React state from async callers
+  const fetchData = async (filteredFlag = isFiltered, fromDate = startDate, toDate = endDate) => {
     const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds minimum for full animation
     const startTime = Date.now();
-    
+
     try {
       setLoading(true);
-      
+
       // If no filter applied, show current date
-      if (!isFiltered) {
-        const currentDate = getCurrentDate();
-        const record = await fetchDataForDate(currentDate);
-        
+      if (!filteredFlag) {
+        const today = getCurrentDate();
+        const record = await fetchDataForDate(today);
+        setCurrentDate(today);
         if (record) {
-          setDatesList([currentDate]);
-          setCurrentPage(1);
           processRecordData(record);
         } else {
-          // Clear all data
           clearAllData();
         }
-      } else if (startDate) {
-        // If only start date, fetch that single date
-        if (!endDate || startDate === endDate) {
-          const record = await fetchDataForDate(startDate);
-          
+      } else if (fromDate) {
+        // If only start date (or same dates), fetch that single date
+        if (!toDate || fromDate === toDate) {
+          const record = await fetchDataForDate(fromDate);
+          setCurrentDate(fromDate);
+          setIsRangeMode(false);
+          setDatesList([]);
+          setCurrentEntryIndex(0);
           if (record) {
-            setDatesList([startDate]);
-            setCurrentPage(1);
             processRecordData(record);
           } else {
             clearAllData();
           }
         } else {
-          // If date range, fetch all dates and filter only those with data
+          // Date range — collect ALL dates that have data in DB
           const allDates = [];
-          const start = new Date(startDate);
-          const end = new Date(endDate);
+          const start = new Date(fromDate);
+          const end = new Date(toDate);
           const current = new Date(start);
-          
+
           while (current <= end) {
             const dateStr = current.toISOString().split('T')[0];
             allDates.push(dateStr);
             current.setDate(current.getDate() + 1);
           }
-          
-          // Check which dates actually have data
+
+          // Fetch every date and keep only those with records
           const datesWithData = [];
           for (const dateStr of allDates) {
             const record = await fetchDataForDate(dateStr);
@@ -285,19 +292,18 @@ const SandTestingRecordReport = () => {
               datesWithData.push(dateStr);
             }
           }
-          
-          setDatesList(datesWithData);
-          setCurrentPage(1);
-          
-          // Fetch data for first page (first date with data)
+
+          setIsRangeMode(true);
+
           if (datesWithData.length > 0) {
-            const record = await fetchDataForDate(datesWithData[0]);
-            if (record) {
-              processRecordData(record);
-            } else {
-              clearAllData();
-            }
+            setDatesList(datesWithData);
+            setCurrentEntryIndex(0);
+            setCurrentDate(datesWithData[0]);
+            processRecordData(cacheRef.current[datesWithData[0]]);
           } else {
+            setDatesList([]);
+            setCurrentEntryIndex(0);
+            setCurrentDate(fromDate);
             clearAllData();
           }
         }
@@ -306,10 +312,8 @@ const SandTestingRecordReport = () => {
       console.error('Error fetching data:', error);
       alert('Failed to fetch data. Please try again.');
     } finally {
-      // Ensure minimum loading time has passed before hiding loader
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, MINIMUM_LOADING_TIME - elapsedTime);
-      
       setTimeout(() => {
         setLoading(false);
       }, remainingTime);
@@ -348,24 +352,6 @@ const SandTestingRecordReport = () => {
     fetchData();
   }, []);
 
-  // Fetch data when page changes in date range mode
-  useEffect(() => {
-    if (datesList.length > 1 && currentPage > 0 && currentPage <= datesList.length) {
-      const fetchPageData = async () => {
-        setLoading(true);
-        const targetDate = datesList[currentPage - 1];
-        const record = await fetchDataForDate(targetDate);
-        if (record) {
-          processRecordData(record);
-        } else {
-          clearAllData();
-        }
-        setLoading(false);
-      };
-      fetchPageData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, datesList]);
 
   const handleFilter = async () => {
     if (!startDate) {
@@ -380,26 +366,45 @@ const SandTestingRecordReport = () => {
     }
 
     setIsFiltered(true);
-    await fetchData();
+    // Pass explicit values — React state updates are async so isFiltered
+    // would still be false if we called fetchData() without these args
+    await fetchData(true, startDate, endDate);
   };
 
   const handleClear = () => {
     setStartDate(null);
-    setEndDate(null);
+    setEndDate(getCurrentDate());
     setIsFiltered(false);
+    setIsRangeMode(false);
     setDatesList([]);
-    setCurrentPage(1);
+    setCurrentEntryIndex(0);
     clearAllData();
-    
+
     // Reload current date data
     fetchData();
   };
 
-  const handlePageChange = (page) => {
-    if (page >= 1 && page <= datesList.length) {
-      setCurrentPage(page);
+  const handlePrevEntry = () => {
+    if (currentEntryIndex > 0) {
+      const newIndex = currentEntryIndex - 1;
+      const newDate = datesList[newIndex];
+      setCurrentEntryIndex(newIndex);
+      setCurrentDate(newDate);
+      processRecordData(cacheRef.current[newDate]);
     }
   };
+
+  const handleNextEntry = () => {
+    if (currentEntryIndex < datesList.length - 1) {
+      const newIndex = currentEntryIndex + 1;
+      const newDate = datesList[newIndex];
+      setCurrentEntryIndex(newIndex);
+      setCurrentDate(newDate);
+      processRecordData(cacheRef.current[newDate]);
+    }
+  };
+
+
 
   const formatDateDisplay = (dateStr) => {
     if (!dateStr) return '-';
@@ -425,12 +430,9 @@ const SandTestingRecordReport = () => {
           </h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          {datesList.length > 0 && (
+          {currentDate && (
             <div style={{ fontWeight: '600', fontSize: '1rem', color: '#1e293b' }}>
-              {datesList.length === 1 
-                ? `Date: ${formatDateDisplay(datesList[0])}`
-                : `Showing: ${formatDateDisplay(datesList[currentPage - 1])} (Page ${currentPage} of ${datesList.length})`
-              }
+              Date: {formatDateDisplay(currentDate)}
             </div>
           )}
         </div>
@@ -460,106 +462,49 @@ const SandTestingRecordReport = () => {
         <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
           Filter
         </FilterButton>
-        <ClearButton onClick={handleClear} disabled={!startDate && !endDate || loading}>
-          Clear
-        </ClearButton>
+        {isFiltered && (
+          <ClearButton onClick={handleClear} disabled={loading}>
+            Clear
+          </ClearButton>
+        )}
 
-        {/* Pagination - right side of Clear button */}
-        {datesList.length > 1 && (
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            marginLeft: 'auto'
+        {/* Range navigation: shown only in date-range mode after filter */}
+        {isFiltered && isRangeMode && datesList.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginLeft: '4px',
+            userSelect: 'none'
           }}>
-            <button 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.4rem 0.75rem',
-                backgroundColor: currentPage === 1 ? '#e2e8f0' : '#5B9AA9',
-                color: currentPage === 1 ? '#94a3b8' : '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '600'
-              }}
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft size={16} />
-              Prev
-            </button>
-            
-            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-              {Array.from({ length: datesList.length }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  style={{
-                    padding: '0.4rem 0.6rem',
-                    backgroundColor: currentPage === page ? '#5B9AA9' : '#ffffff',
-                    color: currentPage === page ? '#ffffff' : '#1e293b',
-                    border: currentPage === page ? 'none' : '1px solid #cbd5e1',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: currentPage === page ? '700' : '500',
-                    minWidth: '32px'
-                  }}
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-
-            <button 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.4rem 0.75rem',
-                backgroundColor: currentPage === datesList.length ? '#e2e8f0' : '#5B9AA9',
-                color: currentPage === datesList.length ? '#94a3b8' : '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: currentPage === datesList.length ? 'not-allowed' : 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '600'
-              }}
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === datesList.length}
-            >
-              Next
-              <ChevronRight size={16} />
-            </button>
+            <EntryNavButton
+              direction="prev"
+              onClick={handlePrevEntry}
+              disabled={currentEntryIndex === 0 || loading}
+              title="Previous entry"
+            />
+            <span style={{
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              color: '#475569',
+              whiteSpace: 'nowrap',
+              minWidth: '70px',
+              textAlign: 'center'
+            }}>
+              {currentEntryIndex + 1} of {datesList.length}
+            </span>
+            <EntryNavButton
+              direction="next"
+              onClick={handleNextEntry}
+              disabled={currentEntryIndex === datesList.length - 1 || loading}
+              title="Next entry"
+            />
           </div>
         )}
+
       </div>
       
-      {loading && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'white',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 10000
-        }}>
-          <Sakthi 
-            loopAnimation={true} 
-            showMessage={true} 
-            message="Loading data..." 
-            onComplete={() => {}}
-          />
-        </div>
-      )}
+
 
       {/* Table 1 Display - Always visible */}
       <div className="foundry-section">
@@ -905,8 +850,48 @@ const SandTestingRecordReport = () => {
       {/* Table 5 - Scrollable display with sub-columns */}
       <div className="foundry-table-wrapper" style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
         {table5Data.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '1rem' }}>
-            No test parameters recorded
+          <div className="reusable-table-container">
+            <table className="reusable-table table-template table-bordered" style={{ minWidth: '2600px' }}>
+              <thead>
+                <tr style={{ height: '50px' }}>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>S.No</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Time</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Mix No</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Permeability<br/>(90-160)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>G.C.S<br/>Gm/cm²</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>WTS N/cm²<br/>(Min 0.15)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Moisture<br/>(3.0-4.0%)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Compactability<br/>(33-40%)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Compressibility<br/>(20-28%)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Water<br/>L/Kg</th>
+                  <th colSpan={3} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', borderBottom: '1px solid #ddd' }}>Sand Temp °C (Max 45)</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>New Sand Kgs<br/>(0.0-5.0)</th>
+                  <th colSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', borderBottom: '1px solid #ddd' }}>Bentonite</th>
+                  <th colSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', borderBottom: '1px solid #ddd' }}>Premix / Coal Dust</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Compactability<br/>Setting</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Mould Strength<br/>Setting</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Prepared Sand<br/>Lumps/Kg</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Item Name</th>
+                  <th rowSpan={2} style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b', verticalAlign: 'middle' }}>Remarks</th>
+                </tr>
+                <tr style={{ height: '40px' }}>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>BC</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>WU</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>SSU</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>Kgs</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>%</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>Kgs</th>
+                  <th style={{ textAlign: 'center', padding: '8px', fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ height: '50px' }}>
+                  {Array.from({ length: 23 }).map((_, i) => (
+                    <td key={i} style={{ textAlign: 'center', padding: '10px', fontSize: '0.95rem', color: '#94a3b8' }}>-</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
           </div>
         ) : (() => {
           // Determine which GCS columns have data

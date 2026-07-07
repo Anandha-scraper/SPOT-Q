@@ -1,9 +1,7 @@
 /* ─── Page Container ─── */
 .sand-record-report-container {
-  width: 94%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 1.5rem 0;
+  width: 100%;
+  padding: 0;
 }
 
 .sand-record-report-header {
@@ -52,7 +50,8 @@
 .sand-record-filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 0.4rem;
+  min-width: 160px;
 }
 
 .sand-record-filter-group label {
@@ -60,7 +59,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: #334155;
-  margin-bottom: 0.25rem;
+  margin: 0;
 }
 
 .sand-record-filter-group input {
@@ -73,22 +72,11 @@
 
 .sand-record-filter-actions {
   display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
 /* ─── Media Queries ─── */
-
-@media (min-width: 1921px) {
-  .sand-record-report-container {
-    max-width: 1800px;
-  }
-}
-
-@media (max-width: 1440px) {
-  .sand-record-report-container {
-    width: 96%;
-  }
-}
 
 @media (max-width: 1024px) {
   .sand-record-filter-container {

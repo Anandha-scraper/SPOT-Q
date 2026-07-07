@@ -1,10 +1,8 @@
 
 /* ─── Page Container ─── */
 .foundry-sand-testing-report-container {
-  width: 94%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 1.5rem 0;
+  width: 100%;
+  padding: 0;
 }
 
 .foundry-sand-testing-report-header {
@@ -53,7 +51,16 @@
 .foundry-sand-testing-filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 0.4rem;
+  min-width: 160px;
+}
+
+.foundry-sand-testing-filter-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
 }
 
 .foundry-sand-testing-filter-group input,
@@ -61,28 +68,62 @@
   flex: 1 1 160px;
   min-width: 130px;
   max-width: 240px;
-  padding: 0.45rem 0.75rem;
+  padding: 0.6rem 1rem;
   font-size: clamp(0.78rem, 0.85vw, 0.95rem);
 }
 
 .foundry-sand-testing-filter-actions {
   display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
+/* Day-stepping chevrons — sit to the right of the filter actions */
+.foundry-report-day-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.foundry-report-day-nav button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  background-color: #5B9AA9;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.foundry-report-day-nav button:disabled {
+  background-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Section headers between stacked report tables — consistent rhythm */
+.foundry-section-header {
+  margin: 1.75rem 0 0.75rem 0;
+  font-size: clamp(1rem, 1.3vw, 1.4rem);
+  font-weight: 700;
+  color: #1e293b;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.foundry-section-header h3 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
 /* ─── Media Queries ─── */
-
-@media (min-width: 1921px) {
-  .foundry-sand-testing-report-container {
-    max-width: 1800px;
-  }
-}
-
-@media (max-width: 1440px) {
-  .foundry-sand-testing-report-container {
-    width: 96%;
-  }
-}
 
 @media (max-width: 1024px) {
   .foundry-sand-testing-filter-container {

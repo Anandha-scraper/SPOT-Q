@@ -15,7 +15,7 @@ if (!PORT) {
 // 1. Global Middlewa
 // Configure CORS to accept requests from development and production
 const allowedOrigins = [
-    'http://localhost:3000',   // Vite dev server
+    'http://localhost:3001',   // Vite dev server
     process.env.FRONTEND_URL  // Production URL
 ].filter(Boolean);
 
@@ -77,7 +77,7 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('SPOT-Q Database Connected');
   })
   .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('MongoDB Connection Error:', err.message);
     console.error('Full Error:', err);
   });
 

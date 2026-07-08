@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { PencilLine, Trash2, BookOpenCheck } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { FilterButton, ClearButton, EntryNavButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, EntryNavButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 
 import '../../styles/PageStyles/Sandlab/SandTestingRecordReport.css';
@@ -69,6 +71,8 @@ const SandTestingRecordReport = () => {
 
   const [table5Data, setTable5Data] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Function to fetch data for a single date (cached in memory for instant re-view)
   const fetchDataForDate = async (date) => {
@@ -419,6 +423,244 @@ const SandTestingRecordReport = () => {
     }
   };
 
+  // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const url = `${API_ENDPOINTS.sandTestingRecords}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}&limit=1000`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const result = await res.json();
+      const records = (result.success && Array.isArray(result.data)) ? result.data : [];
+      // Oldest → newest for a natural top-to-bottom read.
+      records.sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (records.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const D = (r) => formatDateDisplay(r.date);
+      const joinArr = (a) => (Array.isArray(a) && a.length ? a.join(' / ') : '');
+      const formatTime = (timeNum) => {
+        if (!timeNum) return '';
+        const hour = Math.floor(timeNum / 100);
+        const minute = timeNum % 100;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+        return `${String(displayHour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`;
+      };
+
+      // 1) Sand & Mix Testing — one row per date.
+      const sandMixRows = records.map((r) => {
+        const s = r.sandShifts || {};
+        return {
+          date: D(r),
+          rSandI: joinArr(s.shiftI?.rSand), rSandII: joinArr(s.shiftII?.rSand), rSandIII: joinArr(s.shiftIII?.rSand),
+          nSandI: joinArr(s.shiftI?.nSand), nSandII: joinArr(s.shiftII?.nSand), nSandIII: joinArr(s.shiftIII?.nSand),
+          mixI: joinArr(s.shiftI?.mixingMode), mixII: joinArr(s.shiftII?.mixingMode), mixIII: joinArr(s.shiftIII?.mixingMode),
+          benI: joinArr(s.shiftI?.bentonite), benII: joinArr(s.shiftII?.bentonite), benIII: joinArr(s.shiftIII?.bentonite),
+          cdpI: joinArr(s.shiftI?.coalDustPremix), cdpII: joinArr(s.shiftII?.coalDustPremix), cdpIII: joinArr(s.shiftIII?.coalDustPremix),
+          batchBentonite: s.batchNo?.bentonite || '',
+          batchCoalPremix: s.batchNo?.coalDust || s.batchNo?.premix || '',
+        };
+      });
+      const sandMixColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'I', key: 'rSandI', width: 12, group: 'R. Sand (Kgs./Mix)' },
+        { header: 'II', key: 'rSandII', width: 12, group: 'R. Sand (Kgs./Mix)' },
+        { header: 'III', key: 'rSandIII', width: 12, group: 'R. Sand (Kgs./Mix)' },
+        { header: 'I', key: 'nSandI', width: 12, group: 'N. Sand (Kgs./Mould)' },
+        { header: 'II', key: 'nSandII', width: 12, group: 'N. Sand (Kgs./Mould)' },
+        { header: 'III', key: 'nSandIII', width: 12, group: 'N. Sand (Kgs./Mould)' },
+        { header: 'I', key: 'mixI', width: 12, group: 'Mixing Mode' },
+        { header: 'II', key: 'mixII', width: 12, group: 'Mixing Mode' },
+        { header: 'III', key: 'mixIII', width: 12, group: 'Mixing Mode' },
+        { header: 'I', key: 'benI', width: 12, group: 'Bentonite (Kgs./Mix)' },
+        { header: 'II', key: 'benII', width: 12, group: 'Bentonite (Kgs./Mix)' },
+        { header: 'III', key: 'benIII', width: 12, group: 'Bentonite (Kgs./Mix)' },
+        { header: 'I', key: 'cdpI', width: 12, group: 'Coal Dust / Premix (Kgs./Mix)' },
+        { header: 'II', key: 'cdpII', width: 12, group: 'Coal Dust / Premix (Kgs./Mix)' },
+        { header: 'III', key: 'cdpIII', width: 12, group: 'Coal Dust / Premix (Kgs./Mix)' },
+        { header: 'Bentonite', key: 'batchBentonite', width: 14, group: 'Batch No.' },
+        { header: 'Coal Dust / Premix', key: 'batchCoalPremix', width: 16, group: 'Batch No.' },
+      ];
+
+      // 2) Clay Testing — one row per date. (Note the record's mixed-case shift keys.)
+      const clayRows = records.map((r) => {
+        const c = r.clayShifts || {};
+        const pick = (param) => ({
+          I: c.shiftI?.[param] || '', II: c.ShiftII?.[param] || '', III: c.ShiftIII?.[param] || '',
+        });
+        const tc = pick('totalClay'), ac = pick('activeClay'), dc = pick('deadClay');
+        const vcm = pick('vcm'), loi = pick('loi'), afs = pick('afsNo'), fines = pick('fines');
+        return {
+          date: D(r),
+          tcI: tc.I, tcII: tc.II, tcIII: tc.III,
+          acI: ac.I, acII: ac.II, acIII: ac.III,
+          dcI: dc.I, dcII: dc.II, dcIII: dc.III,
+          vcmI: vcm.I, vcmII: vcm.II, vcmIII: vcm.III,
+          loiI: loi.I, loiII: loi.II, loiIII: loi.III,
+          afsI: afs.I, afsII: afs.II, afsIII: afs.III,
+          finesI: fines.I, finesII: fines.II, finesIII: fines.III,
+        };
+      });
+      const clayGroup = (label, prefix) => [
+        { header: 'I', key: `${prefix}I`, width: 11, group: label },
+        { header: 'II', key: `${prefix}II`, width: 11, group: label },
+        { header: 'III', key: `${prefix}III`, width: 11, group: label },
+      ];
+      const clayColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        ...clayGroup('Total Clay (11.0-14.5%)', 'tc'),
+        ...clayGroup('Active Clay (8.5-11.0%)', 'ac'),
+        ...clayGroup('Dead Clay (2.0-4.0%)', 'dc'),
+        ...clayGroup('V.C.M. (2.0-3.2%)', 'vcm'),
+        ...clayGroup('L.O.I. (4.5-6.0%)', 'loi'),
+        ...clayGroup('AFS No. (Min. 48)', 'afs'),
+        ...clayGroup('Fines (10% Max)', 'fines'),
+      ];
+
+      // 3) Mix Testing & Hopper Level — three rows per date (one per shift).
+      const mixHopperRows = records.flatMap((r) => {
+        const m = r.mixshifts || {};
+        return [
+          { label: 'I', k: 'ShiftI' },
+          { label: 'II', k: 'ShiftII' },
+          { label: 'III', k: 'ShiftIII' },
+        ].map(({ label, k }) => ({
+          date: D(r),
+          shift: label,
+          mixStart: joinArr(m[k]?.mixno?.start),
+          mixEnd: joinArr(m[k]?.mixno?.end),
+          mixTotal: joinArr(m[k]?.mixno?.total),
+          rejected: joinArr(m[k]?.numberOfMixRejected),
+          hopper: joinArr(m[k]?.returnSandHopperLevel),
+        }));
+      });
+      const mixHopperColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 8 },
+        { header: 'Start', key: 'mixStart', width: 14, group: 'Mix No.' },
+        { header: 'End', key: 'mixEnd', width: 14, group: 'Mix No.' },
+        { header: 'Total', key: 'mixTotal', width: 14, group: 'Mix No.' },
+        { header: 'No. Of Rejected', key: 'rejected', width: 16 },
+        { header: 'Return Sand Hopper Level', key: 'hopper', width: 20 },
+      ];
+
+      // 4) Sand Weight & Friability — one row per date.
+      const sandWtRows = records.map((r) => ({
+        date: D(r),
+        sandLump: r.sandLump || '',
+        newSandWt: r.newSandWt || '',
+        friI: r.sandFriability?.shiftI || '',
+        friII: r.sandFriability?.shiftII || '',
+        friIII: r.sandFriability?.shiftIII || '',
+      }));
+      const sandWtColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Sand Lumps', key: 'sandLump', width: 14 },
+        { header: 'New Sand Wt', key: 'newSandWt', width: 14 },
+        { header: 'I', key: 'friI', width: 12, group: 'Prepared Sand Friability (8.0%-13.0%)' },
+        { header: 'II', key: 'friII', width: 12, group: 'Prepared Sand Friability (8.0%-13.0%)' },
+        { header: 'III', key: 'friIII', width: 12, group: 'Prepared Sand Friability (8.0%-13.0%)' },
+      ];
+
+      // 5) Sand Properties & Test Parameters — one row per testParameter entry.
+      const propRows = records.flatMap((r) =>
+        (Array.isArray(r.testParameter) ? r.testParameter : []).map((item, index) => ({
+          date: D(r),
+          sno: item.sno || index + 1,
+          time: formatTime(item.time),
+          mixNo: item.mixno || '',
+          permeability: item.permeability || '',
+          gcsFdyA: item.gcsFdyA || '',
+          gcsFdyB: item.gcsFdyB || '',
+          wts: item.wts || '',
+          moisture: item.moisture || '',
+          compactability: item.compactability || '',
+          compressibility: item.compressibility || '',
+          waterLitre: item.waterLitre || '',
+          sandTempBC: item.sandTemp?.BC || '',
+          sandTempWU: item.sandTemp?.WU || '',
+          sandTempSSU: item.sandTemp?.SSUmax || '',
+          newSandKgs: item.newSandKgs || '',
+          bentoniteWithPremixKgs: item.bentoniteWithPremix?.Kgs || '',
+          bentoniteWithPremixPercent: item.bentoniteWithPremix?.Percent || '',
+          bentoniteKgs: item.bentonite?.Kgs || '',
+          bentonitePercent: item.bentonite?.Percent || '',
+          premixKgs: item.premix?.Kgs || '',
+          premixPercent: item.premix?.Percent || '',
+          coalDustKgs: item.coalDust?.Kgs || '',
+          coalDustPercent: item.coalDust?.Percent || '',
+          lc: item.lc || '',
+          compactabilitySettings: item.CompactabilitySettings || '',
+          mouldStrength: item.mouldStrength || '',
+          shearStrengthSetting: item.shearStrengthSetting || '',
+          preparedSandlumps: item.preparedSandlumps || '',
+          itemName: item.itemName || '',
+          remarks: item.remarks || '',
+        }))
+      );
+      const propColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'S.No', key: 'sno', width: 7 },
+        { header: 'Time', key: 'time', width: 12 },
+        { header: 'Mix No', key: 'mixNo', width: 10 },
+        { header: 'Permeability (90-160)', key: 'permeability', width: 14 },
+        { header: 'GCS Fdy A Gm/cm² (Min 1800)', key: 'gcsFdyA', width: 14 },
+        { header: 'GCS Fdy B Gm/cm² (Min 1900)', key: 'gcsFdyB', width: 14 },
+        { header: 'WTS N/cm² (Min 0.15)', key: 'wts', width: 14 },
+        { header: 'Moisture (3.0-4.0%)', key: 'moisture', width: 13 },
+        { header: 'Compactability (33-40%)', key: 'compactability', width: 14 },
+        { header: 'Compressibility (20-28%)', key: 'compressibility', width: 14 },
+        { header: 'Water L/Kg', key: 'waterLitre', width: 11 },
+        { header: 'BC', key: 'sandTempBC', width: 8, group: 'Sand Temp °C (Max 45)' },
+        { header: 'WU', key: 'sandTempWU', width: 8, group: 'Sand Temp °C (Max 45)' },
+        { header: 'SSU', key: 'sandTempSSU', width: 8, group: 'Sand Temp °C (Max 45)' },
+        { header: 'New Sand Kgs (0.0-5.0)', key: 'newSandKgs', width: 13 },
+        { header: 'Kgs', key: 'bentoniteWithPremixKgs', width: 9, group: 'Bentonite with Premix' },
+        { header: '%', key: 'bentoniteWithPremixPercent', width: 9, group: 'Bentonite with Premix' },
+        { header: 'Kgs', key: 'bentoniteKgs', width: 9, group: 'Bentonite' },
+        { header: '%', key: 'bentonitePercent', width: 9, group: 'Bentonite' },
+        { header: 'Kgs', key: 'premixKgs', width: 9, group: 'Premix' },
+        { header: '%', key: 'premixPercent', width: 9, group: 'Premix' },
+        { header: 'Kgs', key: 'coalDustKgs', width: 9, group: 'Coal Dust' },
+        { header: '%', key: 'coalDustPercent', width: 9, group: 'Coal Dust' },
+        { header: 'LC', key: 'lc', width: 8 },
+        { header: 'Compactability Settings (SMC42)', key: 'compactabilitySettings', width: 14 },
+        { header: 'Mould Strength (SMC23)', key: 'mouldStrength', width: 14 },
+        { header: 'Shear Strength Setting (At15)', key: 'shearStrengthSetting', width: 14 },
+        { header: 'Prepared Sand Lumps/Kg', key: 'preparedSandlumps', width: 14 },
+        { header: 'Item Name', key: 'itemName', width: 16 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      await exportWorkbookToExcel({
+        title: 'Sand Testing Record - Report',
+        fromDate: from,
+        toDate: to,
+        fileName: 'Sand_Testing_Record_Report',
+        sheets: [
+          { sheetName: 'Sand & Mix Testing', columns: sandMixColumns, rows: sandMixRows },
+          { sheetName: 'Clay Testing', columns: clayColumns, rows: clayRows },
+          { sheetName: 'Mix Testing & Hopper', columns: mixHopperColumns, rows: mixHopperRows },
+          { sheetName: 'Sand Weight & Friability', columns: sandWtColumns, rows: sandWtRows },
+          { sheetName: 'Sand Properties & Test', columns: propColumns, rows: propRows },
+        ],
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="sand-record-report-container">
       {/* Header */}
@@ -467,6 +709,7 @@ const SandTestingRecordReport = () => {
             Clear
           </ClearButton>
         )}
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
 
         {/* Range navigation: shown only in date-range mode after filter */}
         {isFiltered && isRangeMode && datesList.length > 0 && (
@@ -1089,6 +1332,13 @@ const SandTestingRecordReport = () => {
       </div>
       </div>
 
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Sand Testing Record Report"
+      />
 
     </div>
   );

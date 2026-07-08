@@ -65,22 +65,16 @@ export const getExportRange = (rawFrom, rawTo) => {
   return { from, to };
 };
 
-export const exportToExcel = async ({
-  title = 'Report',
-  fromDate = '',
-  toDate = '',
-  columns = [],
-  rows = [],
-  fileName = 'report',
-  sheetName = 'Report',
-}) => {
-  if (!columns.length) throw new Error('exportToExcel: no columns provided');
+// Sanitise a worksheet name to Excel's constraints: max 31 chars and none of
+// the reserved characters : \ / ? * [ ].
+const safeSheetName = (name) =>
+  String(name || 'Sheet').replace(/[:\\/?*[\]]+/g, ' ').trim().slice(0, 31) || 'Sheet';
 
-  // Lazy-load exceljs so it stays out of the initial bundle (loaded on first download)
-  const ExcelJS = (await import('exceljs')).default;
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'SPOT-Q';
-  workbook.created = new Date();
+// Build a single worksheet (title row, date-range row, header, data rows) into
+// `workbook`. Extracted so both the single-sheet `exportToExcel` and the
+// multi-sheet `exportWorkbookToExcel` share identical rendering.
+const buildSheet = (workbook, { sheetName = 'Report', title = 'Report', fromDate = '', toDate = '', columns = [], rows = [] }) => {
+  if (!columns.length) throw new Error('buildSheet: no columns provided');
 
   // Continuous layout (no spacer): row 1 = title, row 2 = date range, then the
   // header starts immediately at row 3. When any column declares a `group`, the
@@ -92,7 +86,7 @@ export const exportToExcel = async ({
   const headerStartRow = 3;
   const firstDataRowNum = headerStartRow + headerRows; // 4 (flat) or 5 (grouped)
 
-  const worksheet = workbook.addWorksheet(sheetName, {
+  const worksheet = workbook.addWorksheet(safeSheetName(sheetName), {
     views: [{ state: 'frozen', ySplit: firstDataRowNum - 1 }],
   });
 
@@ -191,7 +185,12 @@ export const exportToExcel = async ({
     worksheet.getColumn(i + 1).width = col.width || 18;
   });
 
-  // Build the FULL buffer first — only download after this succeeds.
+  return worksheet;
+};
+
+// Write the workbook's buffer, then trigger a browser download. Kept separate so
+// the file is only handed to the browser after the full buffer builds cleanly.
+const downloadWorkbook = async (workbook, { fileName, fromDate, toDate }) => {
   const buffer = await workbook.xlsx.writeBuffer();
 
   const blob = new Blob([buffer], {
@@ -207,6 +206,75 @@ export const exportToExcel = async ({
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+};
+
+export const exportToExcel = async ({
+  title = 'Report',
+  fromDate = '',
+  toDate = '',
+  columns = [],
+  rows = [],
+  fileName = 'report',
+  sheetName = 'Report',
+}) => {
+  if (!columns.length) throw new Error('exportToExcel: no columns provided');
+
+  // Lazy-load exceljs so it stays out of the initial bundle (loaded on first download)
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'SPOT-Q';
+  workbook.created = new Date();
+
+  buildSheet(workbook, { sheetName, title, fromDate, toDate, columns, rows });
+
+  await downloadWorkbook(workbook, { fileName, fromDate, toDate });
+};
+
+// Multi-sheet variant: one worksheet (tab) per entry in `sheets`, all sharing the
+// same title + date-range header rows. Sheets with no rows are skipped so blank
+// tabs aren't produced; sheet names are sanitised and de-duplicated.
+export const exportWorkbookToExcel = async ({
+  title = 'Report',
+  fromDate = '',
+  toDate = '',
+  fileName = 'report',
+  sheets = [],
+}) => {
+  const populated = sheets.filter((s) => s && s.columns && s.columns.length && s.rows && s.rows.length);
+  if (!populated.length) throw new Error('exportWorkbookToExcel: no sheets with data provided');
+
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'SPOT-Q';
+  workbook.created = new Date();
+
+  // De-duplicate sanitised sheet names (Excel rejects duplicates).
+  const usedNames = new Set();
+  const uniqueName = (name) => {
+    let base = safeSheetName(name);
+    let candidate = base;
+    let n = 2;
+    while (usedNames.has(candidate.toLowerCase())) {
+      const suffix = ` (${n})`;
+      candidate = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+      n += 1;
+    }
+    usedNames.add(candidate.toLowerCase());
+    return candidate;
+  };
+
+  populated.forEach((sheet) => {
+    buildSheet(workbook, {
+      sheetName: uniqueName(sheet.sheetName),
+      title: sheet.title || title,
+      fromDate,
+      toDate,
+      columns: sheet.columns,
+      rows: sheet.rows,
+    });
+  });
+
+  await downloadWorkbook(workbook, { fileName, fromDate, toDate });
 };
 
 export default exportToExcel;

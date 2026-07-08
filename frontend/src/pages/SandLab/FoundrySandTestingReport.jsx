@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { FilterButton, ClearButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
@@ -21,6 +23,8 @@ const FoundrySandTestingReport = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState(getCurrentDate());
   const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
   const cacheRef = useRef({});
@@ -325,6 +329,129 @@ const FoundrySandTestingReport = () => {
     _id: e._id
   }));
 
+  // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      const records = (data.success && Array.isArray(data.data)) ? data.data : [];
+      records.sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (records.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const D = (r) => formatDate(r.date);
+
+      // 1) Overview — one row per record.
+      const overviewRows = records.map((r) => ({
+        date: D(r),
+        shift: r.shift || '',
+        sandPlant: r.sandPlant || '',
+        compactability: r.compactibilitySetting || '',
+        shearStrength: r.shearStrengthSetting || '',
+        remarks: r.remarks || '',
+      }));
+      const overviewColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Sand Plant', key: 'sandPlant', width: 16 },
+        { header: 'Compactability Setting', key: 'compactability', width: 18 },
+        { header: 'Shear/Mould Strength Setting', key: 'shearStrength', width: 20 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      // 2) Clay Parameters — one row per parameter per record (computed solution %).
+      const clayRows = records.flatMap((r) =>
+        clayParamKeys.map((param, i) => ({
+          date: D(r),
+          parameter: clayParamLabels[i],
+          test1: r.clayTests?.test1?.[param] ? `${computeSolution(param, r.clayTests.test1[param]) || r.clayTests.test1[param].solution || '0'}%` : '',
+          test2: r.clayTests?.test2?.[param] ? `${computeSolution(param, r.clayTests.test2[param]) || r.clayTests.test2[param].solution || '0'}%` : '',
+        }))
+      );
+      const paramTestColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Parameter', key: 'parameter', width: 18 },
+        { header: 'TEST-1', key: 'test1', width: 14 },
+        { header: 'TEST-2', key: 'test2', width: 14 },
+      ];
+
+      // 3) Sieve Testing — one row per sieve size (+Total) per record.
+      const sieveRows = records.flatMap((r) =>
+        [...sieveData, { size: 'Total', mf: 'Total', isTotal: true }].map((row) => {
+          const sizeKey = row.isTotal ? 'total' : row.size;
+          const mfKey = row.isTotal ? 'total' : row.mf;
+          return {
+            date: D(r),
+            sieveSize: row.isTotal ? 'Total' : row.size,
+            mf: row.isTotal ? 'Total' : row.mf,
+            wtTest1: r.sieveTesting?.test1?.sieveSize?.[sizeKey] || '',
+            wtTest2: r.sieveTesting?.test2?.sieveSize?.[sizeKey] || '',
+            prodTest1: r.sieveTesting?.test1?.mf?.[mfKey] || '',
+            prodTest2: r.sieveTesting?.test2?.mf?.[mfKey] || '',
+          };
+        })
+      );
+      const sieveColumnsX = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Sieve Size (Mic)', key: 'sieveSize', width: 14 },
+        { header: 'MF', key: 'mf', width: 8 },
+        { header: '% Wt Retained - TEST-1', key: 'wtTest1', width: 16 },
+        { header: '% Wt Retained - TEST-2', key: 'wtTest2', width: 16 },
+        { header: 'Product - TEST-1', key: 'prodTest1', width: 14 },
+        { header: 'Product - TEST-2', key: 'prodTest2', width: 14 },
+      ];
+
+      // 4) Test Parameters — one row per parameter per record.
+      const testParamRows = records.flatMap((r) =>
+        testParamConfig.map((cfg) => ({
+          date: D(r),
+          parameter: cfg.label,
+          test1: r.parameters?.test1?.[cfg.key] || '',
+          test2: r.parameters?.test2?.[cfg.key] || '',
+        }))
+      );
+
+      // 5) Additional Data — one row per parameter per record.
+      const additionalRows = records.flatMap((r) =>
+        additionalParamKeys.map((param, i) => ({
+          date: D(r),
+          parameter: additionalParamLabels[i],
+          test1: r.additionalData?.test1?.[param] || '',
+          test2: r.additionalData?.test2?.[param] || '',
+        }))
+      );
+
+      await exportWorkbookToExcel({
+        title: 'Foundry Sand Testing Note - Report',
+        fromDate: from,
+        toDate: to,
+        fileName: 'Foundry_Sand_Testing_Note_Report',
+        sheets: [
+          { sheetName: 'Overview', columns: overviewColumns, rows: overviewRows },
+          { sheetName: 'Clay Parameters', columns: paramTestColumns, rows: clayRows },
+          { sheetName: 'Sieve Testing', columns: sieveColumnsX, rows: sieveRows },
+          { sheetName: 'Test Parameters', columns: paramTestColumns, rows: testParamRows },
+          { sheetName: 'Additional Data', columns: paramTestColumns, rows: additionalRows },
+        ],
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="foundry-sand-testing-report-container">
       {/* Header */}
@@ -365,6 +492,7 @@ const FoundrySandTestingReport = () => {
         <div className="foundry-sand-testing-filter-actions">
           <FilterButton onClick={handleFilter} disabled={loading} />
           {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
+          <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
         </div>
 
       </div>
@@ -442,6 +570,14 @@ const FoundrySandTestingReport = () => {
           No entries found for the selected date range
         </div>
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download Foundry Sand Testing Note Report"
+      />
     </div>
   );
 };

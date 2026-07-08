@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, MachineDropdown, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, MachineDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadModal, toast } from '../../Components/Alert';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
@@ -41,6 +43,8 @@ const DmmSettingParametersReport = () => {
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Filter enabled when toDate is set AND (fromDate is empty OR toDate >= fromDate)
   const isFilterEnabled = toDate && toDate.trim() !== '' && (!fromDate || toDate >= fromDate);
@@ -130,6 +134,114 @@ const DmmSettingParametersReport = () => {
     // Re-filter to today only (same as initial mount)
     applyFilters('', today, '', '');
     setCurrentPage(1);
+  };
+
+  // Display a 'YYYY-MM-DD'/date value as 'dd / mm / yyyy' for the export Date column.
+  const formatDisplayDate = (d) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return String(d);
+    return `${String(dt.getDate()).padStart(2, '0')} / ${String(dt.getMonth() + 1).padStart(2, '0')} / ${dt.getFullYear()}`;
+  };
+
+  // Flatten a set of reports (all shifts) into unified parameter rows — same
+  // shape as `flattenedRows` below, but reusable for export over a date range.
+  const flattenReports = (reports) => reports.flatMap(report => {
+    const rows = [];
+    if (report.parameters) {
+      ['shift1', 'shift2', 'shift3'].forEach(shiftKey => {
+        const arr = report.parameters[shiftKey];
+        if (Array.isArray(arr) && arr.length > 0) {
+          arr.forEach((param, rowIndex) => {
+            rows.push({
+              _id: report._id,
+              date: report.date,
+              machine: report.machine,
+              shift: shiftKey.replace('shift', 'Shift '),
+              shiftKey,
+              rowIndex,
+              operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
+              checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
+              ...param
+            });
+          });
+        }
+      });
+    }
+    return rows;
+  });
+
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      let reports = allEntries.filter(r => {
+        if (!r.date) return false;
+        const rd = formatDateLocal(r.date);
+        return rd >= from && rd <= to;
+      });
+      if (selectedMachine && selectedMachine.trim() !== '') {
+        reports = reports.filter(r => String(r.machine) === String(selectedMachine));
+      }
+      reports.sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return String(a.machine).localeCompare(String(b.machine));
+      });
+
+      const rows = flattenReports(reports);
+      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 13, value: (r) => formatDisplayDate(r.date) },
+        { header: 'Machine', key: 'machine', width: 10 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Operator Name', key: 'operatorName', width: 16 },
+        { header: 'Operated By', key: 'checkedBy', width: 16 },
+        { header: 'Customer', key: 'customer', width: 16 },
+        { header: 'Item Description', key: 'itemDescription', width: 20 },
+        { header: 'Time', key: 'time', width: 10 },
+        { header: 'PP Thickness (mm)', key: 'ppThickness', width: 14 },
+        { header: 'PP Height (mm)', key: 'ppHeight', width: 14 },
+        { header: 'SP Thickness (mm)', key: 'spThickness', width: 14 },
+        { header: 'SP Height (mm)', key: 'spHeight', width: 14 },
+        { header: 'Core Mask Thickness (mm)', key: 'coreMaskThickness', width: 16 },
+        { header: 'Core Mask Height Outside (mm)', key: 'coreMaskHeightOutside', width: 18 },
+        { header: 'Core Mask Height Inside (mm)', key: 'coreMaskHeightInside', width: 18 },
+        { header: 'Sand Shot Pressure (Bar)', key: 'sandShotPressureBar', width: 16 },
+        { header: 'Correction Shot Time (s)', key: 'correctionShotTime', width: 16 },
+        { header: 'Squeeze Pressure (Kg/cm²)', key: 'squeezePressure', width: 16 },
+        { header: 'PP Stripping Accel.', key: 'ppStrippingAcceleration', width: 14 },
+        { header: 'PP Stripping Dist.', key: 'ppStrippingDistance', width: 14 },
+        { header: 'SP Stripping Accel.', key: 'spStrippingAcceleration', width: 14 },
+        { header: 'SP Stripping Dist.', key: 'spStrippingDistance', width: 14 },
+        { header: 'Mould Thickness ±10mm', key: 'mouldThicknessPlus10', width: 16 },
+        { header: 'Close-Up Force/Pressure', key: 'closeUpForceMouldCloseUpPressure', width: 18 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      await exportToExcel({
+        title: 'DMM Setting Parameters Check Sheet - Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'DMM_Setting_Parameters_Report',
+        sheetName: 'DMM',
+      });
+      setShowExcelModal(false);
+    } catch (err) {
+      toast.error('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Flatten each shift's parameter arrays into unified list of rows.
@@ -246,6 +358,7 @@ const DmmSettingParametersReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
       </div>
 
       {loading ? <div className="impact-loader-container"><div>Loading...</div></div> : (
@@ -763,6 +876,14 @@ const DmmSettingParametersReport = () => {
           </div>
         </div>
       )}
+
+      <ExcelDownloadModal
+        open={showExcelModal}
+        loading={isDownloading}
+        onClose={() => setShowExcelModal(false)}
+        onDownload={handleExcelDownload}
+        title="Download DMM Setting Parameters Report"
+      />
     </div>
   );
 };

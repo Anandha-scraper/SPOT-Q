@@ -243,7 +243,7 @@ const ProcessReport = () => {
           : '-';
 
       const exportColumns = [
-        { header: 'Date', key: 'date', width: 10, value: (r) => formatDisplayDate(r.date) },
+        { header: 'Date', key: 'date', width: 11, value: (r) => formatDisplayDate(r.date) },
         { header: 'DISA', key: 'disa', width: 10 },
         { header: 'Part Name', key: 'partName', width: 24 },
         { header: 'Date Code', key: 'datecode', width: 12 },

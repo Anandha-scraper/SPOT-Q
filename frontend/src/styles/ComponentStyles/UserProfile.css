@@ -943,6 +943,377 @@
   color: #94a3b8;
 }
 
+/* ==================== TABS ==================== */
+.profile-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.1rem;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #4a5568;
+}
+
+.profile-tab:hover {
+  border-color: #5B9AA9;
+  background: #f7fafc;
+}
+
+.profile-tab.active {
+  background: #5B9AA9;
+  color: white;
+  border-color: #5B9AA9;
+  box-shadow: 0 4px 12px rgba(91, 154, 169, 0.3);
+}
+
+/* ==================== PROFILE: ROLE BADGE ==================== */
+.user-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+  background: rgba(91, 154, 169, 0.12);
+  color: #4a8896;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+}
+
+.detail-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* ==================== SESSION: COUNTDOWN CARD ==================== */
+.session-countdown-card {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.session-countdown-card.countdown-warn {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fecaca;
+}
+
+.session-countdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: #0c4a6e;
+}
+
+.session-countdown-card.countdown-warn .session-countdown-head {
+  color: #991b1b;
+}
+
+.session-countdown-head h4 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.countdown-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #0369a1;
+  margin: 0.35rem 0 0.25rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-countdown-card.countdown-warn .countdown-value {
+  color: #dc2626;
+}
+
+.countdown-note {
+  font-size: 0.68rem;
+  color: #475569;
+  margin: 0;
+}
+
+/* ==================== SESSION: FACTS ==================== */
+.session-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.session-fact {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.session-fact:hover {
+  border-color: #5B9AA9;
+  box-shadow: 0 2px 8px rgba(91, 154, 169, 0.12);
+}
+
+.session-fact-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  color: #5B9AA9;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(91, 154, 169, 0.12);
+}
+
+.session-fact-icon-green {
+  color: #22c55e;
+}
+
+.session-fact-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.session-fact-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  margin: 0 0 0.15rem 0;
+}
+
+.session-fact-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== DOWNLOAD LOGS ==================== */
+.download-logs-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(91, 154, 169, 0.12);
+  padding: 1.25rem;
+}
+
+.download-logs-header {
+  margin-bottom: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.download-logs-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.download-logs-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+  font-weight: 500;
+}
+
+.download-log-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.download-log-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.4rem;
+  min-width: 520px;
+}
+
+.download-log-table.is-admin {
+  min-width: 720px;
+}
+
+.download-log-table thead th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  background: linear-gradient(135deg, #f0f4f8 0%, #f8fafc 100%);
+  color: #5B9AA9;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.download-log-table thead th:first-child { border-radius: 6px 0 0 6px; }
+.download-log-table thead th:last-child { border-radius: 0 6px 6px 0; }
+
+.download-log-table tbody td {
+  padding: 0.6rem 0.85rem;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.download-log-table tbody td:first-child {
+  border-left: 1px solid #e2e8f0;
+  border-radius: 6px 0 0 6px;
+}
+
+.download-log-table tbody td:last-child {
+  border-right: 1px solid #e2e8f0;
+  border-radius: 0 6px 6px 0;
+}
+
+.download-log-table tbody tr:hover td {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.download-log-state {
+  text-align: center !important;
+  color: #64748b;
+  font-weight: 500;
+  padding: 2.5rem 1rem !important;
+  background: #f8fafc !important;
+  border: 1px dashed #cbd5e1 !important;
+  border-radius: 8px !important;
+  white-space: normal !important;
+}
+
+/* ==================== ACTIVITY CHART ==================== */
+.activity-chart-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(91, 154, 169, 0.12);
+  padding: 1.25rem;
+}
+
+.activity-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.activity-chart-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.activity-chart-subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+  font-weight: 500;
+}
+
+.chart-refresh-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #5B9AA9;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.chart-refresh-btn:hover {
+  border-color: #5B9AA9;
+  background: #f7fafc;
+  transform: rotate(45deg);
+}
+
+.activity-chart-card {
+  position: relative;
+  height: 320px;
+  width: 100%;
+}
+
+.activity-chart-card.is-admin {
+  height: 420px;
+}
+
+.mock-tag {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 50px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+
+.activity-chart-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .activity-chart-card { height: 260px; }
+  .profile-tab { flex: 1; justify-content: center; }
+}
+
 /* States */
 .user-profile-container .profile-content .profile-card .loading-state,
 .user-profile-container .profile-content .profile-card .error-state,

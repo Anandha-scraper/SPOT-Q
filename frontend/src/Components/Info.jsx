@@ -124,7 +124,7 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                     <span className="info-field-label">{item.field}</span>
                     {item.required && <span className="info-required-asterisk">*</span>}
                   </div>
-                  
+
                   <div className="info-validation-details">
                     {item.type && (
                       <div className="info-detail-row">
@@ -132,14 +132,14 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         <span className="info-detail-value">{item.type}</span>
                       </div>
                     )}
-                    
+
                     {item.unit && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Unit:</span>
                         <span className="info-detail-value">{item.unit}</span>
                       </div>
                     )}
-                    
+
                     {item.min !== undefined && item.max !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Range:</span>
@@ -148,7 +148,7 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         </span>
                       </div>
                     )}
-                    
+
                     {item.min !== undefined && item.max === undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Min:</span>
@@ -157,7 +157,7 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         </span>
                       </div>
                     )}
-                    
+
                     {item.max !== undefined && item.min === undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Max:</span>
@@ -166,28 +166,28 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         </span>
                       </div>
                     )}
-                    
+
                     {item.minLength !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Min Length:</span>
                         <span className="info-detail-value">{item.minLength}</span>
                       </div>
                     )}
-                    
+
                     {item.maxLength !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Max Length:</span>
                         <span className="info-detail-value">{item.maxLength}</span>
                       </div>
                     )}
-                    
+
                     {item.pattern && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Pattern:</span>
                         <span className="info-detail-value">{item.pattern}</span>
                       </div>
                     )}
-                    
+
                     {item.allowedValues && item.allowedValues.length > 0 && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Allowed Values:</span>
@@ -196,7 +196,7 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         </span>
                       </div>
                     )}
-                    
+
                     {item.description && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Note:</span>
@@ -224,7 +224,6 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
   );
 };
 
-// Hook for managing info modal state
 export const useInfoModal = () => {
   const [isOpen, setIsOpen] = useState(false);
 

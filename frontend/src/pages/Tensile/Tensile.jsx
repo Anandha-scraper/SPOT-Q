@@ -3,8 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Sakthi from '../../Components/Sakthi';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
@@ -13,6 +13,7 @@ import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   const validationRanges = [
     {
@@ -134,7 +135,6 @@ const Tensile = () => {
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const isDateSelected = formData.dateOfInspection && formData.dateOfInspection.trim() !== '';
 
@@ -373,6 +373,7 @@ const Tensile = () => {
 
     if (hasErrors) {
       setSubmitErrorMessage('Fill required Field in Correct format');
+      toast.error('Fill required Field in Correct format');
 
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
@@ -454,7 +455,7 @@ const Tensile = () => {
       }
 
       if (data.success) {
-        setShowSuccessPopup(true);
+        toast.success('Entry saved successfully.');
 
         setFormData({
           dateOfInspection: getCurrentDate(),
@@ -482,7 +483,9 @@ const Tensile = () => {
       }
     } catch (error) {
 
-      setSubmitErrorMessage(error.message || 'Failed to save data. Please check your input and try again.');
+      const message = error.message || 'Failed to save data. Please check your input and try again.';
+      setSubmitErrorMessage(message);
+      toast.error(message);
 
       if (inputRefs.current.dateOfInspection) {
         inputRefs.current.dateOfInspection.focus();
@@ -766,11 +769,6 @@ const Tensile = () => {
       </div>
 
       { }
-      {showSuccessPopup && (
-        <div className="sakthi-overlay">
-          <Sakthi onComplete={() => setShowSuccessPopup(false)} />
-        </div>
-      )}
 
       <InfoCard
         isOpen={isOpen}

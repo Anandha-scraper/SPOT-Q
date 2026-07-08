@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, MachineDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -43,7 +42,6 @@ const DmmSettingParametersReport = () => {
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Filter enabled when toDate is set AND (fromDate is empty OR toDate >= fromDate)
@@ -173,10 +171,8 @@ const DmmSettingParametersReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -197,7 +193,6 @@ const DmmSettingParametersReport = () => {
       });
 
       const rows = flattenReports(reports);
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 13, value: (r) => formatDisplayDate(r.date) },
@@ -236,9 +231,8 @@ const DmmSettingParametersReport = () => {
         fileName: 'DMM_Setting_Parameters_Report',
         sheetName: 'DMM',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -358,7 +352,7 @@ const DmmSettingParametersReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {loading ? <div className="impact-loader-container"><div>Loading...</div></div> : (
@@ -877,13 +871,6 @@ const DmmSettingParametersReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download DMM Setting Parameters Report"
-      />
     </div>
   );
 };

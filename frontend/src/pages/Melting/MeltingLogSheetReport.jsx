@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { meltingEditConfig } from '../../utils/editFieldConfigs';
@@ -72,7 +71,6 @@ const MeltingLogSheetReport = () => {
   const [show, setShow] = useState({ primary: true, table1: true, table2: true, table3: true, table4: true, table5: true });
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Reason' });
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const itemsPerPage = 15;
@@ -107,7 +105,6 @@ const MeltingLogSheetReport = () => {
   };
 
   // Fetch the full dataset (wide range) and re-apply the current view. Runs on
-  // mount and after a successful edit/delete (passed as onChanged to EntryActions).
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -212,10 +209,8 @@ const MeltingLogSheetReport = () => {
   // selected Shift/Furnace/Panel dropdowns, against the full fetched dataset.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -236,7 +231,6 @@ const MeltingLogSheetReport = () => {
         return (a.shift || '').localeCompare(b.shift || '');
       });
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 14, value: (r) => formatDisplayDate(r.date) },
@@ -304,9 +298,8 @@ const MeltingLogSheetReport = () => {
         fileName: 'Melting_Log_Sheet_Report',
         sheetName: 'Melting',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -376,7 +369,7 @@ const MeltingLogSheetReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {/* Section Toggles */}
@@ -621,13 +614,6 @@ const MeltingLogSheetReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Melting Log Sheet Report"
-      />
     </div>
   );
 };

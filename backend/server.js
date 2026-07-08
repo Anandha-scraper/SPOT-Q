@@ -15,7 +15,7 @@ if (!PORT) {
 // 1. Global Middlewa
 // Configure CORS to accept requests from development and production
 const allowedOrigins = [
-    'http://localhost:3001',   // Vite dev server
+    'http://localhost:3000',   // Vite dev server
     process.env.FRONTEND_URL  // Production URL
 ].filter(Boolean);
 
@@ -57,6 +57,8 @@ const dmmSettingParametersRoutes = require('./routes/Moulding-DmmSettingParamete
 const dismaticProductReportRoutes = require('./routes/Moulding-DismaticProductReportDISA');
 const sandTestingRecordRoutes = require('./routes/SandLab-SandTestingRecord');
 const foundrySandTestingNoteRoutes = require('./routes/SandLab-FoundrySandTestingNote');
+const downloadLogRoutes = require('./routes/DownloadLog');
+const entryStatsRoutes = require('./routes/stats');
 
 // 4. Import Controllers for Initialization
 const impactCtrl = require('./controllers/Impact');
@@ -111,6 +113,10 @@ app.use('/api/v1/moulding-disa', protect, checkDepartmentAccess('Moulding'), dis
 app.use('/api/v1/moulding-dmm', protect, checkDepartmentAccess('Moulding'), dmmSettingParametersRoutes);
 app.use('/api/v1/melting-logs', protect, checkDepartmentAccess('Melting'), meltingLogsheetRoutes);
 app.use('/api/v1/cupola-logs', protect, checkDepartmentAccess('Melting'), cupolaHolderLogRoutes);
+
+// Cross-department, per-user features (any authenticated user; no department gate)
+app.use('/api/v1/download-logs', protect, downloadLogRoutes);
+app.use('/api/v1/entry-stats', protect, entryStatsRoutes);
 
 // 7. System Utilities
 app.get('/', (req, res) => {

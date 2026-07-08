@@ -4,7 +4,6 @@ import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
@@ -29,7 +28,6 @@ const ImpactReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showExcelModal, setShowExcelModal] = useState(false);
 
   const itemsPerPage = 15;
 
@@ -55,7 +53,7 @@ const ImpactReport = () => {
           setFilteredEntries(todayFiltered);
         }
       } catch (error) {
-        toast.error('Failed to load impact data. Please refresh.');
+        alert('Failed to load impact data. Please refresh.');
       } finally {
         setLoading(false);
       }
@@ -135,10 +133,8 @@ const ImpactReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -159,7 +155,6 @@ const ImpactReport = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },
@@ -179,9 +174,8 @@ const ImpactReport = () => {
         fileName: 'Impact_Test_Report',
         sheetName: 'Impact',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -218,7 +212,7 @@ const ImpactReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {}
@@ -283,13 +277,6 @@ const ImpactReport = () => {
         />
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Impact Report"
-      />
     </>
   );
 };

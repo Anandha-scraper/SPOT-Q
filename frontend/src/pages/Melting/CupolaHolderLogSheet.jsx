@@ -3,8 +3,7 @@ import { Save, Loader2, CheckCircle } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
-import { InlineLoader } from '../../Components/Alert';
-import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/InlineLoader';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -118,7 +117,6 @@ const CupolaHolderLogSheet = () => {
   // inputRows draft state now comes from the shared context (see destructure above).
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [showEntryLoader, setShowEntryLoader] = useState(false);
 
   // Submitted rows displayed above the input rows
   const [submittedRows, setSubmittedRows] = useState([]);
@@ -585,7 +583,7 @@ const CupolaHolderLogSheet = () => {
         setErrorMessage('');
         setFocusedField(null);
         // Show branded loader after successful entry save
-        setShowEntryLoader(true);
+        alert('Entry saved successfully.');
       } else {
         alert('Error: ' + result.message);
       }
@@ -706,20 +704,6 @@ const CupolaHolderLogSheet = () => {
   return (
     <>
       {/* Entry save loader overlay */}
-      {showEntryLoader && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
-          background: 'rgba(15, 23, 42, 0.82)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <Sakthi message="Entry saved" onComplete={() => setShowEntryLoader(false)} />
-        </div>
-      )}
     <div
       className="page-wrapper melting-page-wrapper"
       ref={gridRef}

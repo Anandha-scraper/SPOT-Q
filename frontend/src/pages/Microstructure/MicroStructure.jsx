@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, SubmitButton, LockPrimaryButton } from '../../Components/Buttons';
-import Sakthi from '../../Components/Sakthi';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -13,6 +13,7 @@ import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 const MicroStructure = () => {
   // Info modal hook
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   // Get current date in YYYY-MM-DD format
   const getCurrentDate = () => {
@@ -135,7 +136,6 @@ const MicroStructure = () => {
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [checkingPrimary, setCheckingPrimary] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [showSakthiLoader, setShowSakthiLoader] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
@@ -635,6 +635,7 @@ const MicroStructure = () => {
     // Validate required fields
     if (!date || !disa) {
       setPrimaryErrorMessage('Enter Date and DISA');
+      toast.error('Enter Date and DISA');
       return;
     }
 
@@ -677,7 +678,8 @@ const MicroStructure = () => {
       
       if (data.success) {
         setShowCombinationAdded(true);
-        
+        toast.success('Primary saved');
+
         // Hide "Combination Added" message after 1 second
         setTimeout(() => {
           setShowCombinationAdded(false);
@@ -690,11 +692,13 @@ const MicroStructure = () => {
         }, 1000);
       } else {
         setPrimaryErrorMessage('Technical error');
+        toast.error('Technical error');
       }
     } catch (error) {
       console.error('Error saving primary:', error);
       setSavePrimaryLoading(false);
       setPrimaryErrorMessage('Technical error');
+      toast.error('Technical error');
     }
   };
 
@@ -798,7 +802,9 @@ const MicroStructure = () => {
     }
 
     if (hasErrors) {
-      setSubmitErrorMessage(firstErrorMessage || 'Enter data in correct format');
+      const message = firstErrorMessage || 'Enter data in correct format';
+      setSubmitErrorMessage(message);
+      toast.error(message);
 
       // AUTO-NAVIGATION: Focus on the first field that failed validation
       if (firstErrorField) {
@@ -854,8 +860,7 @@ const MicroStructure = () => {
       }
 
       if (data.success) {
-        // Show Sakthi loader
-        setShowSakthiLoader(true);
+        toast.success('Entry saved successfully.');
 
         // Reset all fields except primary data
         setPartName('');
@@ -886,10 +891,12 @@ const MicroStructure = () => {
         }, 100);
       } else {
         setSubmitErrorMessage('Technical error');
+        toast.error('Technical error');
       }
     } catch (error) {
       console.error('Error saving entry:', error);
       setSubmitErrorMessage('Technical error');
+      toast.error('Technical error');
     } finally {
       setSubmitLoading(false);
     }
@@ -912,22 +919,6 @@ const MicroStructure = () => {
   // ====================== JSX ======================
   return (
     <>
-      {showSakthiLoader && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 9999
-        }}>
-          <Sakthi onComplete={() => setShowSakthiLoader(false)} />
-        </div>
-      )}
       
       <div className="microstructure-header">
         <div className="microstructure-header-text">

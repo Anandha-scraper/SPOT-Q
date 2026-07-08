@@ -3,7 +3,6 @@ import { BookOpenCheck, ArrowLeft } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
-import { InlineLoader, ExcelDownloadModal, toast } from '../../Components/Alert';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -30,7 +29,6 @@ const DisamaticProductReport = () => {
   const itemsPerPage = 15;
 
   // Excel export
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Transform backend data to frontend format
@@ -180,7 +178,7 @@ const DisamaticProductReport = () => {
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
         const data = await response.json();
-        
+
         if (data.success && data.data && data.data.length > 0) {
           const grouped = groupByDateForSummary(data.data);
           setSummaryData(grouped);
@@ -201,7 +199,7 @@ const DisamaticProductReport = () => {
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
         const data = await response.json();
-        
+
         if (data.success && data.data && data.data.length > 0) {
           let filteredData = transformBackendData(data.data);
           
@@ -290,10 +288,10 @@ const DisamaticProductReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    if (from > to) { alert('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -309,7 +307,7 @@ const DisamaticProductReport = () => {
         if (dateCompare !== 0) return dateCompare;
         return (a.shift || '').localeCompare(b.shift || '');
       });
-      if (records.length === 0) { toast.info('No data to export for the selected range.'); return; }
+      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDate(r.date);
       const S = (r) => r.shift || '-';
@@ -478,9 +476,8 @@ const DisamaticProductReport = () => {
           { sheetName: 'Events & Maintenance', columns: eventsColumns, rows: eventsRows },
         ],
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -941,13 +938,9 @@ const DisamaticProductReport = () => {
           <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
             Clear
           </ClearButton>
-          <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+          <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
           {error && (
-            <InlineLoader 
-              message={error}
-              size="small"
-              variant="danger"
-            />
+            <span className="disa-inline-error" style={{ color: '#c0392b', fontSize: '0.85rem' }}>{error}</span>
           )}
         </div>
       )}
@@ -1150,13 +1143,6 @@ const DisamaticProductReport = () => {
         </>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Disamatic Product Report"
-      />
     </div>
   );
 };

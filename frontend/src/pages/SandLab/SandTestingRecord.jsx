@@ -6,7 +6,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
 
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';

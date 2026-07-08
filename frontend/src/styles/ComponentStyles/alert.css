@@ -1,0 +1,168 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   alert.css
+   Styles for MorphingPopover + Toast components.
+   Usage: auto-imported by alert.jsx
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Root wrapper — positions the trigger and content relative to each other */
+.morphing-popover-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Trigger Button ──────────────────────────────────────────────────────── */
+.morphing-popover-trigger-btn {
+  /* Reset */
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.morphing-popover-trigger-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Popover Content Panel ───────────────────────────────────────────────── */
+.morphing-popover-content {
+  position: absolute;
+  z-index: 50;
+  overflow: hidden;
+  border-radius: 12px;
+
+  /* White theme, matching site palette */
+  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+
+  padding: 8px;
+  box-shadow:
+    0 12px 28px rgba(102, 126, 234, 0.12),
+    0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   TOAST SYSTEM
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Container (viewport-fixed stack) ───────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* let clicks pass through the gap between toasts */
+  padding: 16px;
+  max-width: 380px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Position variants */
+.toast-container--top-right    { top: 0;    right: 0;  align-items: flex-end;   }
+.toast-container--top-left     { top: 0;    left: 0;   align-items: flex-start; }
+.toast-container--top-center   { top: 0;    left: 50%; transform: translateX(-50%); align-items: center; }
+.toast-container--bottom-right { bottom: 0; right: 0;  align-items: flex-end;   flex-direction: column-reverse; }
+.toast-container--bottom-left  { bottom: 0; left: 0;   align-items: flex-start; flex-direction: column-reverse; }
+.toast-container--bottom-center{ bottom: 0; left: 50%; transform: translateX(-50%); align-items: center; flex-direction: column-reverse; }
+
+/* Widen the top-right stack so validation messages fit comfortably */
+.toast-container--top-right             { max-width: 440px; }
+.toast-container--top-right .toast-item { max-width: 440px; }
+
+/* ─── Individual Toast ────────────────────────────────────────────────────── */
+.toast-item {
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  min-width: 260px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow:
+    0 10px 26px rgba(15, 23, 42, 0.10),
+    0 2px 6px  rgba(15, 23, 42, 0.06);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  color: #1e293b;
+}
+
+/* Type themes — white base with a soft colour gradient tint */
+.toast-item--success {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #bbf7d0;
+  color: #14532d;
+}
+.toast-item--success .toast-icon { color: #16a34a; }
+
+.toast-item--error {
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+.toast-item--error .toast-icon { color: #dc2626; }
+
+.toast-item--warning {
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+  border-color: #fde68a;
+  color: #78350f;
+}
+.toast-item--warning .toast-icon { color: #d97706; }
+
+.toast-item--info {
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+  border-color: #bfdbfe;
+  color: #1e3a5f;
+}
+.toast-item--info .toast-icon { color: #2563eb; }
+
+/* ─── Icon ────────────────────────────────────────────────────────────────── */
+.toast-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  line-height: 1;
+}
+
+/* ─── Message ─────────────────────────────────────────────────────────────── */
+.toast-message {
+  flex: 1;
+}
+
+/* ─── Close Button ────────────────────────────────────────────────────────── */
+.toast-close {
+  flex-shrink: 0;
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: inherit;
+  opacity: 0.5;
+  border-radius: 4px;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+.toast-close:hover {
+  opacity: 1;
+}
+.toast-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  opacity: 1;
+}

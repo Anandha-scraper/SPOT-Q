@@ -5,7 +5,6 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import EntryActions from '../../Components/EntryActions';
 import { tensileEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
@@ -42,7 +41,6 @@ const TensileReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showExcelModal, setShowExcelModal] = useState(false);
 
   const itemsPerPage = 15;
 
@@ -74,7 +72,7 @@ const TensileReport = () => {
         setFilteredEntries(computeFiltered(result.data));
       }
     } catch (error) {
-      toast.error('Failed to load tensile data. Please refresh.');
+      alert('Failed to load tensile data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -173,10 +171,10 @@ const TensileReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    if (from > to) { alert('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -195,7 +193,7 @@ const TensileReport = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
 
       const exportColumns = tableColumns.map(c => ({
         header: c.label, key: c.key, width: c.xlsWidth, value: c.render
@@ -210,9 +208,8 @@ const TensileReport = () => {
         fileName: 'Tensile_Test_Report',
         sheetName: 'Tensile',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -251,7 +248,7 @@ const TensileReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {loading ? (
@@ -274,14 +271,6 @@ const TensileReport = () => {
           onPageChange={setCurrentPage}
         />
       )}
-
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Tensile Report"
-      />
     </>
   );
 };

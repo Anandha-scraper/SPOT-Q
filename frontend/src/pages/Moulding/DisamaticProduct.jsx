@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
 import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown } from "../../Components/Buttons";
-import { InlineLoader } from "../../Components/Alert";
+import { InlineLoader } from '../../Components/InlineLoader';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from "../../config/api";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";

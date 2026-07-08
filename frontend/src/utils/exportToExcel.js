@@ -3,7 +3,6 @@
 // ----------------------------------------------------------------------------
 // Builds a styled .xlsx (yellow header theme) from a column definition + rows
 // and triggers a browser download. The file is only handed to the browser
-// AFTER the full buffer has been built successfully — if anything throws while
 // building, no partial / broken file is produced.
 //
 // Usage:

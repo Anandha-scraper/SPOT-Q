@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
@@ -37,7 +36,6 @@ const CupolaHolderLogSheetReport = () => {
   const [remarkModal, setRemarkModal] = useState({ open: false, text: '' });
 
   // Excel export
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Load today's data on mount
@@ -188,10 +186,10 @@ const CupolaHolderLogSheetReport = () => {
   // currently selected Shift/Holder dropdowns, then builds a grouped .xlsx.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    if (from > to) { alert('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -215,7 +213,7 @@ const CupolaHolderLogSheetReport = () => {
         return (a.shift || '').localeCompare(b.shift || '');
       });
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
+      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 14, value: (r) => formatDate(r.date) },
@@ -250,9 +248,8 @@ const CupolaHolderLogSheetReport = () => {
         fileName: 'Cupola_Holder_Log_Sheet_Report',
         sheetName: 'Cupola Holder',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -292,7 +289,7 @@ const CupolaHolderLogSheetReport = () => {
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
         <ClearButton onClick={clearFilters}>Clear</ClearButton>
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
       </div>
 
       {/* Section Checkboxes */}
@@ -566,13 +563,6 @@ const CupolaHolderLogSheetReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Cupola Holder Log Sheet Report"
-      />
     </div>
   );
 };

@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Save, Loader2, Lock } from "lucide-react";
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
-import Sakthi from '../../Components/Sakthi';
 import { API_ENDPOINTS } from '../../config/api';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
 const initialRow = {
@@ -931,11 +930,6 @@ const DmmSettingParameters = () => {
 
   return (
     <div className="page-wrapper moulding-page-wrapper">
-      {allSubmitting && (
-        <div className="dmm-loader-overlay">
-          <Sakthi onComplete={() => {}} />
-        </div>
-      )}
       {/* Header */}
       <div className="dmm-header">
         <div className="dmm-header-text">

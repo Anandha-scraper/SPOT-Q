@@ -3,7 +3,6 @@ import { PencilLine, Trash2, BookOpenCheck } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton, EntryNavButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 
@@ -71,7 +70,6 @@ const SandTestingRecordReport = () => {
 
   const [table5Data, setTable5Data] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Function to fetch data for a single date (cached in memory for instant re-view)
@@ -426,10 +424,10 @@ const SandTestingRecordReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    if (from > to) { alert('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -442,7 +440,7 @@ const SandTestingRecordReport = () => {
       const records = (result.success && Array.isArray(result.data)) ? result.data : [];
       // Oldest → newest for a natural top-to-bottom read.
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
-      if (records.length === 0) { toast.info('No data to export for the selected range.'); return; }
+      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDateDisplay(r.date);
       const joinArr = (a) => (Array.isArray(a) && a.length ? a.join(' / ') : '');
@@ -653,9 +651,8 @@ const SandTestingRecordReport = () => {
           { sheetName: 'Sand Properties & Test', columns: propColumns, rows: propRows },
         ],
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -709,7 +706,7 @@ const SandTestingRecordReport = () => {
             Clear
           </ClearButton>
         )}
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
 
         {/* Range navigation: shown only in date-range mode after filter */}
         {isFiltered && isRangeMode && datesList.length > 0 && (
@@ -1332,13 +1329,6 @@ const SandTestingRecordReport = () => {
       </div>
       </div>
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Sand Testing Record Report"
-      />
 
     </div>
   );

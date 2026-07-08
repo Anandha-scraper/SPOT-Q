@@ -3,8 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, FileText } from 'lucide-react';
 import { SubmitButton, LockPrimaryButton, DisaDropdown, CustomTimeInput, Time } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Sakthi from '../../Components/Sakthi';
-import { InlineLoader, toast } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -13,6 +13,7 @@ import '../../styles/PageStyles/Process/Process.css';
 
 export default function ProcessControl() {
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   const {
     formData,
@@ -290,7 +291,6 @@ export default function ProcessControl() {
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [submitLoading, setSubmitLoading] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  const [showSakthi, setShowSakthi] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
@@ -938,7 +938,7 @@ export default function ProcessControl() {
 
   const handlePrimarySubmit = async () => {
     if (!formData.date || !formData.disa) {
-      toast.warning('Please fill in Date and DISA');
+      toast.error('Please fill in Date and DISA');
 
       if (!formData.date) {
         inputRefs.current.date?.focus();
@@ -990,6 +990,7 @@ export default function ProcessControl() {
 
       if (data.success) {
         setShowCombinationAdded(true);
+        toast.success('Primary saved');
 
         setTimeout(() => {
           setShowCombinationAdded(false);
@@ -1080,6 +1081,7 @@ export default function ProcessControl() {
 
     if (hasErrors) {
       setSubmitErrorMessage('Fill required Field in Correct format');
+      toast.error('Fill required Field in Correct format');
 
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
@@ -1164,7 +1166,7 @@ export default function ProcessControl() {
       }
 
       if (data.success) {
-        setShowSakthi(true);
+        toast.success('Entry saved successfully.');
 
         const today = new Date();
         const y = today.getFullYear();
@@ -1236,7 +1238,9 @@ export default function ProcessControl() {
       }
     } catch (error) {
 
-      setSubmitErrorMessage(error.message || 'Failed to save data. Please check your input and try again.');
+      const message = error.message || 'Failed to save data. Please check your input and try again.';
+      setSubmitErrorMessage(message);
+      toast.error(message);
 
       if (inputRefs.current.partName) {
         inputRefs.current.partName.focus();
@@ -1253,28 +1257,8 @@ export default function ProcessControl() {
     }
   };
 
-  const handleSakthiComplete = () => {
-    setShowSakthi(false);
-  };
-
   return (
     <>
-      {showSakthi && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <Sakthi onComplete={handleSakthiComplete} />
-        </div>
-      )}
       <div className="process-header">
         <div className="process-header-text">
           <h2>

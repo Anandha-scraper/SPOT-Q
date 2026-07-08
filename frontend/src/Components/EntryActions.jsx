@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { toast } from './Alert';
 import EditEntryModal from './EditEntryModal';
 
 // Per-row edit/delete actions for report pages.
@@ -15,7 +14,6 @@ import EditEntryModal from './EditEntryModal';
 // Props:
 //   entry      - the row object (must include _id, createdBy, createdAt)
 //   editConfig - one of the configs from utils/editFieldConfigs.js
-//   onChanged  - callback to refetch the report after a successful edit/delete
 const EntryActions = ({ entry, editConfig, onChanged }) => {
     const { isAdmin, user, editWindowMs } = useAuth();
     const [showEdit, setShowEdit] = useState(false);
@@ -43,14 +41,14 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.success) {
-                toast.success(data.message || 'Entry deleted successfully.');
+                alert(data.message || 'Entry deleted successfully.');
                 setConfirmDelete(false);
                 onChanged && onChanged();
             } else {
-                toast.error(data.message || 'Failed to delete entry.');
+                alert(data.message || 'Failed to delete entry.');
             }
         } catch (err) {
-            toast.error('Network error while deleting. Please try again.');
+            alert('Network error while deleting. Please try again.');
         } finally {
             setDeleting(false);
         }

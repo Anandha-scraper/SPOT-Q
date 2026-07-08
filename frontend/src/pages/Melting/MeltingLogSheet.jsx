@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown, SgFgDropdown } from '../../Components/Buttons';
-import { InlineLoader } from '../../Components/Alert';
-import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/InlineLoader';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -31,7 +30,6 @@ const MeltingLogSheet = () => {
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationSaved, setShowCombinationSaved] = useState(false);
   const [closingCombinationMsg, setClosingCombinationMsg] = useState(false);
-  const [showSakthi, setShowSakthi] = useState(false);
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
 
   // ── PART 1: Error highlight states (one per required field) ──
@@ -1148,7 +1146,7 @@ const MeltingLogSheet = () => {
       
       if (response.success) {
         setEntryCount(response.entryCount || 0);
-        setShowSakthi(true);
+        alert('Entry saved successfully.');
         // Reset all tables after successful save
         resetTable1();
         resetTable2();
@@ -1771,22 +1769,6 @@ const MeltingLogSheet = () => {
 
   return (
     <>
-      {showSakthi && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <Sakthi onComplete={() => setShowSakthi(false)} />
-        </div>
-      )}
       <div className="page-wrapper melting-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       {/* Header */}
       <div className="cupola-holder-header">

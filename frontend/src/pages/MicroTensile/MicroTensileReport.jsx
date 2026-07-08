@@ -4,7 +4,6 @@ import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, ExcelD
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import EntryActions from '../../Components/EntryActions';
 import { microTensileEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
@@ -33,7 +32,6 @@ const MicroTensileReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
   const itemsPerPage = 15;
@@ -75,7 +73,7 @@ const MicroTensileReport = () => {
         setFilteredEntries(computeFiltered(validEntries));
       }
     } catch (error) {
-      toast.error('Failed to load micro tensile data. Please refresh.');
+      alert('Failed to load micro tensile data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -206,10 +204,8 @@ const MicroTensileReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -235,7 +231,6 @@ const MicroTensileReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date || r.dateOfInspection) },
@@ -263,9 +258,8 @@ const MicroTensileReport = () => {
         fileName: 'Micro_Tensile_Test_Report',
         sheetName: 'Micro Tensile',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -302,7 +296,7 @@ const MicroTensileReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {}
@@ -416,13 +410,6 @@ const MicroTensileReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Micro Tensile Report"
-      />
     </>
   );
 };

@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton, PlusButton, MinusButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { InlineLoader } from '../../Components/Alert';
-import Sakthi from '../../Components/Sakthi';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
@@ -11,6 +11,7 @@ import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   const validationRanges = [
     {
@@ -167,7 +168,6 @@ const QcProductionDetails = () => {
   } = useDepartmentForm('qc-production');
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [showSakthi, setShowSakthi] = useState(false);
 
   const [partNames, setPartNames] = useState([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
@@ -1010,6 +1010,7 @@ const QcProductionDetails = () => {
       if (!submitErrorMessage) {
         setSubmitErrorMessage('Enter data in correct Format');
       }
+      toast.error(submitErrorMessage || 'Enter data in correct Format');
 
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
@@ -1073,7 +1074,7 @@ const QcProductionDetails = () => {
       setSubmitLoading(false);
 
       if (data.success) {
-        setShowSakthi(true);
+        toast.success('Entry saved successfully.');
 
         resetFormData();
         // Re-default the date to today after the reset (still changeable).
@@ -1084,10 +1085,12 @@ const QcProductionDetails = () => {
         }, 1600);
       } else {
         setSubmitErrorMessage('Technical error. Please try again.');
+        toast.error('Technical error. Please try again.');
       }
     } catch (error) {
       setSubmitLoading(false);
       setSubmitErrorMessage('Technical error. Please try again.');
+      toast.error('Technical error. Please try again.');
     }
   };
 
@@ -1097,27 +1100,10 @@ const QcProductionDetails = () => {
   };
 
   const handleSakthiComplete = () => {
-    setShowSakthi(false);
   };
 
   return (
     <>
-      {showSakthi && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <Sakthi onComplete={handleSakthiComplete} />
-        </div>
-      )}
       <div className="qcproduction-header">
         <div className="qcproduction-header-text">
           <h2>

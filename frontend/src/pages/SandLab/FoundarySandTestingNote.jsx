@@ -6,7 +6,7 @@ import { DisaDropdown, ShiftDropdown, SubmitButton } from '../../Components/Butt
 import Table from '../../Components/Table';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
-import { InlineLoader } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 

@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton, PlusButton, MinusButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Sakthi from '../../Components/Sakthi';
-import { InlineLoader, toast } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -12,6 +12,7 @@ import '../../styles/PageStyles/Impact/Impact.css';
 
 const Impact = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   const validationRanges = [
     {
@@ -81,7 +82,6 @@ const Impact = () => {
 
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const submitButtonRef = useRef(null);
   const inputRefs = useRef({});
@@ -398,6 +398,7 @@ const Impact = () => {
 
     if (hasErrors) {
       setSubmitErrorMessage('Enter data in correct Format');
+      toast.error('Enter data in correct Format');
 
       if (firstErrorField) {
         if (firstErrorField === 'observedValues' && observedValues.length > 0) {
@@ -447,7 +448,7 @@ const Impact = () => {
       const data = await response.json();
 
       if (data.success) {
-        setShowSuccessPopup(true);
+        toast.success('Entry saved successfully.');
 
         resetFormData();
 
@@ -664,11 +665,6 @@ const Impact = () => {
       </div>
 
       {}
-      {showSuccessPopup && (
-        <div className="sakthi-overlay">
-          <Sakthi onComplete={() => setShowSuccessPopup(false)} />
-        </div>
-      )}
     </>
   );
 };

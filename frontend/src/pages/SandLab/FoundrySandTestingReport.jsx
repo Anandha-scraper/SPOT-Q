@@ -3,7 +3,6 @@ import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { FilterButton, ClearButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
@@ -23,7 +22,6 @@ const FoundrySandTestingReport = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState(getCurrentDate());
   const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
@@ -332,10 +330,10 @@ const FoundrySandTestingReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
+    if (from > to) { alert('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -347,7 +345,7 @@ const FoundrySandTestingReport = () => {
       const data = await res.json();
       const records = (data.success && Array.isArray(data.data)) ? data.data : [];
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
-      if (records.length === 0) { toast.info('No data to export for the selected range.'); return; }
+      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDate(r.date);
 
@@ -444,9 +442,8 @@ const FoundrySandTestingReport = () => {
           { sheetName: 'Additional Data', columns: paramTestColumns, rows: additionalRows },
         ],
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed. Please try again.');
+      alert('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -492,7 +489,7 @@ const FoundrySandTestingReport = () => {
         <div className="foundry-sand-testing-filter-actions">
           <FilterButton onClick={handleFilter} disabled={loading} />
           {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
-          <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+          <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
         </div>
 
       </div>
@@ -571,13 +568,6 @@ const FoundrySandTestingReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Foundry Sand Testing Note Report"
-      />
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
-import { toast } from './Alert';
 
 // Read/write helpers for dotted field names like 'item.it1'.
 const getByPath = (obj, path) =>
@@ -50,7 +49,7 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
         );
 
         if (changed.length === 0) {
-            toast.info('No changes to save.');
+            alert('No changes to save.');
             onClose && onClose();
             return;
         }
@@ -88,14 +87,14 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.success) {
-                toast.success(data.message || 'Entry updated successfully.');
+                alert(data.message || 'Entry updated successfully.');
                 onSaved && onSaved();
                 onClose && onClose();
             } else {
-                toast.error(data.message || 'Failed to update entry.');
+                alert(data.message || 'Failed to update entry.');
             }
         } catch (err) {
-            toast.error('Network error while updating. Please try again.');
+            alert('Network error while updating. Please try again.');
         } finally {
             setSaving(false);
         }

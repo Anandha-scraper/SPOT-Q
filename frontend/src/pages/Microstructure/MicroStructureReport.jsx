@@ -5,7 +5,6 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
-import { ExcelDownloadModal, toast } from '../../Components/Alert';
 import { microStructureEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/MicroStructure/MicroStructureReport.css';
 import '../../styles/ComponentStyles/Table.css';
@@ -39,7 +38,6 @@ const MicroStructureReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showExcelModal, setShowExcelModal] = useState(false);
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
   const itemsPerPage = 15;
@@ -90,7 +88,7 @@ const MicroStructureReport = () => {
       }
     } catch (error) {
       console.error('Error fetching micro structure data:', error);
-      toast.error('Failed to load micro structure data. Please refresh.');
+      alert('Failed to load micro structure data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -235,10 +233,8 @@ const MicroStructureReport = () => {
   // Excel export — fetch all entries, filter by the chosen range/DISA, then build the sheet.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { toast.warning('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      toast.warning('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -267,7 +263,6 @@ const MicroStructureReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
-      if (rows.length === 0) { toast.info('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },
@@ -294,9 +289,8 @@ const MicroStructureReport = () => {
         fileName: 'Micro_Structure_Report',
         sheetName: 'Micro Structure',
       });
-      setShowExcelModal(false);
     } catch (err) {
-      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -333,7 +327,7 @@ const MicroStructureReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => setShowExcelModal(true)} disabled={loading} />
+        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
       </div>
 
       {/* Table */}
@@ -446,13 +440,6 @@ const MicroStructureReport = () => {
         </div>
       )}
 
-      <ExcelDownloadModal
-        open={showExcelModal}
-        loading={isDownloading}
-        onClose={() => setShowExcelModal(false)}
-        onDownload={handleExcelDownload}
-        title="Download Micro Structure Report"
-      />
     </>
   );
 };

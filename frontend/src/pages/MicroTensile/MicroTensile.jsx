@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Save, Loader2, FileText } from 'lucide-react';
 import { SubmitButton, DisaDropdown, LockPrimaryButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import Sakthi from '../../Components/Sakthi';
-import { InlineLoader, toast } from '../../Components/Alert';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
@@ -11,6 +11,7 @@ import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const MicroTensile = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
+  const { toast } = useToast();
 
   const validationRanges = [
     {
@@ -140,7 +141,6 @@ const MicroTensile = () => {
   const [errors, setErrors] = useState({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
@@ -519,7 +519,7 @@ const MicroTensile = () => {
 
   const handlePrimarySubmit = async () => {
     if (!formData.date || !formData.disa) {
-      toast.warning('Please fill in Date and DISA');
+      toast.error('Please fill in Date and DISA');
       return;
     }
 
@@ -549,6 +549,7 @@ const MicroTensile = () => {
 
       if (data.success) {
         setShowCombinationAdded(true);
+        toast.success('Primary saved');
 
         setTimeout(() => {
           setShowCombinationAdded(false);
@@ -656,6 +657,7 @@ const MicroTensile = () => {
 
     if (hasErrors) {
       setSubmitError('Enter data in correct Format');
+      toast.error('Enter data in correct Format');
 
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
@@ -672,6 +674,7 @@ const MicroTensile = () => {
       if (!isValidFormat) {
         setItemSecondValid(false);
         setSubmitError('Item (Optional) must be in format: number/number/number (e.g., 343/34/56)');
+        toast.error('Item (Optional) must be in format: number/number/number (e.g., 343/34/56)');
         setTimeout(() => setSubmitError(''), 3000);
         inputRefs.current.itemSecond?.focus();
         return;
@@ -707,7 +710,7 @@ const MicroTensile = () => {
       const data = await resp.json();
 
       if (data.success) {
-        setShowSuccessAnimation(true);
+        toast.success('Entry saved successfully.');
 
         setFormData({
           date: formData.date,
@@ -762,22 +765,6 @@ const MicroTensile = () => {
 
   return (
     <>
-      {showSuccessAnimation && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <Sakthi onComplete={() => setShowSuccessAnimation(false)} />
-        </div>
-      )}
       <div className="microtensile-header">
         <div className="microtensile-header-text">
           <h2>

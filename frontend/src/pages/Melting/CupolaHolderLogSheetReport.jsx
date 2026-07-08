@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
@@ -37,6 +38,7 @@ const CupolaHolderLogSheetReport = () => {
 
   // Excel export
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // Load today's data on mount
   useEffect(() => {
@@ -289,7 +291,15 @@ const CupolaHolderLogSheetReport = () => {
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
         <ClearButton onClick={clearFilters}>Clear</ClearButton>
-        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={startDate}
+          defaultTo={endDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {/* Section Checkboxes */}

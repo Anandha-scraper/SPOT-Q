@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, MachineDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -43,6 +44,7 @@ const DmmSettingParametersReport = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // Filter enabled when toDate is set AND (fromDate is empty OR toDate >= fromDate)
   const isFilterEnabled = toDate && toDate.trim() !== '' && (!fromDate || toDate >= fromDate);
@@ -352,7 +354,15 @@ const DmmSettingParametersReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {loading ? <div className="impact-loader-container"><div>Loading...</div></div> : (

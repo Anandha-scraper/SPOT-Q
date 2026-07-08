@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -30,6 +31,7 @@ const QcProductionDetailsReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   const itemsPerPage = 15;
 
@@ -284,7 +286,15 @@ const QcProductionDetailsReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {loading ? (

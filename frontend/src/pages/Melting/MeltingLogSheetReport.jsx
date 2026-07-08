@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { meltingEditConfig } from '../../utils/editFieldConfigs';
@@ -72,6 +73,7 @@ const MeltingLogSheetReport = () => {
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Reason' });
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   const itemsPerPage = 15;
 
@@ -369,7 +371,15 @@ const MeltingLogSheetReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
-        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {/* Section Toggles */}

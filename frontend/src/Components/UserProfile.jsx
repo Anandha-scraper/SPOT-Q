@@ -57,14 +57,12 @@ const MONTH_NAMES = [
   "December",
 ];
 
-// Admin overview: every department + the multi-form departments' sub-forms.
+// Admin overview: departments included in the Entry Trends graph.
+// Sand Lab (table-based) and Moulding DISA (table-based) are intentionally excluded.
 // MOCK ONLY — real per-department entry counts will come from the backend later.
 const ADMIN_DEPARTMENTS = [
   "Melting · Log Sheet",
   "Melting · Cupola Holder",
-  "Sand Lab · Testing Record",
-  "Sand Lab · Foundry Note",
-  "Moulding · DISA",
   "Moulding · DMM",
   "Process",
   "Tensile",
@@ -136,7 +134,7 @@ const EditCard = ({
   );
 };
 
-// Format an ISO timestamp into "DD / MM / YYYY" + "HH:MM:SS".
+// Format an ISO timestamp into "DD / MM / YYYY" + 12-hour "hh:mm:ss AM/PM".
 const formatDateTime = (iso) => {
   if (!iso) return { date: "—", time: "" };
   const d = new Date(iso);
@@ -147,11 +145,11 @@ const formatDateTime = (iso) => {
       year: "numeric",
     })
     .replace(/\//g, " / ");
-  const time = d.toLocaleTimeString("en-GB", {
+  const time = d.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hour12: true,
   });
   return { date, time };
 };
@@ -192,7 +190,19 @@ const UserProfile = () => {
 
   // ---- Entry stats (activity chart) ----
   const [entryStats, setEntryStats] = useState(null);
+  const [adminStats, setAdminStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // ---- Admin dept trend filter (multi-checkbox) ----
+  const [checkedDepts, setCheckedDepts] = useState(
+    () => new Set(ADMIN_DEPARTMENTS),
+  );
+  const toggleDept = (dept) =>
+    setCheckedDepts((prev) => {
+      const next = new Set(prev);
+      next.has(dept) ? next.delete(dept) : next.add(dept);
+      return next;
+    });
 
   // Fetch login history for the current user
   useEffect(() => {
@@ -228,7 +238,7 @@ const UserProfile = () => {
     if (user) fetchLoginHistory();
   }, [user]);
 
-  // Fetch download logs (admin => all departments, else own)
+  // Fetch download logs — admin sees all employees; non-admin sees own logs only.
   useEffect(() => {
     async function fetchDownloadLogs() {
       try {
@@ -267,9 +277,29 @@ const UserProfile = () => {
       setStatsLoading(false);
     }
   };
+  // Fetch per-day counts across all departments (admin only)
+  const fetchAdminStats = async () => {
+    try {
+      setStatsLoading(true);
+      const res = await fetch(API_ENDPOINTS.entryStatsAdmin, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setAdminStats(data.success ? data.data : null);
+    } catch (error) {
+      console.error("Error fetching admin entry stats:", error);
+      setAdminStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
   useEffect(() => {
-    if (user && !isAdmin) fetchEntryStats();
-    else setStatsLoading(false);
+    if (!user) {
+      setStatsLoading(false);
+      return;
+    }
+    if (isAdmin) fetchAdminStats();
+    else fetchEntryStats();
   }, [user, isAdmin]);
 
   // ---- Activity chart data ----
@@ -331,24 +361,39 @@ const UserProfile = () => {
     return { data, options, title: `${MONTH_NAMES[month - 1]} ${year}` };
   }, [entryStats]);
 
-  // ---- Admin all-department line chart (MOCK) ----
-  // Memoized with a stable dependency so the random mock data does not
-  // regenerate on every countdown tick. Follows the pasted Chart.js config:
+  // ---- Derived department flags (non-admin) ----
+  const isSandLab = !isAdmin && userData.department === "Sand Lab";
+  const isMoulding = !isAdmin && userData.department === "Moulding";
+
+  // ---- Admin all-department line chart ----
+  // Built from the real /entry-stats/admin response. Follows the Chart.js config:
   // smooth lines (tension), animated hover radius, yellow hover point, tooltip off.
   const adminChart = useMemo(() => {
     const nowDate = new Date();
-    const year = nowDate.getFullYear();
-    const month = nowDate.getMonth() + 1; // 1-based current month (real date)
-    // Day-of-month range for the current month, matching the per-day charts
+    const year = adminStats?.year || nowDate.getFullYear();
+    const month = adminStats?.month || nowDate.getMonth() + 1; // 1-based
+    // Day-of-month range for the returned month, matching the per-day charts
     // used across the departments.
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth =
+      adminStats?.daysInMonth || new Date(year, month, 0).getDate();
     const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    // Index the response by label -> { day: count } for quick lookup.
+    const countsByLabel = {};
+    (adminStats?.departments || []).forEach((d) => {
+      const map = {};
+      (d.counts || []).forEach((c) => {
+        map[c.day] = c.count;
+      });
+      countsByLabel[d.label] = map;
+    });
 
     const datasets = ADMIN_DEPARTMENTS.map((dept, i) => {
       const color = DEPT_COLORS[i % DEPT_COLORS.length];
+      const map = countsByLabel[dept] || {};
       return {
         label: dept,
-        data: labels.map(() => Math.round(Math.random() * 40) + 5),
+        data: labels.map((day) => map[day] || 0),
         borderColor: color,
         backgroundColor: transparentize(color, 0.5),
         tension: 0.35,
@@ -401,7 +446,19 @@ const UserProfile = () => {
       options,
       title: `${MONTH_NAMES[month - 1]} ${year}`,
     };
-  }, []);
+  }, [adminStats]);
+
+  // Filter admin chart datasets to only the checked departments
+  const filteredAdminChartData = useMemo(() => {
+    if (checkedDepts.size === 0) return { ...adminChart.data, datasets: [] };
+    if (checkedDepts.size === ADMIN_DEPARTMENTS.length) return adminChart.data;
+    return {
+      ...adminChart.data,
+      datasets: adminChart.data.datasets.filter((ds) =>
+        checkedDepts.has(ds.label),
+      ),
+    };
+  }, [adminChart.data, checkedDepts]);
 
   // ---- Password handlers ----
   const handlePasswordModalOpen = () => setIsPasswordModalOpen(true);
@@ -531,12 +588,13 @@ const UserProfile = () => {
             </span>
           </div>
           <div className="up-tbl-wrap">
-            <table className={`up-tbl${isAdmin ? " admin" : ""}`}>
+            <table className="up-tbl">
               <thead>
                 <tr>
                   <th>#</th>
-                  {isAdmin && <th>Dept</th>}
                   {isAdmin && <th>Emp ID</th>}
+                  {isAdmin && <th>Name</th>}
+                  {isAdmin && <th>Report</th>}
                   <th>Date</th>
                   <th>Range Downloaded</th>
                   <th>Timestamp</th>
@@ -545,7 +603,7 @@ const UserProfile = () => {
               <tbody>
                 {downloadLoading ? (
                   <tr>
-                    <td colSpan={isAdmin ? 6 : 4} className="up-tbl-state">
+                    <td colSpan={isAdmin ? 7 : 4} className="up-tbl-state">
                       Loading download logs…
                     </td>
                   </tr>
@@ -555,17 +613,22 @@ const UserProfile = () => {
                     return (
                       <tr key={log._id || index}>
                         <td>{index + 1}</td>
-                        {isAdmin && <td>{log.department || "—"}</td>}
                         {isAdmin && <td>{log.employeeId || "—"}</td>}
+                        {isAdmin && <td>{log.name || "—"}</td>}
+                        {isAdmin && (
+                          <td className="up-tbl-report-cell">
+                            {log.reportType || "—"}
+                          </td>
+                        )}
                         <td>{date}</td>
-                        <td>{log.rangeLabel || log.reportType || "—"}</td>
+                        <td>{log.rangeLabel || "—"}</td>
                         <td>{time}</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={isAdmin ? 6 : 4} className="up-tbl-state">
+                    <td colSpan={isAdmin ? 7 : 4} className="up-tbl-state">
                       No download history yet.
                     </td>
                   </tr>
@@ -576,38 +639,95 @@ const UserProfile = () => {
         </div>
       </div>
 
-      {/* Activity Chart */}
-      <div className="up-card up-card-chart">
-        <div className="up-card-head">
-          <BarChart3 size={16} />
-          <span>
-            {isAdmin ? "Department Entry Trends" : "Entries This Month"}
-          </span>
-          <span className="up-head-sub">
-            {isAdmin
-              ? `${adminChart.title} · daily entries · mock preview`
-              : `${chart.title} · entries per day`}
-          </span>
-          {!isAdmin && (
-            <button
-              className="up-refresh-btn"
-              onClick={fetchEntryStats}
-              title="Refresh"
-            >
-              <RefreshCw size={13} />
-            </button>
+      {/* Activity Chart — Sand Lab: table-based, placeholder only */}
+      {isSandLab ? (
+        <div className="up-card up-card-chart up-chart-placeholder" />
+      ) : (
+        <div className="up-card up-card-chart">
+          <div className="up-card-head">
+            <BarChart3 size={16} />
+            <span>
+              {isAdmin
+                ? "Department Entry Trends"
+                : isMoulding
+                  ? "DMM Entries This Month"
+                  : "Entries This Month"}
+            </span>
+            <span className="up-head-sub">
+              {isAdmin
+                ? `${adminChart.title} · daily entries`
+                : isMoulding
+                  ? `${chart.title} · DMM settings entries per day`
+                  : `${chart.title} · entries per day`}
+            </span>
+            {!isAdmin && (
+              <button
+                className="up-refresh-btn"
+                onClick={fetchEntryStats}
+                title="Refresh"
+              >
+                <RefreshCw size={13} />
+              </button>
+            )}
+          </div>
+          {/* Admin dept checkboxes — hidden for non-admin */}
+          {isAdmin && (
+            <div className="up-dept-checks">
+              <button
+                className="up-dept-check-btn"
+                onClick={() => setCheckedDepts(new Set())}
+                title="Uncheck all departments"
+              >
+                None
+              </button>
+              <button
+                className="up-dept-check-btn up-dept-check-btn-all"
+                onClick={() => setCheckedDepts(new Set(ADMIN_DEPARTMENTS))}
+                title="Select all departments"
+              >
+                All
+              </button>
+              <span className="up-dept-checks-sep" />
+              {ADMIN_DEPARTMENTS.map((dept, i) => {
+                const color = DEPT_COLORS[i % DEPT_COLORS.length];
+                const checked = checkedDepts.has(dept);
+                return (
+                  <label
+                    key={dept}
+                    className={`up-dept-check-item${checked ? " checked" : ""}`}
+                    style={{
+                      borderColor: checked ? color : "transparent",
+                      background: checked ? `${color}14` : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleDept(dept)}
+                      style={{ accentColor: color }}
+                    />
+                    <span style={{ color: checked ? color : "#94a3b8" }}>
+                      {dept}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           )}
+          <div className={`up-chart${isAdmin ? " is-admin" : ""}`}>
+            {statsLoading && !isAdmin && entryStats === null ? (
+              <div className="up-chart-msg">Loading activity…</div>
+            ) : isAdmin ? (
+              <Line
+                data={filteredAdminChartData}
+                options={adminChart.options}
+              />
+            ) : (
+              <Bar data={chart.data} options={chart.options} />
+            )}
+          </div>
         </div>
-        <div className={`up-chart${isAdmin ? " is-admin" : ""}`}>
-          {statsLoading && !isAdmin && entryStats === null ? (
-            <div className="up-chart-msg">Loading activity…</div>
-          ) : isAdmin ? (
-            <Line data={adminChart.data} options={adminChart.options} />
-          ) : (
-            <Bar data={chart.data} options={chart.options} />
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Password Change Modal */}
       <EditCard

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { PencilLine, Trash2, BookOpenCheck } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import { FilterButton, ClearButton, EntryNavButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -71,6 +72,7 @@ const SandTestingRecordReport = () => {
   const [table5Data, setTable5Data] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // Function to fetch data for a single date (cached in memory for instant re-view)
   const fetchDataForDate = async (date) => {
@@ -706,7 +708,15 @@ const SandTestingRecordReport = () => {
             Clear
           </ClearButton>
         )}
-        <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={startDate}
+          defaultTo={endDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
 
         {/* Range navigation: shown only in date-range mode after filter */}
         {isFiltered && isRangeMode && datesList.length > 0 && (

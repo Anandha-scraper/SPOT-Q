@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
 import { FilterButton, ClearButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
@@ -30,6 +31,7 @@ const DisamaticProductReport = () => {
 
   // Excel export
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // Transform backend data to frontend format
   const transformBackendData = (dataArray) => {
@@ -938,7 +940,15 @@ const DisamaticProductReport = () => {
           <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
             Clear
           </ClearButton>
-          <ExcelDownloadButton onClick={() => handleExcelDownload({ from: startDate, to: endDate })} disabled={loading || isDownloading} />
+          <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+          <ExcelDownloadDialog
+            open={showDownloadDialog}
+            onOpenChange={setShowDownloadDialog}
+            defaultFrom={startDate}
+            defaultTo={endDate}
+            loading={isDownloading}
+            onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+          />
           {error && (
             <span className="disa-inline-error" style={{ color: '#c0392b', fontSize: '0.85rem' }}>{error}</span>
           )}

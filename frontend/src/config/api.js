@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
   downloadLogs:     `${API_BASE}/api/v1/download-logs`,       // current user's logs (+ POST to record)
   downloadLogsAll:  `${API_BASE}/api/v1/download-logs/all`,   // admin: all departments
   entryStats:       `${API_BASE}/api/v1/entry-stats`,         // per-day entry counts for current month
+  entryStatsAdmin:  `${API_BASE}/api/v1/entry-stats/admin`,   // admin: per-day counts across all departments
   // Departments
   tensile:                 `${API_BASE}/api/v1/tensile`,
   impactTests:             `${API_BASE}/api/v1/impact-tests`,

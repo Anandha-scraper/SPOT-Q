@@ -243,7 +243,17 @@
 }
 
 .up-tbl.admin {
-    min-width: 47vw; /* ≈ 680px @ 1440px */
+    min-width: 40vw; /* ≈ 576px @ 1440px — 5-col admin view (# | Report | Date | Range | Time) */
+}
+
+/* Report column in admin download log — slightly muted, truncates gracefully */
+.up-tbl-report-cell {
+    max-width: 16vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #4a8896;
+    font-weight: 600 !important;
 }
 
 .up-tbl thead th {
@@ -301,6 +311,92 @@
 }
 .up-chart.is-admin {
     min-height: 30vh; /* ≈ 270px @ 900px tall */
+}
+
+/* ── Admin dept trend checkboxes ── */
+.up-dept-checks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.45rem 0;
+    border-bottom: 1.5px solid #e2e8f0;
+}
+
+.up-dept-check-btn {
+    padding: 0.18rem 0.55rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    border-radius: 0.35rem;
+    border: 1.5px solid #e2e8f0;
+    cursor: pointer;
+    background: #f1f5f9;
+    color: #64748b;
+    transition: all 0.15s ease;
+    line-height: 1.6;
+}
+.up-dept-check-btn:hover {
+    border-color: #5b9aa9;
+    color: #1e293b;
+    background: #f8fafc;
+}
+.up-dept-check-btn-all {
+    background: rgba(91, 154, 169, 0.1);
+    border-color: rgba(91, 154, 169, 0.35);
+    color: #4a8896;
+}
+.up-dept-check-btn-all:hover {
+    background: rgba(91, 154, 169, 0.18);
+    border-color: #5b9aa9;
+    color: #1e293b;
+}
+
+.up-dept-checks-sep {
+    width: 1px;
+    height: 1.1rem;
+    background: #e2e8f0;
+    flex-shrink: 0;
+    margin: 0 0.1rem;
+}
+
+.up-dept-check-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    cursor: pointer;
+    font-size: 0.66rem;
+    font-weight: 600;
+    padding: 0.18rem 0.42rem;
+    border-radius: 0.35rem;
+    border: 1.5px solid transparent;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+    user-select: none;
+    line-height: 1.6;
+}
+.up-dept-check-item input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+/* Sand Lab placeholder — empty card reserved for future implementation */
+.up-chart-placeholder {
+    border-style: dashed;
+    background: repeating-linear-gradient(
+        135deg,
+        #f8fafc,
+        #f8fafc 8px,
+        #f1f5f9 8px,
+        #f1f5f9 16px
+    );
+    min-height: 10vh;
+    opacity: 0.55;
 }
 
 /* Chart card stretches to fill leftover page height */

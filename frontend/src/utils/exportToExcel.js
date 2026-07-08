@@ -17,6 +17,8 @@
 //   });
 // ============================================================================
 
+import { API_ENDPOINTS } from '../config/api';
+
 // Yellow theme colours
 const HEADER_FILL = 'FFFFD966';   // header row fill (warm yellow)
 const TITLE_FILL = 'FFFFF2CC';    // title / range rows fill (light yellow)
@@ -207,6 +209,26 @@ const downloadWorkbook = async (workbook, { fileName, fromDate, toDate }) => {
   URL.revokeObjectURL(url);
 };
 
+// Record a download event in the backend log (fire-and-forget). Identity
+// (employeeId / department / userId) is filled server-side from the session, so
+// the client only sends what was exported. A logging failure must never break a
+// successful export, so errors are swallowed.
+const recordDownloadLog = ({ title, fromDate, toDate }) => {
+  try {
+    const rangeLabel = fromDate
+      ? `${displayDate(fromDate)} – ${displayDate(toDate)}`
+      : displayDate(toDate);
+    fetch(API_ENDPOINTS.downloadLogs, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportType: title, rangeLabel }),
+    }).catch(() => {});
+  } catch {
+    /* never let logging break a completed download */
+  }
+};
+
 export const exportToExcel = async ({
   title = 'Report',
   fromDate = '',
@@ -227,6 +249,7 @@ export const exportToExcel = async ({
   buildSheet(workbook, { sheetName, title, fromDate, toDate, columns, rows });
 
   await downloadWorkbook(workbook, { fileName, fromDate, toDate });
+  recordDownloadLog({ title, fromDate, toDate });
 };
 
 // Multi-sheet variant: one worksheet (tab) per entry in `sheets`, all sharing the
@@ -274,6 +297,7 @@ export const exportWorkbookToExcel = async ({
   });
 
   await downloadWorkbook(workbook, { fileName, fromDate, toDate });
+  recordDownloadLog({ title, fromDate, toDate });
 };
 
 export default exportToExcel;

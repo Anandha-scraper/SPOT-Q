@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { DeleteButton } from "./Buttons";
+import { DeleteButton, DeptTrendDropdown } from "./Buttons";
 import { Eye, EyeOff, UserRoundPen } from "lucide-react";
 import "../styles/ComponentStyles/Alert.css";
 import { API_ENDPOINTS } from "../config/api"; //deployment ready API endpoints
@@ -69,7 +69,7 @@ const AdminDashboard = () => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentView, setCurrentView] = useState("add");
-  const [selectedDepartment, setSelectedDepartment] = useState("All");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
 
   // Form States
   const [formData, setFormData] = useState({
@@ -306,6 +306,23 @@ const AdminDashboard = () => {
       {/* VIEW EMPLOYEES TAB */}
       {currentView === "view" && (
         <div className="emp-card">
+          <div className="emp-filter-bar">
+            <span className="emp-filter-label">Department</span>
+            <DeptTrendDropdown
+              value={selectedDepartment}
+              onChange={setSelectedDepartment}
+              options={departments.filter((d) => d !== "Admin")}
+            />
+            {selectedDepartment && (
+              <button
+                className="emp-filter-clear"
+                onClick={() => setSelectedDepartment("")}
+                title="Show all departments"
+              >
+                &times;
+              </button>
+            )}
+          </div>
           {loading ? (
             <div className="loading-state">Loading employees...</div>
           ) : (
@@ -380,7 +397,7 @@ const AdminDashboard = () => {
                     .filter(
                       (u) =>
                         u.role !== "admin" &&
-                        (selectedDepartment === "All" ||
+                        (!selectedDepartment ||
                           u.department === selectedDepartment),
                     )
                     .map((u, index) => (

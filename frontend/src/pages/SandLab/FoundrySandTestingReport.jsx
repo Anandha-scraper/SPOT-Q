@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import { FilterButton, ClearButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -23,6 +24,7 @@ const FoundrySandTestingReport = () => {
   const [toDate, setToDate] = useState(getCurrentDate());
   const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
   const cacheRef = useRef({});
@@ -489,7 +491,15 @@ const FoundrySandTestingReport = () => {
         <div className="foundry-sand-testing-filter-actions">
           <FilterButton onClick={handleFilter} disabled={loading} />
           {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
-          <ExcelDownloadButton onClick={() => handleExcelDownload({ from: fromDate, to: toDate })} disabled={loading || isDownloading} />
+          <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+          <ExcelDownloadDialog
+            open={showDownloadDialog}
+            onOpenChange={setShowDownloadDialog}
+            defaultFrom={fromDate}
+            defaultTo={toDate}
+            loading={isDownloading}
+            onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+          />
         </div>
 
       </div>

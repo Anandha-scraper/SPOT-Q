@@ -123,12 +123,21 @@
     box-shadow: 0 4px 12px rgba(91, 154, 169, 0.35);
 }
 
-/* ── 2-column grid: Login History | Download Logs ── */
+/* ── 2-column grid: left col (Identity + Login History) | Download Logs ── */
 .up-grid-2 {
     display: grid;
     grid-template-columns: 1fr 2fr;
     gap: 0.875rem;
     align-items: stretch;
+}
+
+/* Left column: Identity + Login History stacked, stretched by .up-grid-2
+   to match Download Logs card's height */
+.up-left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    min-width: 0;
 }
 
 /* ── Base card ── */
@@ -168,11 +177,22 @@
     white-space: nowrap;
 }
 
+/* Login History card: absorbs leftover height so .up-left-col's bottom
+   edge lines up with the Download Logs card's bottom edge */
+.up-card-login {
+    flex: 1;
+    min-height: 0;
+}
+
 /* ── Login history list ── */
 .up-login-list {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 .up-login-hdr {
@@ -301,6 +321,33 @@
     padding: 1.5rem;
     color: #94a3b8;
     font-size: 0.8rem;
+}
+
+/* Compact pagination inside the Download Logs card — small footprint so the
+   card doesn't grow past the height set by .up-grid-2's stretch. */
+.up-pagination-compact {
+    padding: 0.35rem 0 0;
+}
+.up-pagination-compact .custom-pagination {
+    gap: 0.25rem;
+}
+.up-pagination-compact .pagination-item,
+.up-pagination-compact .pagination-nav,
+.up-pagination-compact .pagination-active {
+    min-width: 22px;
+    width: 22px;
+    height: 22px;
+    font-size: 0.68rem;
+    border-width: 1px;
+    border-radius: 4px;
+}
+.up-pagination-compact .pagination-prev,
+.up-pagination-compact .pagination-next {
+    font-size: 13px;
+}
+.up-pagination-compact .pagination-ellipsis {
+    height: 22px;
+    font-size: 0.68rem;
 }
 
 /* ── Activity chart ── */

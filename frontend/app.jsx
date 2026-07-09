@@ -15,6 +15,7 @@ import { DepartmentProvider } from './src/context/DepartmentContext';
 import Login from './src/pages/Login';
 import UserProfile from './src/Components/UserProfile';
 import AdminDashboard from './src/Components/AdminDashboard';
+import DownloadLogsReport from './src/pages/Admin/DownloadLogsReport';
 
 // Feature Pages
 import MicroTensile from './src/pages/MicroTensile/MicroTensile';
@@ -118,6 +119,13 @@ const App = () => {
           <Route path="admin" element={
             <DepartmentRouteGuard>
               <AdminDashboard />
+            </DepartmentRouteGuard>
+          } />
+
+          {/* Admin — Download Logs full report (guarded again inside the page itself) */}
+          <Route path="admin/download-logs" element={
+            <DepartmentRouteGuard>
+              <DownloadLogsReport />
             </DepartmentRouteGuard>
           } />
 

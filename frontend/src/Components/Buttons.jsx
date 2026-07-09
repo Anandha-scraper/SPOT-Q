@@ -1029,7 +1029,7 @@ export const CustomTimeInput = forwardRef(
 CustomTimeInput.displayName = "CustomTimeInput";
 
 // Department Trend Filter Dropdown (admin UserProfile chart filter)
-export const DeptTrendDropdown = ({ value, onChange, options = [] }) => (
+export const DeptTrendDropdown = ({ value, onChange, options = [], style = {} }) => (
   <select
     value={value}
     onChange={(e) => onChange(e.target.value)}
@@ -1045,6 +1045,7 @@ export const DeptTrendDropdown = ({ value, onChange, options = [] }) => (
       outline: "none",
       transition: "border-color 0.2s ease, background 0.2s ease",
       maxWidth: "14rem",
+      ...style,
     }}
   >
     <option value="">All Departments</option>

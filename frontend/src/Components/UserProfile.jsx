@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
   User,
@@ -12,6 +13,7 @@ import {
   Download,
   BarChart3,
   RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -26,8 +28,9 @@ import {
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 import "../styles/ComponentStyles/PopUp.css";
-import { EyeButton } from "./Buttons";
+import { EyeButton, CustomPagination } from "./Buttons";
 import { API_ENDPOINTS } from "../config/api";
+import { formatDateTime } from "../utils/formatDateTime";
 import "../styles/ComponentStyles/UserProfile.css";
 
 // Register the Chart.js pieces used by the employee bar chart + admin line chart.
@@ -134,29 +137,10 @@ const EditCard = ({
   );
 };
 
-// Format an ISO timestamp into "DD / MM / YYYY" + 12-hour "hh:mm:ss AM/PM".
-const formatDateTime = (iso) => {
-  if (!iso) return { date: "—", time: "" };
-  const d = new Date(iso);
-  const date = d
-    .toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-    .replace(/\//g, " / ");
-  const time = d.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  return { date, time };
-};
-
 const UserProfile = () => {
   // ---- Auth ----
   const { user, isAdmin } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const userData = user || {
     name: "Unknown",
@@ -187,6 +171,8 @@ const UserProfile = () => {
   // ---- Download logs ----
   const [downloadLogs, setDownloadLogs] = useState([]);
   const [downloadLoading, setDownloadLoading] = useState(true);
+  const [downloadPage, setDownloadPage] = useState(1);
+  const downloadLogsPerPage = 5;
 
   // ---- Entry stats (activity chart) ----
   const [entryStats, setEntryStats] = useState(null);
@@ -251,15 +237,26 @@ const UserProfile = () => {
         setDownloadLogs(
           data.success && Array.isArray(data.data) ? data.data : [],
         );
+        setDownloadPage(1);
       } catch (error) {
         console.error("Error fetching download logs:", error);
         setDownloadLogs([]);
+        setDownloadPage(1);
       } finally {
         setDownloadLoading(false);
       }
     }
     if (user) fetchDownloadLogs();
   }, [user, isAdmin]);
+
+  // ---- Download logs pagination (derived) ----
+  const totalDownloadPages = Math.ceil(
+    downloadLogs.length / downloadLogsPerPage,
+  );
+  const paginatedDownloadLogs = downloadLogs.slice(
+    (downloadPage - 1) * downloadLogsPerPage,
+    downloadPage * downloadLogsPerPage,
+  );
 
   // Fetch per-day entry stats for the current month (non-admin only)
   const fetchEntryStats = async () => {
@@ -415,9 +412,15 @@ const UserProfile = () => {
       elements: {
         point: { hoverRadius: 12, hoverBackgroundColor: "yellow" },
       },
-      interaction: { mode: "nearest", intersect: false, axis: "x" },
+      interaction: { mode: "nearest", intersect: true },
       plugins: {
-        tooltip: { enabled: false },
+        tooltip: {
+          callbacks: {
+            title: (items) =>
+              `Day ${items[0].label} · ${MONTH_NAMES[month - 1]}`,
+            label: (item) => `${item.dataset.label}: ${item.formattedValue}`,
+          },
+        },
         legend: {
           position: "top",
           labels: {
@@ -520,61 +523,63 @@ const UserProfile = () => {
 
   return (
     <div className="up-page">
-      {/* Identity Strip */}
-      <div className="up-identity">
-        <div className="up-id-avatar">
-          <User size={20} />
-        </div>
-        <div className="up-id-info">
-          <span className="up-id-name">{userData.name}</span>
-          <div className="up-id-chips">
-            <span className="up-chip up-chip-id">
-              <IdCard size={10} /> {userData.employeeId || "—"}
-            </span>
-            <span className="up-chip up-chip-dept">
-              <Building2 size={10} /> {userData.department || "—"}
-            </span>
-            <span className="up-chip up-chip-role">
-              <Shield size={10} /> {userData.role || "employee"}
-            </span>
-          </div>
-        </div>
-        <button className="up-pwd-btn" onClick={handlePasswordModalOpen}>
-          <UserRoundPen size={14} />
-          Change Password
-        </button>
-      </div>
-
-      {/* 2-col: Login History · Download Logs */}
+      {/* Left column: Identity Strip + Login History · Right: Download Logs (tall) */}
       <div className="up-grid-2">
-        {/* Login History card */}
-        <div className="up-card">
-          <div className="up-card-head">
-            <LogIn size={16} />
-            <span>Login History</span>
-            <span className="up-head-sub">Last 5 sessions</span>
-          </div>
-          <div className="up-login-list">
-            <div className="up-login-hdr">
-              <span>Date</span>
-              <span>Time</span>
+        <div className="up-left-col">
+          {/* Identity Strip */}
+          <div className="up-identity">
+            <div className="up-id-avatar">
+              <User size={20} />
             </div>
-            {historyLoading ? (
-              <div className="up-empty">Loading login history…</div>
-            ) : loginHistory.length > 0 ? (
-              loginHistory.slice(0, 5).map((login) => (
-                <div key={login.id} className="up-login-row">
-                  <span>
-                    <Calendar size={11} /> {login.date}
-                  </span>
-                  <span>
-                    <Clock size={11} /> {login.time}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="up-empty">No login history available</div>
-            )}
+            <div className="up-id-info">
+              <span className="up-id-name">{userData.name}</span>
+              <div className="up-id-chips">
+                <span className="up-chip up-chip-id">
+                  <IdCard size={10} /> {userData.employeeId || "—"}
+                </span>
+                <span className="up-chip up-chip-dept">
+                  <Building2 size={10} /> {userData.department || "—"}
+                </span>
+                <span className="up-chip up-chip-role">
+                  <Shield size={10} /> {userData.role || "employee"}
+                </span>
+              </div>
+            </div>
+            <button className="up-pwd-btn" onClick={handlePasswordModalOpen}>
+              <UserRoundPen size={14} />
+              Change Password
+            </button>
+          </div>
+
+          {/* Login History card */}
+          <div className="up-card up-card-login">
+            <div className="up-card-head">
+              <LogIn size={16} />
+              <span>Login History</span>
+              <span className="up-head-sub">Last 5 sessions</span>
+            </div>
+            <div className="up-login-list">
+              <div className="up-login-hdr">
+                <span>Date</span>
+                <span>Time</span>
+              </div>
+              {historyLoading ? (
+                <div className="up-empty">Loading login history…</div>
+              ) : loginHistory.length > 0 ? (
+                loginHistory.slice(0, 5).map((login) => (
+                  <div key={login.id} className="up-login-row">
+                    <span>
+                      <Calendar size={11} /> {login.date}
+                    </span>
+                    <span>
+                      <Clock size={11} /> {login.time}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="up-empty">No login history available</div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -586,6 +591,15 @@ const UserProfile = () => {
             <span className="up-head-sub">
               {isAdmin ? "All departments" : "Your recent downloads"}
             </span>
+            {isAdmin && (
+              <button
+                className="up-refresh-btn"
+                title="View full logs"
+                onClick={() => navigate("/admin/download-logs")}
+              >
+                <ExternalLink size={14} />
+              </button>
+            )}
           </div>
           <div className="up-tbl-wrap">
             <table className="up-tbl">
@@ -607,12 +621,16 @@ const UserProfile = () => {
                       Loading download logs…
                     </td>
                   </tr>
-                ) : downloadLogs.length > 0 ? (
-                  downloadLogs.map((log, index) => {
+                ) : paginatedDownloadLogs.length > 0 ? (
+                  paginatedDownloadLogs.map((log, index) => {
                     const { date, time } = formatDateTime(log.createdAt);
                     return (
                       <tr key={log._id || index}>
-                        <td>{index + 1}</td>
+                        <td>
+                          {(downloadPage - 1) * downloadLogsPerPage +
+                            index +
+                            1}
+                        </td>
                         {isAdmin && <td>{log.employeeId || "—"}</td>}
                         {isAdmin && <td>{log.name || "—"}</td>}
                         {isAdmin && (
@@ -636,6 +654,14 @@ const UserProfile = () => {
               </tbody>
             </table>
           </div>
+          {!downloadLoading && totalDownloadPages > 1 && (
+            <CustomPagination
+              currentPage={downloadPage}
+              totalPages={totalDownloadPages}
+              onPageChange={setDownloadPage}
+              className="up-pagination-compact"
+            />
+          )}
         </div>
       </div>
 
@@ -660,7 +686,7 @@ const UserProfile = () => {
                   ? `${chart.title} · DMM settings entries per day`
                   : `${chart.title} · entries per day`}
             </span>
-            {!isAdmin && (
+            {(
               <button
                 className="up-refresh-btn"
                 onClick={fetchEntryStats}

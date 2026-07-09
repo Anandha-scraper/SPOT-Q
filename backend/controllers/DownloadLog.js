@@ -1,4 +1,5 @@
 const DownloadLog = require("../models/DownloadLog");
+const User = require("../models/user");
 
 // Current user's download history (newest first). Powers the profile
 // "Download Logs" tab. Returns [] until downloads are recorded.
@@ -25,7 +26,29 @@ exports.getAllDownloadLogs = async (req, res) => {
     const logs = await DownloadLog.find({})
       .sort({ createdAt: -1 })
       .limit(500)
-      .select("employeeId name department reportType rangeLabel createdAt");
+      .select("employeeId name department reportType rangeLabel createdAt")
+      .lean();
+
+    // Older/legacy log rows can be missing `name` — backfill from the
+    // employee's current name so the admin table doesn't show blanks.
+    const missingIds = [
+      ...new Set(
+        logs.filter((l) => !l.name).map((l) => l.employeeId),
+      ),
+    ];
+    if (missingIds.length) {
+      const users = await User.find({ employeeId: { $in: missingIds } }).select(
+        "employeeId name",
+      );
+      const nameByEmployeeId = new Map(
+        users.map((u) => [u.employeeId, u.name]),
+      );
+      logs.forEach((l) => {
+        if (!l.name) {
+          l.name = nameByEmployeeId.get(l.employeeId) || l.name;
+        }
+      });
+    }
 
     res.status(200).json({ success: true, data: logs });
   } catch (error) {

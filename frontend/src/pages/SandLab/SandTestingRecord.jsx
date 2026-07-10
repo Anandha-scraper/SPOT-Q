@@ -4,7 +4,11 @@ import { BookOpen} from 'lucide-react';
 import Table from '../../Components/Table';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { InlineLoader } from '../../Components/InlineLoader';
+
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 // Get today's date in YYYY-MM-DD format
@@ -16,9 +20,14 @@ const getTodaysDate = () => {
 const SandTestingRecord = () => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(getTodaysDate());
+  const [plant, setPlant] = useState('Disa');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [isFetchingCombination, setIsFetchingCombination] = useState(false);
   const isInitialMount = useRef(true);
-  
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
+  const { isOpen: isInfoOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useInfoModal();
+
   // Lock state for each table
   const [table1Locked, setTable1Locked] = useState(false);
   const [table2Locked, setTable2Locked] = useState(false);
@@ -28,16 +37,7 @@ const SandTestingRecord = () => {
   
   // S.No count from database (will be fetched and incremented automatically)
   const [currentSNo, setCurrentSNo] = useState(0); // This will come from database and auto-increment
-  
-  // Track locked fields for Table 5 (options, radios, dropdowns locked after first entry)
-  const [table5LockedFields, setTable5LockedFields] = useState({
-    gcsCheckpoint: null,
-    bentoniteCheckpoint: null,
-    premixCoalCheckpoint: null,
-    compactabilitySetting: null,
-    mouldStrengthSetting: null
-  });
-  
+
   // State for Table 5 data rows (array of submitted records)
   const [table5Data, setTable5Data] = useState([]);
   const [nextTable5SNo, setNextTable5SNo] = useState(1);
@@ -136,253 +136,53 @@ const SandTestingRecord = () => {
     }
   };
 
-  // Update form field with validation
+  // Map each Table 5 form field to its "valid" state setter
+  const table5ValidSetters = {
+    time: setTimeValid,
+    mixNo: setMixNoValid,
+    permeability: setPermeabilityValid,
+    gcsCheckpoint: setGcsCheckpointValid,
+    gcsValue: setGcsValid,
+    wts: setWtsValid,
+    moisture: setMoistureValid,
+    compactability: setCompactabilityValid,
+    compressability: setCompressabilityValid,
+    waterLitreKgMix: setWaterLitreValid,
+    sandTempBC: setSandTempBCValid,
+    sandTempWU: setSandTempWUValid,
+    sandTempSSU: setSandTempSSUValid,
+    newSandKgsMould: setNewSandValid,
+    bentoniteCheckpoint: setBentoniteCheckpointValid,
+    bentoniteKgs: setBentoniteKgsValid,
+    bentonitePercent: setBentonitePercentValid,
+    premixCoalCheckpoint: setPremixCoalCheckpointValid,
+    premixCoalKgs: setPremixCoalKgsValid,
+    premixCoalPercent: setPremixCoalPercentValid,
+    compactabilitySetting: setCompactabilitySettingValid,
+    compactabilityValue: setCompactabilityValueValid,
+    mouldStrengthSetting: setMouldStrengthSettingValid,
+    mouldStrengthValue: setMouldStrengthValueValid,
+    preparedSandLumpsKg: setPreparedSandLumpsKgValid,
+    itemName: setItemNameValid
+  };
+
+  // Update form field. Like Process.jsx: typing only clears the field's error (no live
+  // green/red). Validation is evaluated on submit and shows red only where it fails.
   const updateFormField = (field, value) => {
     setTable5FormData({
       ...table5FormData,
       [field]: value
     });
 
-    // Validate based on field type and range
-    if (field === 'time') {
-      setTimeValid(value ? true : null);
-    }
+    // Clear this field's error on change
+    if (table5ValidSetters[field]) table5ValidSetters[field](null);
 
-    if (field === 'mixNo') {
-      setMixNoValid(value.trim() ? true : null);
-    }
-    if (field === 'permeability') {
-      if (!value.trim()) {
-        setPermeabilityValid(null);
-      } else {
-        const num = parseFloat(value);
-        setPermeabilityValid(!isNaN(num) && num >= 90 && num <= 160);
-      }
-    }
-
-    if (field === 'gcsCheckpoint') {
-      setGcsCheckpointValid(value ? true : null);
-      // Also validate gcsValue if it exists
-      const updatedData = {...table5FormData, [field]: value};
-      if (updatedData.gcsValue && value) {
-        const num = parseFloat(updatedData.gcsValue);
-        const minValue = value === 'FDY-A' ? 1800 : 1900;
-        setGcsValid(!isNaN(num) && num >= minValue);
-      } else if (!value) {
-        setGcsValid(null);
-      }
-    }
-
-    if (field === 'gcsValue') {
-      const updatedData = {...table5FormData, [field]: value};
-      if (!value.trim()) {
-        setGcsValid(null);
-      } else if (updatedData.gcsCheckpoint) {
-        const num = parseFloat(value);
-        const minValue = updatedData.gcsCheckpoint === 'FDY-A' ? 1800 : 1900;
-        setGcsValid(!isNaN(num) && num >= minValue);
-      } else {
-        setGcsValid(false);
-      }
-    }
-
-    if (field === 'wts') {
-      if (!value.trim()) {
-        setWtsValid(null);
-      } else {
-        const num = parseFloat(value);
-        setWtsValid(!isNaN(num) && num >= 0.15);
-      }
-    }
-
-    if (field === 'moisture') {
-      if (!value.trim()) {
-        setMoistureValid(null);
-      } else {
-        const num = parseFloat(value);
-        setMoistureValid(!isNaN(num) && num >= 3.0 && num <= 4.0);
-      }
-    }
-
-    if (field === 'compactability') {
-      if (!value.trim()) {
-        setCompactabilityValid(null);
-      } else {
-        const num = parseFloat(value);
-        setCompactabilityValid(!isNaN(num) && num >= 33 && num <= 40);
-      }
-    }
-
-    if (field === 'compressability') {
-      if (!value.trim()) {
-        setCompressabilityValid(null);
-      } else {
-        const num = parseFloat(value);
-        setCompressabilityValid(!isNaN(num) && num >= 20 && num <= 28);
-      }
-    }
-
-    if (field === 'waterLitreKgMix') {
-      setWaterLitreValid(value.trim() && !isNaN(value) && parseFloat(value) >= 0 ? true : (value.trim() ? false : null));
-    }
-
-    if (field === 'sandTempBC') {
-      if (!value.trim()) {
-        setSandTempBCValid(null);
-      } else {
-        const num = parseFloat(value);
-        setSandTempBCValid(!isNaN(num) && num >= 0 && num <= 45);
-      }
-    }
-
-    if (field === 'sandTempWU') {
-      if (!value.trim()) {
-        setSandTempWUValid(null);
-      } else {
-        const num = parseFloat(value);
-        setSandTempWUValid(!isNaN(num) && num >= 0 && num <= 45);
-      }
-    }
-
-    if (field === 'sandTempSSU') {
-      if (!value.trim()) {
-        setSandTempSSUValid(null);
-      } else {
-        const num = parseFloat(value);
-        setSandTempSSUValid(!isNaN(num) && num >= 0 && num <= 45);
-      }
-    }
-
-    if (field === 'newSandKgsMould') {
-      if (!value.trim()) {
-        setNewSandValid(null);
-      } else {
-        const num = parseFloat(value);
-        setNewSandValid(!isNaN(num) && num >= 0.0 && num <= 5.0);
-      }
-    }
-
-    if (field === 'bentoniteCheckpoint') {
-      setBentoniteCheckpointValid(value ? true : null);
-      // Reset sub-fields if checkpoint changes
-      const updatedData = {...table5FormData, [field]: value};
-      if (updatedData.bentoniteKgs && value) {
-        setBentoniteKgsValid(!isNaN(parseFloat(updatedData.bentoniteKgs)) && parseFloat(updatedData.bentoniteKgs) >= 0);
-      }
-      if (updatedData.bentonitePercent && value) {
-        const percent = parseFloat(updatedData.bentonitePercent);
-        const range = value === '0.60-1.20' ? [0.60, 1.20] : [0.80, 2.20];
-        setBentonitePercentValid(!isNaN(percent) && percent >= range[0] && percent <= range[1]);
-      }
-    }
-
-    if (field === 'bentoniteKgs') {
-      if (!value.trim()) {
-        setBentoniteKgsValid(null);
-      } else {
-        const num = parseFloat(value);
-        setBentoniteKgsValid(!isNaN(num) && num >= 0);
-      }
-    }
-
-    if (field === 'bentonitePercent') {
-      const updatedData = {...table5FormData, [field]: value};
-      if (!value.trim()) {
-        setBentonitePercentValid(null);
-      } else if (updatedData.bentoniteCheckpoint) {
-        const percent = parseFloat(value);
-        const range = updatedData.bentoniteCheckpoint === '0.60-1.20' ? [0.60, 1.20] : [0.80, 2.20];
-        setBentonitePercentValid(!isNaN(percent) && percent >= range[0] && percent <= range[1]);
-      } else {
-        setBentonitePercentValid(false);
-      }
-    }
-
-    if (field === 'premixCoalCheckpoint') {
-      setPremixCoalCheckpointValid(value ? true : null);
-      // Reset sub-fields if checkpoint changes
-      const updatedData = {...table5FormData, [field]: value};
-      if (updatedData.premixCoalKgs && value) {
-        setPremixCoalKgsValid(!isNaN(parseFloat(updatedData.premixCoalKgs)) && parseFloat(updatedData.premixCoalKgs) >= 0);
-      }
-      if (updatedData.premixCoalPercent && value) {
-        const percent = parseFloat(updatedData.premixCoalPercent);
-        const range = value === 'Premix' ? [0.60, 1.20] : [0.28, 0.70];
-        setPremixCoalPercentValid(!isNaN(percent) && percent >= range[0] && percent <= range[1]);
-      }
-    }
-
-    if (field === 'premixCoalKgs') {
-      if (!value.trim()) {
-        setPremixCoalKgsValid(null);
-      } else {
-        const num = parseFloat(value);
-        setPremixCoalKgsValid(!isNaN(num) && num >= 0);
-      }
-    }
-
-    if (field === 'premixCoalPercent') {
-      const updatedData = {...table5FormData, [field]: value};
-      if (!value.trim()) {
-        setPremixCoalPercentValid(null);
-      } else if (updatedData.premixCoalCheckpoint) {
-        const percent = parseFloat(value);
-        const range = updatedData.premixCoalCheckpoint === 'Premix' ? [0.60, 1.20] : [0.28, 0.70];
-        setPremixCoalPercentValid(!isNaN(percent) && percent >= range[0] && percent <= range[1]);
-      } else {
-        setPremixCoalPercentValid(false);
-      }
-    }
-
-    if (field === 'compactabilitySetting') {
-      setCompactabilitySettingValid(value ? true : null);
-      // Reset value validation if setting changes
-      const updatedData = {...table5FormData, [field]: value};
-      if (!value) {
-        setCompactabilityValueValid(null);
-      } else if (updatedData.compactabilityValue) {
-        setCompactabilityValueValid(!isNaN(parseFloat(updatedData.compactabilityValue)) && parseFloat(updatedData.compactabilityValue) >= 0);
-      }
-    }
-
-    if (field === 'compactabilityValue') {
-      if (!value.trim()) {
-        setCompactabilityValueValid(null);
-      } else {
-        const num = parseFloat(value);
-        setCompactabilityValueValid(!isNaN(num) && num >= 0);
-      }
-    }
-
-    if (field === 'mouldStrengthSetting') {
-      setMouldStrengthSettingValid(value ? true : null);
-      // Reset value validation if setting changes
-      const updatedData = {...table5FormData, [field]: value};
-      if (!value) {
-        setMouldStrengthValueValid(null);
-      } else if (updatedData.mouldStrengthValue) {
-        setMouldStrengthValueValid(!isNaN(parseFloat(updatedData.mouldStrengthValue)) && parseFloat(updatedData.mouldStrengthValue) >= 0);
-      }
-    }
-
-    if (field === 'mouldStrengthValue') {
-      if (!value.trim()) {
-        setMouldStrengthValueValid(null);
-      } else {
-        const num = parseFloat(value);
-        setMouldStrengthValueValid(!isNaN(num) && num >= 0);
-      }
-    }
-
-    if (field === 'preparedSandLumpsKg') {
-      setPreparedSandLumpsKgValid(value.trim() && !isNaN(value) && parseFloat(value) >= 0 ? true : (value.trim() ? false : null));
-    }
-
-    if (field === 'itemName') {
-      setItemNameValid(value.trim() ? true : null);
-    }
-
-    // Remarks is optional, no validation needed
+    // Changing a checkpoint/setting also clears its dependent value field(s)
+    if (field === 'gcsCheckpoint') setGcsValid(null);
+    if (field === 'bentoniteCheckpoint') { setBentoniteKgsValid(null); setBentonitePercentValid(null); }
+    if (field === 'premixCoalCheckpoint') { setPremixCoalKgsValid(null); setPremixCoalPercentValid(null); }
+    if (field === 'compactabilitySetting') setCompactabilityValueValid(null);
+    if (field === 'mouldStrengthSetting') setMouldStrengthValueValid(null);
   };
 
   // Handle time change
@@ -400,158 +200,73 @@ const SandTestingRecord = () => {
     
     let hasErrors = false;
 
-    // Validate Time (required)
-    if (!table5FormData.time) {
-      setTimeValid(false);
-      hasErrors = true;
-    }
+    // "required" is sourced from sandTestingValidationRanges (edit `required` there to toggle it).
+    // Fields absent from that list default to required. Validation runs on submit only and
+    // marks failing fields red (invalid-input); there is no green/valid state.
+    const isFieldRequired = (formKey) => {
+      const rule = sandTestingValidationRanges.find(r => r.formKey === formKey);
+      return rule ? rule.required !== false : true;
+    };
+    const isEmpty = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
 
-    // Validate Mix No (required)
-    if (!table5FormData.mixNo || !table5FormData.mixNo.trim()) {
-      setMixNoValid(false);
-      hasErrors = true;
-    }
-
-    // Validate Permeability (required, range 90-160)
-    if (!table5FormData.permeability) {
-      setPermeabilityValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.permeability);
-      if (isNaN(num) || num < 90 || num > 160) {
-        setPermeabilityValid(false);
+    // Straightforward field: fails if required-and-empty, or (when filled) type/range not satisfied.
+    // requiredKey lets several inputs (e.g. Sand Temp BC/WU/SSU) share one rule's "required" flag.
+    const checkField = (formKey, value, { min, max } = {}, requiredKey = formKey) => {
+      const setValid = table5ValidSetters[formKey];
+      if (isEmpty(value)) {
+        if (isFieldRequired(requiredKey)) { if (setValid) setValid(false); hasErrors = true; }
+        return;
+      }
+      const num = parseFloat(value);
+      if (isNaN(num) || !isFinite(num) ||
+          (min !== undefined && num < min) ||
+          (max !== undefined && num > max)) {
+        if (setValid) setValid(false);
         hasErrors = true;
       }
-    }
+    };
 
-    // Validate G.C.S (required)
+    // Required-presence only (text/time)
+    const checkPresence = (formKey, value) => {
+      if (isEmpty(value) && isFieldRequired(formKey)) {
+        const setValid = table5ValidSetters[formKey];
+        if (setValid) setValid(false);
+        hasErrors = true;
+      }
+    };
+
+    checkPresence('time', table5FormData.time);
+    checkPresence('mixNo', table5FormData.mixNo);
+    checkField('permeability', table5FormData.permeability, { min: 90, max: 160 });
+    checkField('wts', table5FormData.wts, { min: 0.15 });
+    checkField('moisture', table5FormData.moisture, { min: 3.0, max: 4.0 });
+    checkField('compactability', table5FormData.compactability, { min: 33, max: 40 });
+    checkField('compressability', table5FormData.compressability, { min: 20, max: 28 });
+    checkField('waterLitreKgMix', table5FormData.waterLitreKgMix, { min: 0 });
+    checkField('sandTempBC', table5FormData.sandTempBC, { min: 0, max: 45 });
+    checkField('sandTempWU', table5FormData.sandTempWU, { min: 0, max: 45 }, 'sandTempBC');
+    checkField('sandTempSSU', table5FormData.sandTempSSU, { min: 0, max: 45 }, 'sandTempBC');
+    checkField('newSandKgsMould', table5FormData.newSandKgsMould, { min: 0.0, max: 5.0 });
+    checkField('preparedSandLumpsKg', table5FormData.preparedSandLumpsKg, { min: 0 });
+    checkPresence('itemName', table5FormData.itemName);
+
+    // G.C.S — value range depends on the selected checkpoint (FDY-A: min 1800, FDY-B: min 1900)
     if (!table5FormData.gcsCheckpoint || !table5FormData.gcsValue) {
-      setGcsValid(false);
-      hasErrors = true;
+      if (isFieldRequired('gcsValue')) { setGcsValid(false); hasErrors = true; }
     } else {
       const num = parseFloat(table5FormData.gcsValue);
       const minValue = table5FormData.gcsCheckpoint === 'FDY-A' ? 1800 : 1900;
-      if (isNaN(num) || num < minValue) {
-        setGcsValid(false);
-        hasErrors = true;
-      }
+      if (isNaN(num) || num < minValue) { setGcsValid(false); hasErrors = true; }
     }
 
-    // Validate WTS (required, min 0.15)
-    if (!table5FormData.wts) {
-      setWtsValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.wts);
-      if (isNaN(num) || num < 0.15) {
-        setWtsValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Moisture (required, range 3.0-4.0)
-    if (!table5FormData.moisture) {
-      setMoistureValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.moisture);
-      if (isNaN(num) || num < 3.0 || num > 4.0) {
-        setMoistureValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Compactability (required, range 33-40)
-    if (!table5FormData.compactability) {
-      setCompactabilityValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.compactability);
-      if (isNaN(num) || num < 33 || num > 40) {
-        setCompactabilityValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Compressability (required, range 20-28)
-    if (!table5FormData.compressability) {
-      setCompressabilityValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.compressability);
-      if (isNaN(num) || num < 20 || num > 28) {
-        setCompressabilityValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Water Litre/Kg Mix (required)
-    if (!table5FormData.waterLitreKgMix || isNaN(table5FormData.waterLitreKgMix) || parseFloat(table5FormData.waterLitreKgMix) < 0) {
-      setWaterLitreValid(false);
-      hasErrors = true;
-    }
-
-    // Validate Sand Temp BC (required, max 45)
-    if (!table5FormData.sandTempBC) {
-      setSandTempBCValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.sandTempBC);
-      if (isNaN(num) || num < 0 || num > 45) {
-        setSandTempBCValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Sand Temp WU (required, max 45)
-    if (!table5FormData.sandTempWU) {
-      setSandTempWUValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.sandTempWU);
-      if (isNaN(num) || num < 0 || num > 45) {
-        setSandTempWUValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Sand Temp SSU (required, max 45)
-    if (!table5FormData.sandTempSSU) {
-      setSandTempSSUValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.sandTempSSU);
-      if (isNaN(num) || num < 0 || num > 45) {
-        setSandTempSSUValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate New Sand Kgs/Mould (required, range 0.0-5.0)
-    if (!table5FormData.newSandKgsMould) {
-      setNewSandValid(false);
-      hasErrors = true;
-    } else {
-      const num = parseFloat(table5FormData.newSandKgsMould);
-      if (isNaN(num) || num < 0.0 || num > 5.0) {
-        setNewSandValid(false);
-        hasErrors = true;
-      }
-    }
-
-    // Validate Bentonite (required)
-    if (!table5FormData.bentoniteCheckpoint) {
-      setBentoniteCheckpointValid(false);
-      hasErrors = true;
-    }
-    if (!table5FormData.bentoniteKgs) {
-      setBentoniteKgsValid(false);
-      hasErrors = true;
+    // Bentonite — % range depends on the selected checkpoint
+    if (isFieldRequired('bentonitePercent')) {
+      if (!table5FormData.bentoniteCheckpoint) { setBentoniteCheckpointValid(false); hasErrors = true; }
+      if (!table5FormData.bentoniteKgs) { setBentoniteKgsValid(false); hasErrors = true; }
     }
     if (!table5FormData.bentonitePercent) {
-      setBentonitePercentValid(false);
-      hasErrors = true;
-    } else if (table5FormData.bentoniteCheckpoint && table5FormData.bentonitePercent) {
+      if (isFieldRequired('bentonitePercent')) { setBentonitePercentValid(false); hasErrors = true; }
+    } else if (table5FormData.bentoniteCheckpoint) {
       const percent = parseFloat(table5FormData.bentonitePercent);
       const range = table5FormData.bentoniteCheckpoint === '0.60-1.20' ? [0.60, 1.20] : [0.80, 2.20];
       if (isNaN(percent) || percent < range[0] || percent > range[1]) {
@@ -560,19 +275,14 @@ const SandTestingRecord = () => {
       }
     }
 
-    // Validate Premix/Coal Dust (required)
-    if (!table5FormData.premixCoalCheckpoint) {
-      setPremixCoalCheckpointValid(false);
-      hasErrors = true;
-    }
-    if (!table5FormData.premixCoalKgs) {
-      setPremixCoalKgsValid(false);
-      hasErrors = true;
+    // Premix / Coal Dust — % range depends on the selected checkpoint
+    if (isFieldRequired('premixCoalPercent')) {
+      if (!table5FormData.premixCoalCheckpoint) { setPremixCoalCheckpointValid(false); hasErrors = true; }
+      if (!table5FormData.premixCoalKgs) { setPremixCoalKgsValid(false); hasErrors = true; }
     }
     if (!table5FormData.premixCoalPercent) {
-      setPremixCoalPercentValid(false);
-      hasErrors = true;
-    } else if (table5FormData.premixCoalCheckpoint && table5FormData.premixCoalPercent) {
+      if (isFieldRequired('premixCoalPercent')) { setPremixCoalPercentValid(false); hasErrors = true; }
+    } else if (table5FormData.premixCoalCheckpoint) {
       const percent = parseFloat(table5FormData.premixCoalPercent);
       const range = table5FormData.premixCoalCheckpoint === 'Premix' ? [0.60, 1.20] : [0.28, 0.70];
       if (isNaN(percent) || percent < range[0] || percent > range[1]) {
@@ -581,41 +291,27 @@ const SandTestingRecord = () => {
       }
     }
 
-    // Validate Compactability Setting (required)
-    if (!table5FormData.compactabilitySetting) {
+    // Compactability setting + value
+    if (isFieldRequired('compactabilityValue') && !table5FormData.compactabilitySetting) {
       setCompactabilitySettingValid(false);
       hasErrors = true;
     }
     if (!table5FormData.compactabilityValue) {
-      setCompactabilityValueValid(false);
-      hasErrors = true;
-    } else if (isNaN(table5FormData.compactabilityValue) || parseFloat(table5FormData.compactabilityValue) < 0) {
+      if (isFieldRequired('compactabilityValue')) { setCompactabilityValueValid(false); hasErrors = true; }
+    } else if (isNaN(parseFloat(table5FormData.compactabilityValue)) || parseFloat(table5FormData.compactabilityValue) < 0) {
       setCompactabilityValueValid(false);
       hasErrors = true;
     }
 
-    // Validate Mould Strength Setting (required)
-    if (!table5FormData.mouldStrengthSetting) {
+    // Mould strength setting + value
+    if (isFieldRequired('mouldStrengthValue') && !table5FormData.mouldStrengthSetting) {
       setMouldStrengthSettingValid(false);
       hasErrors = true;
     }
     if (!table5FormData.mouldStrengthValue) {
+      if (isFieldRequired('mouldStrengthValue')) { setMouldStrengthValueValid(false); hasErrors = true; }
+    } else if (isNaN(parseFloat(table5FormData.mouldStrengthValue)) || parseFloat(table5FormData.mouldStrengthValue) < 0) {
       setMouldStrengthValueValid(false);
-      hasErrors = true;
-    } else if (isNaN(table5FormData.mouldStrengthValue) || parseFloat(table5FormData.mouldStrengthValue) < 0) {
-      setMouldStrengthValueValid(false);
-      hasErrors = true;
-    }
-
-    // Validate Prepared Sand Lumps/Kg (required)
-    if (!table5FormData.preparedSandLumpsKg || isNaN(table5FormData.preparedSandLumpsKg) || parseFloat(table5FormData.preparedSandLumpsKg) < 0) {
-      setPreparedSandLumpsKgValid(false);
-      hasErrors = true;
-    }
-
-    // Validate Item Name (required)
-    if (!table5FormData.itemName || !table5FormData.itemName.trim()) {
-      setItemNameValid(false);
       hasErrors = true;
     }
 
@@ -627,14 +323,12 @@ const SandTestingRecord = () => {
     }
 
     try {
-      // Combine time fields into HH:MM format
-      const time = `${String(table5FormData.time.hour).padStart(2, '0')}:${String(table5FormData.time.minute).padStart(2, '0')}`;
-
       // Transform data to match backend model structure
       const dataToSave = {
         date: selectedDate,
+        plant,
         sno: currentSNo === 0 ? 1 : currentSNo + 1,
-        time: table5FormData.time.hour * 100 + table5FormData.time.minute, // Convert to number format
+        time: table5FormData.time ? table5FormData.time.hour * 100 + table5FormData.time.minute : 0, // Convert to number format
         mixno: parseFloat(table5FormData.mixNo) || 0,
         permeability: parseFloat(table5FormData.permeability) || 0,
         gcsFdyA: table5FormData.gcsCheckpoint === 'FDY-A' ? parseFloat(table5FormData.gcsValue) || 0 : 0,
@@ -685,20 +379,9 @@ const SandTestingRecord = () => {
       if (result.success) {
         alert('Table 5 data submitted successfully!');
         
-        // Add the new entry to table5Data array for display
+        // Track the submitted entry for S.No auto-increment (display lives on the report page)
         setTable5Data(prev => [...prev, dataToSave]);
-        
-        // If this is the first entry, lock the option fields
-        if (currentSNo === 0) {
-          setTable5LockedFields({
-            gcsCheckpoint: table5FormData.gcsCheckpoint,
-            bentoniteCheckpoint: table5FormData.bentoniteCheckpoint,
-            premixCoalCheckpoint: table5FormData.premixCoalCheckpoint,
-            compactabilitySetting: table5FormData.compactabilitySetting,
-            mouldStrengthSetting: table5FormData.mouldStrengthSetting
-          });
-        }
-        
+
         // Increment S.No
         const newSNo = currentSNo === 0 ? 1 : currentSNo + 1;
         setCurrentSNo(newSNo);
@@ -728,7 +411,7 @@ const SandTestingRecord = () => {
       time: null,
       mixNo: '',
       permeability: '',
-      gcsCheckpoint: currentSNo > 0 ? table5LockedFields.gcsCheckpoint : '',
+      gcsCheckpoint: '',
       gcsValue: '',
       wts: '',
       moisture: '',
@@ -739,26 +422,26 @@ const SandTestingRecord = () => {
       sandTempWU: '',
       sandTempSSU: '',
       newSandKgsMould: '',
-      bentoniteCheckpoint: currentSNo > 0 ? table5LockedFields.bentoniteCheckpoint : '',
+      bentoniteCheckpoint: '',
       bentoniteKgs: '',
       bentonitePercent: '',
-      premixCoalCheckpoint: currentSNo > 0 ? table5LockedFields.premixCoalCheckpoint : '',
+      premixCoalCheckpoint: '',
       premixCoalKgs: '',
       premixCoalPercent: '',
-      compactabilitySetting: currentSNo > 0 ? table5LockedFields.compactabilitySetting : '',
+      compactabilitySetting: '',
       compactabilityValue: '',
-      mouldStrengthSetting: currentSNo > 0 ? table5LockedFields.mouldStrengthSetting : '',
+      mouldStrengthSetting: '',
       mouldStrengthValue: '',
       preparedSandLumpsKg: '',
       itemName: '',
       remarks: ''
     });
 
-    // Reset all validation states
+    // Reset all validation states — each entry is independent, nothing carries over
     setTimeValid(null);
     setMixNoValid(null);
     setPermeabilityValid(null);
-    setGcsCheckpointValid(currentSNo > 0 ? true : null);
+    setGcsCheckpointValid(null);
     setGcsValid(null);
     setWtsValid(null);
     setMoistureValid(null);
@@ -769,15 +452,15 @@ const SandTestingRecord = () => {
     setSandTempWUValid(null);
     setSandTempSSUValid(null);
     setNewSandValid(null);
-    setBentoniteCheckpointValid(currentSNo > 0 ? true : null);
+    setBentoniteCheckpointValid(null);
     setBentoniteKgsValid(null);
     setBentonitePercentValid(null);
-    setPremixCoalCheckpointValid(currentSNo > 0 ? true : null);
+    setPremixCoalCheckpointValid(null);
     setPremixCoalKgsValid(null);
     setPremixCoalPercentValid(null);
-    setCompactabilitySettingValid(currentSNo > 0 ? true : null);
+    setCompactabilitySettingValid(null);
     setCompactabilityValueValid(null);
-    setMouldStrengthSettingValid(currentSNo > 0 ? true : null);
+    setMouldStrengthSettingValid(null);
     setMouldStrengthValueValid(null);
     setPreparedSandLumpsKgValid(null);
     setItemNameValid(null);
@@ -869,14 +552,33 @@ const SandTestingRecord = () => {
   });
 
   const addTable3Input = (rowIndex, colIndex) => {
+    // Start (col 0) and End (col 1) are paired — the Total is derived from them by
+    // index, so adding a row to one must add the matching row to the other.
+    if (colIndex === 0 || colIndex === 1) {
+      const startKey = `${rowIndex}_0`;
+      const endKey = `${rowIndex}_1`;
+      const startInputs = table3Inputs[startKey] || [];
+      const endInputs = table3Inputs[endKey] || [];
+      // Respect the max-4 limit on both columns
+      if (startInputs.length >= 4 || endInputs.length >= 4) {
+        return;
+      }
+      setTable3Inputs({
+        ...table3Inputs,
+        [startKey]: [...startInputs, { value: '', locked: false }],
+        [endKey]: [...endInputs, { value: '', locked: false }]
+      });
+      return;
+    }
+
     const key = `${rowIndex}_${colIndex}`;
     const currentInputs = table3Inputs[key] || [];
-    
+
     // Maximum limit of 4 inputs
     if (currentInputs.length >= 4) {
       return;
     }
-    
+
     setTable3Inputs({
       ...table3Inputs,
       [key]: [...currentInputs, { value: '', locked: false }]
@@ -884,6 +586,26 @@ const SandTestingRecord = () => {
   };
 
   const removeTable3Input = (rowIndex, colIndex, inputIndex) => {
+    // Start (col 0) and End (col 1) are paired — remove the matching row from both.
+    if (colIndex === 0 || colIndex === 1) {
+      const startKey = `${rowIndex}_0`;
+      const endKey = `${rowIndex}_1`;
+      const startValues = table3Inputs[startKey] || [];
+      const endValues = table3Inputs[endKey] || [];
+      // Only remove when both columns have an unlocked entry at this index and >1 entry
+      if (
+        startValues.length > 1 && endValues.length > 1 &&
+        !startValues[inputIndex]?.locked && !endValues[inputIndex]?.locked
+      ) {
+        setTable3Inputs({
+          ...table3Inputs,
+          [startKey]: startValues.filter((_, i) => i !== inputIndex),
+          [endKey]: endValues.filter((_, i) => i !== inputIndex)
+        });
+      }
+      return;
+    }
+
     const key = `${rowIndex}_${colIndex}`;
     const currentValues = table3Inputs[key];
     // Only allow removing if not locked and more than 1 entry
@@ -894,28 +616,64 @@ const SandTestingRecord = () => {
       });
     }
   };
-  const checkExistingData = async (date) => {
+
+  // Mix Testing Total is always derived from Start/End - never typed by the user
+  const computeTable3Totals = (rowIndex) => {
+    const startArr = table3Inputs[`${rowIndex}_0`] || [];
+    const endArr = table3Inputs[`${rowIndex}_1`] || [];
+    const len = Math.max(startArr.length, endArr.length);
+    const totals = [];
+    for (let i = 0; i < len; i++) {
+      const s = parseFloat(startArr[i]?.value);
+      const e = parseFloat(endArr[i]?.value);
+      totals.push({
+        value: (!isNaN(s) && !isNaN(e)) ? String(e - s) : '',
+        locked: !!(startArr[i]?.locked || endArr[i]?.locked)
+      });
+    }
+    return totals.length > 0 ? totals : [{ value: '', locked: false }];
+  };
+
+  // Builds the submitted (unlocked, new) total values for one shift row, paired by index with the new Start/End entries
+  const buildTable3TotalsForSubmit = (rowIndex) => {
+    const startVals = (table3Inputs[`${rowIndex}_0`] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value);
+    const endVals = (table3Inputs[`${rowIndex}_1`] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value);
+    const len = Math.min(startVals.length, endVals.length);
+    const totals = [];
+    for (let i = 0; i < len; i++) {
+      const s = parseFloat(startVals[i]);
+      const e = parseFloat(endVals[i]);
+      totals.push(!isNaN(s) && !isNaN(e) ? String(e - s) : '');
+    }
+    return totals;
+  };
+  const checkExistingData = async (date, plantType) => {
     const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds minimum for full animation
     const startTime = Date.now();
-    
+
     try {
       setIsLoading(true);
-      
+      setIsFetchingCombination(true);
+      setShowCombinationFound(false);
+
       // Validate date format before making API call
       if (!date || date.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(date)) {
         console.error('Invalid date format:', date);
         setIsLoading(false);
         return;
       }
-      
-      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/date/${date}`, {
+
+      const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/date/${date}?plant=${plantType}`, {
         method: 'GET',
         credentials: 'include'
       });
 
       if (response.ok) {
         const result = await response.json();
+        setIsFetchingCombination(false);
         if (result.success && result.data && result.data.length > 0) {
+          setShowCombinationFound(true);
+          setTimeout(() => setShowCombinationFound(false), 1500);
           const existingData = result.data[0];
           
           // Load Table 1 data - mark existing entries as locked
@@ -1014,10 +772,10 @@ const SandTestingRecord = () => {
             const newTable3Inputs = {};
             
             const shifts = ['ShiftI', 'ShiftII', 'ShiftIII'];
+            // Total is derived from Start/End at render time, so it isn't loaded as an editable field
             const fieldMappings = [
               { key: 0, path: 'mixno.start' },
               { key: 1, path: 'mixno.end' },
-              { key: 2, path: 'mixno.total' },
               { key: 3, path: 'numberOfMixRejected' },
               { key: 4, path: 'returnSandHopperLevel' }
             ];
@@ -1082,56 +840,20 @@ const SandTestingRecord = () => {
 
           const hasTable5Data = existingData.testParameter && existingData.testParameter.length > 0;
           setTable5Locked(hasTable5Data);
-          
-          // Load Table 5 data - set S.No and locked fields based on first entry
+
+          // Load Table 5 data - continue S.No from the highest stored entry. Each new entry
+          // chooses its own options independently, so nothing is pre-populated or locked.
           if (hasTable5Data && existingData.testParameter.length > 0) {
-            // Populate table5Data with existing records
             setTable5Data(existingData.testParameter);
-            
-            // Get the highest S.No to continue from
+
             const maxSNo = Math.max(...existingData.testParameter.map(entry => entry.sno || 0));
             setCurrentSNo(maxSNo);
             setNextTable5SNo(maxSNo + 1);
-            
-            // Get the first entry to determine locked field values
-            const firstEntry = existingData.testParameter[0];
-            
-            // Determine which options were selected in first entry
-            const lockedFields = {
-              gcsCheckpoint: firstEntry.gcsFdyA > 0 ? 'FDY-A' : (firstEntry.gcsFdyB > 0 ? 'FDY-B' : null),
-              bentoniteCheckpoint: firstEntry.bentonite?.Percent ? 
-                (firstEntry.bentonite.Percent <= 1.20 ? '0.60-1.20' : '0.80-2.20') : null,
-              premixCoalCheckpoint: firstEntry.premix?.Kgs > 0 ? 'Premix' : 
-                (firstEntry.coalDust?.Kgs > 0 ? 'CoalDust' : null),
-              compactabilitySetting: firstEntry.lc > 0 ? 'LC' : 
-                (firstEntry.CompactabilitySettings > 0 ? 'SMC42' : null),
-              mouldStrengthSetting: firstEntry.mouldStrength > 0 ? 'SMC23' : 
-                (firstEntry.shearStrengthSetting > 0 ? 'At15' : null)
-            };
-            
-            setTable5LockedFields(lockedFields);
-            
-            // Pre-populate form with locked field values for next entry
-            setTable5FormData(prev => ({
-              ...prev,
-              gcsCheckpoint: lockedFields.gcsCheckpoint || '',
-              bentoniteCheckpoint: lockedFields.bentoniteCheckpoint || '',
-              premixCoalCheckpoint: lockedFields.premixCoalCheckpoint || '',
-              compactabilitySetting: lockedFields.compactabilitySetting || '',
-              mouldStrengthSetting: lockedFields.mouldStrengthSetting || ''
-            }));
           } else {
             // Reset if no Table 5 data
             setTable5Data([]);
             setCurrentSNo(0);
             setNextTable5SNo(1);
-            setTable5LockedFields({
-              gcsCheckpoint: null,
-              bentoniteCheckpoint: null,
-              premixCoalCheckpoint: null,
-              compactabilitySetting: null,
-              mouldStrengthSetting: null
-            });
           }
 
         } else {
@@ -1190,18 +912,12 @@ const SandTestingRecord = () => {
           setTable5Data([]);
           setCurrentSNo(0);
           setNextTable5SNo(1);
-          setTable5LockedFields({
-            gcsCheckpoint: null,
-            bentoniteCheckpoint: null,
-            premixCoalCheckpoint: null,
-            compactabilitySetting: null,
-            mouldStrengthSetting: null
-          });
           handleTable5Reset();
         }
       }
     } catch (error) {
       console.error('Error checking existing data:', error);
+      setIsFetchingCombination(false);
     } finally {
       // Ensure minimum loading time has passed before hiding loader
       const elapsedTime = Date.now() - startTime;
@@ -1213,11 +929,11 @@ const SandTestingRecord = () => {
     }
   };
 
-  // Check for existing data when date changes
+  // Check for existing data when date or plant changes
   useEffect(() => {
     if (selectedDate && selectedDate.trim() !== '' && /\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-      checkExistingData(selectedDate);
-      
+      checkExistingData(selectedDate, plant);
+
       // Track initial mount
       if (isInitialMount.current) {
         isInitialMount.current = false;
@@ -1227,7 +943,7 @@ const SandTestingRecord = () => {
       resetAllTables();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, plant]);
 
   // Reset all tables to default state
   const resetAllTables = () => {
@@ -1279,13 +995,6 @@ const SandTestingRecord = () => {
     // Reset Table 5
     setTable5Data([]);
     setNextTable5SNo(1);
-    setTable5LockedFields({
-      gcsCheckpoint: null,
-      bentoniteCheckpoint: null,
-      premixCoalCheckpoint: null,
-      compactabilitySetting: null,
-      mouldStrengthSetting: null
-    });
     handleTable5Reset();
   };
 
@@ -1334,6 +1043,7 @@ const SandTestingRecord = () => {
         credentials: 'include', // Important: sends authentication cookie
         body: JSON.stringify({
           date: selectedDate,
+          plant,
           ...sandShifts
         })
       });
@@ -1343,7 +1053,7 @@ const SandTestingRecord = () => {
       if (result.success) {
         console.log('Table 1 submitted:', result.data);
         // Reload data to lock newly submitted entries
-        await checkExistingData(selectedDate);
+        await checkExistingData(selectedDate, plant);
       } else {
         alert('Failed to submit Table 1 data: ' + result.message);
       }
@@ -1399,6 +1109,7 @@ const SandTestingRecord = () => {
         credentials: 'include',
         body: JSON.stringify({
           date: selectedDate,
+          plant,
           ...clayShifts
         })
       });
@@ -1409,7 +1120,7 @@ const SandTestingRecord = () => {
         alert('Table 2 data submitted successfully!');
         console.log('Table 2 submitted:', result.data);
         // Reload data to lock newly submitted entries
-        await checkExistingData(selectedDate);
+        await checkExistingData(selectedDate, plant);
       } else {
         alert('Failed to submit Table 2 data: ' + result.message);
       }
@@ -1434,7 +1145,7 @@ const SandTestingRecord = () => {
           mixno: {
             start: (table3Inputs['0_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
             end: (table3Inputs['0_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: (table3Inputs['0_2'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
+            total: buildTable3TotalsForSubmit(0)
           },
           numberOfMixRejected: (table3Inputs['0_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['0_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
@@ -1443,7 +1154,7 @@ const SandTestingRecord = () => {
           mixno: {
             start: (table3Inputs['1_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
             end: (table3Inputs['1_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: (table3Inputs['1_2'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
+            total: buildTable3TotalsForSubmit(1)
           },
           numberOfMixRejected: (table3Inputs['1_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['1_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
@@ -1452,7 +1163,7 @@ const SandTestingRecord = () => {
           mixno: {
             start: (table3Inputs['2_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
             end: (table3Inputs['2_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: (table3Inputs['2_2'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
+            total: buildTable3TotalsForSubmit(2)
           },
           numberOfMixRejected: (table3Inputs['2_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['2_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
@@ -1465,6 +1176,7 @@ const SandTestingRecord = () => {
         credentials: 'include',
         body: JSON.stringify({
           date: selectedDate,
+          plant,
           ...mixshifts
         })
       });
@@ -1475,7 +1187,7 @@ const SandTestingRecord = () => {
         alert('Table 3 data submitted successfully!');
         console.log('Table 3 submitted:', result.data);
         // Reload data to lock newly submitted entries
-        await checkExistingData(selectedDate);
+        await checkExistingData(selectedDate, plant);
       } else {
         alert('Failed to submit Table 3 data: ' + result.message);
       }
@@ -1530,6 +1242,7 @@ const SandTestingRecord = () => {
         credentials: 'include',
         body: JSON.stringify({
           date: selectedDate,
+          plant,
           ...table4Data
         })
       });
@@ -1540,7 +1253,7 @@ const SandTestingRecord = () => {
         alert('Table 4 data submitted successfully!');
         console.log('Table 4 submitted:', result.data);
         // Reload data to lock newly submitted entries
-        await checkExistingData(selectedDate);
+        await checkExistingData(selectedDate, plant);
       } else {
         alert('Failed to submit Table 4 data: ' + result.message);
       }
@@ -1550,30 +1263,56 @@ const SandTestingRecord = () => {
     }
   };
 
+  // Reference ranges shown in the Info modal - drawn from the ranges already documented in this
+  // page's table labels/Table 5 logic; fields with no documented range are listed as required-only.
+  const sandTestingValidationRanges = [
+    { field: 'Plant', required: true, type: 'Select', allowedValues: ['Disa', 'Eirich'] },
+    { field: 'Date', required: true, type: 'Date' },
+    { field: 'R. Sand (Kgs/Mix)', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'N. Sand (Kgs/Mould)', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Mixing Mode', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Bentonite (Kgs/Mix) - Table 1', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Coal Dust / Premix (Kgs/Mix)', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Total Clay', required: false, type: 'Number', unit: '%', min: 11.0, max: 14.5 },
+    { field: 'Active Clay', required: false, type: 'Number', unit: '%', min: 8.5, max: 11.0 },
+    { field: 'Dead Clay', required: false, type: 'Number', unit: '%', min: 2.0, max: 4.0 },
+    { field: 'V.C.M.', required: false, type: 'Number', unit: '%', min: 2.0, max: 3.2 },
+    { field: 'L.O.I.', required: false, type: 'Number', unit: '%', min: 4.5, max: 6.0 },
+    { field: 'AFS No.', required: false, type: 'Number', min: 48, description: 'Minimum 48' },
+    { field: 'Fines', required: false, type: 'Number', unit: '%', max: 10, description: 'Maximum 10%' },
+    { field: 'Mix No. Start / End', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Mix No. Total', required: false, type: 'Number', description: 'Auto-computed as End - Start; not editable' },
+    { field: 'No. Of Rejected', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Return Sand Hopper Level', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Sand Lumps', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'New Sand Wt', required: false, type: 'Text', description: 'No fixed range documented' },
+    { field: 'Prepared Sand Friability', required: false, type: 'Number', unit: '%', min: 8.0, max: 13.0 },
+    { field: 'Time', formKey: 'time', required: false, type: 'Time' },
+    { field: 'Mix No (Table 5)', formKey: 'mixNo', required: false, type: 'Number' },
+    { field: 'Permeability', formKey: 'permeability', required: false, type: 'Number', min: 90, max: 160 },
+    { field: 'G.C.S FDY-A', formKey: 'gcsValue', required: false, type: 'Number', unit: 'Gm/cm²', min: 1800, description: 'Minimum 1800' },
+    { field: 'G.C.S FDY-B', required: false, type: 'Number', unit: 'Gm/cm²', min: 1900, description: 'Minimum 1900' },
+    { field: 'WTS', formKey: 'wts', required: false, type: 'Number', unit: 'N/cm²', min: 0.15, description: 'Minimum 0.15' },
+    { field: 'Moisture', formKey: 'moisture', required: false, type: 'Number', unit: '%', min: 3.0, max: 4.0 },
+    { field: 'Compactability At Dmm', formKey: 'compactability', required: false, type: 'Number', unit: '%', min: 33, max: 40 },
+    { field: 'Compressability At Dmm', formKey: 'compressability', required: false, type: 'Number', unit: '%', min: 20, max: 28 },
+    { field: 'Water Litre/Kg Mix', formKey: 'waterLitreKgMix', required: false, type: 'Number', min: 0 },
+    { field: 'Sand Temp BC/WU/SSU', formKey: 'sandTempBC', required: false, type: 'Number', unit: '°C', min: 0, max: 45 },
+    { field: 'New Sand Kgs/Mould', formKey: 'newSandKgsMould', required: false, type: 'Number', min: 0.0, max: 5.0 },
+    { field: 'Bentonite % (0.60-1.20 checkpoint)', formKey: 'bentonitePercent', required: false, type: 'Number', unit: '%', min: 0.60, max: 1.20 },
+    { field: 'Bentonite % (0.80-2.20 checkpoint)', required: false, type: 'Number', unit: '%', min: 0.80, max: 2.20 },
+    { field: 'Premix % (Premix checkpoint)', formKey: 'premixCoalPercent', required: false, type: 'Number', unit: '%', min: 0.60, max: 1.20 },
+    { field: 'Coal Dust % (CoalDust checkpoint)', required: false, type: 'Number', unit: '%', min: 0.28, max: 0.70 },
+    { field: 'Compactability Setting Value', formKey: 'compactabilityValue', required: false, type: 'Number', min: 0 },
+    { field: 'Mould Strength Setting Value', formKey: 'mouldStrengthValue', required: false, type: 'Number', min: 0 },
+    { field: 'Prepared Sand Lumps/Kg', formKey: 'preparedSandLumpsKg', required: false, type: 'Number', min: 0 },
+    { field: 'Item Name', formKey: 'itemName', required: false, type: 'Text' },
+    { field: 'Remarks', formKey: 'remarks', required: false, type: 'Text' }
+  ];
+
   return (
     <>
-      {/* Sakthi Loader */}
-      {isLoading && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'white',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 10000
-        }}>
-          <Sakthi 
-            loopAnimation={true} 
-            showMessage={true} 
-            message="Loading data..." 
-            onComplete={() => {}}
-          />
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="sand-header">
@@ -1581,9 +1320,26 @@ const SandTestingRecord = () => {
           <h2>
             <BookOpen size={28} style={{ color: '#5B9AA9' }} />
             Sand Testing Record
+            <InfoIcon onClick={openInfoModal} />
           </h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <label style={{ fontWeight: '600', fontSize: '1rem', color: '#1e293b' }}>Plant:</label>
+          <select
+            value={plant}
+            onChange={(e) => setPlant(e.target.value)}
+            disabled={isLoading}
+            style={{
+              padding: '8px 12px',
+              fontSize: '1rem',
+              borderRadius: '4px',
+              border: '1px solid #cbd5e1',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="Disa">Disa</option>
+            <option value="Eirich">Eirich</option>
+          </select>
           <label style={{ fontWeight: '600', fontSize: '1rem', color: '#1e293b' }}>Date:</label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <CustomDatePicker
@@ -1591,16 +1347,26 @@ const SandTestingRecord = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
               disabled={isLoading}
-              style={{ 
-                padding: '8px 12px', 
+              style={{
+                padding: '8px 12px',
                 fontSize: '1rem',
                 borderRadius: '4px',
                 border: '1px solid #cbd5e1'
               }}
             />
           </div>
+
         </div>
       </div>
+
+      <InfoCard
+        isOpen={isInfoOpen}
+        onClose={closeInfoModal}
+        title="Sand Testing Record - Validation Ranges & Data Entry Flow"
+        validationRanges={sandTestingValidationRanges}
+      />
+
+      <div ref={gridRef} onKeyDown={handleArrowKeyDown}>
 
       {/* Table 1 */}
       <div className="foundry-section">
@@ -1887,6 +1653,43 @@ const SandTestingRecord = () => {
                     <td style={{ textAlign: 'center', padding: '10px', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b' }}>{shift}</td>
                     {columns.map((colIndex) => {
                       const key = `${rowIndex}_${colIndex}`;
+
+                      // Total column is always derived from Start/End - never typed by the user
+                      if (colIndex === 2) {
+                        const totals = computeTable3Totals(rowIndex);
+                        return (
+                          <td key={colIndex} style={{ textAlign: 'center', padding: '10px' }}>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: totals.length === 1 ? '1fr' : 'repeat(2, 1fr)',
+                              gap: '8px'
+                            }}>
+                              {totals.map((item, inputIndex) => (
+                                <input
+                                  key={inputIndex}
+                                  type="text"
+                                  value={item.value}
+                                  placeholder="Auto"
+                                  disabled
+                                  readOnly
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '4px',
+                                    fontSize: '1rem',
+                                    outline: 'none',
+                                    textAlign: 'center',
+                                    backgroundColor: '#f1f5f9',
+                                    cursor: 'not-allowed'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                        );
+                      }
+
                       const values = table3Inputs[key] || [{ value: '', locked: false }];
                       
                       return (
@@ -1958,8 +1761,9 @@ const SandTestingRecord = () => {
       {/* Table 4 */}
       <div className="foundry-section">
         <h3 className="foundry-section-title">Sand Weight & Friability</h3>
-        {/* Table 4a and 4b - Side by Side */}
-        <div className="foundry-table-wrapper" style={{ marginBottom: '1.5rem' }}>
+        {/* Table 4a and 4b - Side by Side (plain container; no bordered wrapper so the
+            two narrow tables don't leave a stray border line running to the Submit button) */}
+        <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           {/* Table 4a - 2x2 */}
           <div>
@@ -2107,467 +1911,396 @@ const SandTestingRecord = () => {
         </div>
       </div>
       </div>
-
       {/* Table 5: Sand Properties & Test Parameters */}
       <div className="foundry-section">
         <h3 className="foundry-section-title">Sand Properties & Test Parameters</h3>
-        {/* Table 5 - Using Table Component with Input Row */}
-        <div className="foundry-table-wrapper" style={{ marginBottom: '2rem' }}>
-        <div className="reusable-table-container" style={{ overflowX: 'auto' }}>
-          <table className="reusable-table table-template table-bordered" style={{ minWidth: '3500px' }}>
-            <thead>
-              <tr>
-                <th style={{ width: '70px', textAlign: 'center' }}>S.No</th>
-                <th style={{ width: '170px', textAlign: 'center' }}>Time</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Mix No</th>
-                <th style={{ width: '110px', textAlign: 'center' }}>Permeability<br/>(90-160)</th>
-                <th style={{ width: '180px', textAlign: 'center', padding: '10px' }}>
-                  <div style={{ marginBottom: '8px' }}>G.C.S Gm/cm²</div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-A') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-A') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="gcsCheckpoint"
-                        value="FDY-A"
-                        checked={table5FormData.gcsCheckpoint === 'FDY-A'}
-                        onChange={(e) => updateFormField('gcsCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-A'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      FDY-A (Min 1800)
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-B') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-B') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="gcsCheckpoint"
-                        value="FDY-B"
-                        checked={table5FormData.gcsCheckpoint === 'FDY-B'}
-                        onChange={(e) => updateFormField('gcsCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.gcsCheckpoint !== 'FDY-B'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      FDY-B (Min 1900)
-                    </label>
-                  </div>
-                </th>
-                <th style={{ width: '100px', textAlign: 'center' }}>WTS<br/>N/cm²<br/>(Min 0.15)</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Moisture<br/>(3.0-4.0%)</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Compactability<br/>At Dmm<br/>(33-40%)</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Compressability<br/>At Dmm<br/>(20-28%)</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Water<br/>Litre/Kg Mix</th>
-                <th style={{ width: '180px', textAlign: 'center' }}>Sand Temp °C<br/>(BC/WU/SSU Max 45)</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>New Sand<br/>Kgs/Mould<br/>(0.0-5.0)</th>
-                <th style={{ width: '200px', textAlign: 'center', padding: '10px' }}>
-                  <div style={{ marginBottom: '8px' }}>Bentonite Kgs / Mix</div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.60-1.20') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.60-1.20') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="bentoniteCheckpoint"
-                        value="0.60-1.20"
-                        checked={table5FormData.bentoniteCheckpoint === '0.60-1.20'}
-                        onChange={(e) => updateFormField('bentoniteCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.60-1.20'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      0.60-1.20%
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.80-2.20') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.80-2.20') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="bentoniteCheckpoint"
-                        value="0.80-2.20"
-                        checked={table5FormData.bentoniteCheckpoint === '0.80-2.20'}
-                        onChange={(e) => updateFormField('bentoniteCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.bentoniteCheckpoint !== '0.80-2.20'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      0.80-2.20%
-                    </label>
-                  </div>
-                </th>
-                <th style={{ width: '200px', textAlign: 'center', padding: '10px' }}>
-                  <div style={{ marginBottom: '8px' }}>Premix/Coal Dust Kgs / Mix</div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'Premix') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'Premix') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="premixCoalCheckpoint"
-                        value="Premix"
-                        checked={table5FormData.premixCoalCheckpoint === 'Premix'}
-                        onChange={(e) => updateFormField('premixCoalCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'Premix'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      Premix (0.60-1.20%)
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: (nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'CoalDust') ? 'not-allowed' : 'pointer', opacity: (nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'CoalDust') ? 0.5 : 1 }}>
-                      <input
-                        type="radio"
-                        name="premixCoalCheckpoint"
-                        value="CoalDust"
-                        checked={table5FormData.premixCoalCheckpoint === 'CoalDust'}
-                        onChange={(e) => updateFormField('premixCoalCheckpoint', e.target.value)}
-                        disabled={nextTable5SNo > 1 && table5FormData.premixCoalCheckpoint !== 'CoalDust'}
-                        style={{ width: '14px', height: '14px' }}
-                      />
-                      Coal Dust (0.28-0.70%)
-                    </label>
-                  </div>
-                </th>
-                <th style={{ width: '180px', textAlign: 'center', padding: '10px' }}>
-                  <div style={{ marginBottom: '8px' }}>Compactability Setting</div>
-                  <select
-                    value={table5FormData.compactabilitySetting}
-                    onChange={(e) => updateFormField('compactabilitySetting', e.target.value)}
-                    disabled={nextTable5SNo > 1}
-                    style={{ width: '90%', padding: '6px', fontSize: '0.875rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: nextTable5SNo > 1 ? '#f1f5f9' : 'white', cursor: nextTable5SNo > 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    <option value="">Select</option>
-                    <option value="LC">LC</option>
-                    <option value="SMC42">SMC42 (42±3)</option>
-                  </select>
-                </th>
-                <th style={{ width: '180px', textAlign: 'center', padding: '10px' }}>
-                  <div style={{ marginBottom: '8px' }}>Mould Strength Setting</div>
-                  <select
-                    value={table5FormData.mouldStrengthSetting}
-                    onChange={(e) => updateFormField('mouldStrengthSetting', e.target.value)}
-                    disabled={nextTable5SNo > 1}
-                    style={{ width: '90%', padding: '6px', fontSize: '0.875rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: nextTable5SNo > 1 ? '#f1f5f9' : 'white', cursor: nextTable5SNo > 1 ? 'not-allowed' : 'pointer' }}
-                  >
-                    <option value="">Select</option>
-                    <option value="SMC23">SMC23 (23±3)</option>
-                    <option value="At15">At15 (5.0±1%)</option>
-                  </select>
-                </th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Prepared Sand<br/>Lumps/Kg</th>
-                <th style={{ width: '150px', textAlign: 'center' }}>Item Name</th>
-                <th style={{ width: '150px', textAlign: 'center' }}>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Display submitted data rows */}
-              {table5Data.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ textAlign: 'center', fontWeight: '600' }}>{row.sno}</td>
-                  <td style={{ textAlign: 'center' }}>{`${String(Math.floor(row.time / 100)).padStart(2, '0')}:${String(row.time % 100).padStart(2, '0')}`}</td>
-                  <td style={{ textAlign: 'center' }}>{row.mixno}</td>
-                  <td style={{ textAlign: 'center' }}>{row.permeability}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    {row.gcsFdyA > 0 ? row.gcsFdyA : row.gcsFdyB > 0 ? row.gcsFdyB : '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.wts}</td>
-                  <td style={{ textAlign: 'center' }}>{row.moisture}</td>
-                  <td style={{ textAlign: 'center' }}>{row.compactability}</td>
-                  <td style={{ textAlign: 'center' }}>{row.compressibility}</td>
-                  <td style={{ textAlign: 'center' }}>{row.waterLitre}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    {`${row.sandTemp.BC} / ${row.sandTemp.WU} / ${row.sandTemp.SSUmax}`}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.newSandKgs}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    {row.bentonite.Percent ? `${row.bentonite.Kgs} / ${row.bentonite.Percent}%` : '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {row.premix.Kgs > 0 ? `${row.premix.Kgs} / ${row.premix.Percent}%` : 
-                     row.coalDust.Kgs > 0 ? `${row.coalDust.Kgs} / ${row.coalDust.Percent}%` : '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {row.lc > 0 ? row.lc : row.CompactabilitySettings > 0 ? row.CompactabilitySettings : '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {row.mouldStrength > 0 ? row.mouldStrength : row.shearStrengthSetting > 0 ? row.shearStrengthSetting : '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{row.preparedSandlumps}</td>
-                  <td style={{ textAlign: 'center' }}>{row.itemName}</td>
-                  <td style={{ textAlign: 'center' }}>{row.remarks || '-'}</td>
-                </tr>
-              ))}
-              
-              {/* Input Row for new entry */}
-              <tr style={{ backgroundColor: '#f8fafc' }}>
-                <td style={{ textAlign: 'center', fontWeight: '600', padding: '10px' }}>
-                  {nextTable5SNo}
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <CustomTimeInput
-                    ref={timeRef}
-                    value={table5FormData.time}
-                    onChange={handleTimeChange}
-                    hasError={timeValid === false}
-                    onEnterPress={(e) => handleKeyDown(e, mixNoRef)}
-                    style={{ width: '150px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={mixNoRef}
-                    type="number" 
-                    placeholder="Mix No" 
-                    value={table5FormData.mixNo}
-                    onChange={(e) => updateFormField('mixNo', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, permeabilityRef)}
-                    className={mixNoValid === null ? "" : mixNoValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={permeabilityRef}
-                    type="number" 
-                    placeholder="90-160" 
-                    value={table5FormData.permeability}
-                    onChange={(e) => updateFormField('permeability', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, gcsValueRef)}
-                    className={permeabilityValid === null ? "" : permeabilityValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
+
+        {/* New entry form (S.No {nextTable5SNo}). Submitted rows are shown on the report page only. */}
+        <div className="sand-table5-form-grid">
+          <div className="sand-form-field full-row" style={{ minHeight: 'auto' }}>
+            <label style={{ fontSize: '1.0625rem', fontWeight: 700 }}>{`New Entry - S.No ${nextTable5SNo}`}</label>
+          </div>
+
+          <div className="sand-form-field">
+            <label>Time</label>
+            <CustomTimeInput
+              ref={timeRef}
+              value={table5FormData.time}
+              onChange={handleTimeChange}
+              hasError={timeValid === false}
+              onEnterPress={(e) => handleKeyDown(e, mixNoRef)}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Mix No</label>
+            <input
+              ref={mixNoRef}
+              type="number"
+              placeholder="Mix No"
+              value={table5FormData.mixNo}
+              onChange={(e) => updateFormField('mixNo', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, permeabilityRef)}
+              className={mixNoValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Permeability (90-160)</label>
+            <input
+              ref={permeabilityRef}
+              type="number"
+              placeholder="90-160"
+              value={table5FormData.permeability}
+              onChange={(e) => updateFormField('permeability', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, gcsValueRef)}
+              className={permeabilityValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field sand-selector-field">
+            <div className="sand-field-header">
+              <label>G.C.S Gm/cm²</label>
+              <div className={`sand-radio-group ${gcsCheckpointValid === false ? 'invalid-input' : ''}`}>
+                <label>
                   <input
-                    ref={gcsValueRef}
-                    type="number"
-                    placeholder="Value"
-                    value={table5FormData.gcsValue}
-                    onChange={(e) => updateFormField('gcsValue', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, wtsRef)}
-                    disabled={!table5FormData.gcsCheckpoint}
-                    className={gcsValid === null ? "" : gcsValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.gcsCheckpoint ? '#f1f5f9' : 'white' }}
+                    type="radio"
+                    name="gcsCheckpoint"
+                    value="FDY-A"
+                    checked={table5FormData.gcsCheckpoint === 'FDY-A'}
+                    onChange={(e) => updateFormField('gcsCheckpoint', e.target.value)}
                   />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={wtsRef}
-                    type="number" 
-                    placeholder="Min 0.15" 
-                    value={table5FormData.wts}
-                    onChange={(e) => updateFormField('wts', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, moistureRef)}
-                    className={wtsValid === null ? "" : wtsValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={moistureRef}
-                    type="number" 
-                    placeholder="3.0-4.0" 
-                    value={table5FormData.moisture}
-                    onChange={(e) => updateFormField('moisture', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, compactabilityRef)}
-                    className={moistureValid === null ? "" : moistureValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={compactabilityRef}
-                    type="number" 
-                    placeholder="33-40" 
-                    value={table5FormData.compactability}
-                    onChange={(e) => updateFormField('compactability', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, compressabilityRef)}
-                    className={compactabilityValid === null ? "" : compactabilityValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={compressabilityRef}
-                    type="number" 
-                    placeholder="20-28" 
-                    value={table5FormData.compressability}
-                    onChange={(e) => updateFormField('compressability', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, waterLitreRef)}
-                    className={compressabilityValid === null ? "" : compressabilityValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={waterLitreRef}
-                    type="number" 
-                    placeholder="Value" 
-                    value={table5FormData.waterLitreKgMix}
-                    onChange={(e) => updateFormField('waterLitreKgMix', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, sandTempBCRef)}
-                    className={waterLitreValid === null ? "" : waterLitreValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <input
-                      ref={sandTempBCRef}
-                      type="number"
-                      placeholder="BC"
-                      value={table5FormData.sandTempBC}
-                      onChange={(e) => updateFormField('sandTempBC', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, sandTempWURef)}
-                      className={sandTempBCValid === null ? "" : sandTempBCValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                    />
-                    <input
-                      ref={sandTempWURef}
-                      type="number"
-                      placeholder="WU"
-                      value={table5FormData.sandTempWU}
-                      onChange={(e) => updateFormField('sandTempWU', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, sandTempSSURef)}
-                      className={sandTempWUValid === null ? "" : sandTempWUValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                    />
-                    <input
-                      ref={sandTempSSURef}
-                      type="number"
-                      placeholder="SSU"
-                      value={table5FormData.sandTempSSU}
-                      onChange={(e) => updateFormField('sandTempSSU', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, newSandRef)}
-                      className={sandTempSSUValid === null ? "" : sandTempSSUValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                    />
-                  </div>
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={newSandRef}
-                    type="number" 
-                    placeholder="0.0-5.0" 
-                    value={table5FormData.newSandKgsMould}
-                    onChange={(e) => updateFormField('newSandKgsMould', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, bentoniteKgsRef)}
-                    className={newSandValid === null ? "" : newSandValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                  />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <input
-                      ref={bentoniteKgsRef}
-                      type="number"
-                      placeholder="Kgs"
-                      value={table5FormData.bentoniteKgs}
-                      onChange={(e) => updateFormField('bentoniteKgs', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, bentonitePercentRef)}
-                      disabled={!table5FormData.bentoniteCheckpoint}
-                      className={bentoniteKgsValid === null ? "" : bentoniteKgsValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.bentoniteCheckpoint ? '#f1f5f9' : 'white' }}
-                    />
-                    <span style={{ alignSelf: 'center', fontSize: '0.9375rem', color: '#64748b' }}>/</span>
-                    <input
-                      ref={bentonitePercentRef}
-                      type="number"
-                      placeholder="%"
-                      value={table5FormData.bentonitePercent}
-                      onChange={(e) => updateFormField('bentonitePercent', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, premixCoalKgsRef)}
-                      disabled={!table5FormData.bentoniteCheckpoint}
-                      className={bentonitePercentValid === null ? "" : bentonitePercentValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.bentoniteCheckpoint ? '#f1f5f9' : 'white' }}
-                    />
-                  </div>
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <input
-                      ref={premixCoalKgsRef}
-                      type="number"
-                      placeholder="Kgs"
-                      value={table5FormData.premixCoalKgs}
-                      onChange={(e) => updateFormField('premixCoalKgs', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, premixCoalPercentRef)}
-                      disabled={!table5FormData.premixCoalCheckpoint}
-                      className={premixCoalKgsValid === null ? "" : premixCoalKgsValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.premixCoalCheckpoint ? '#f1f5f9' : 'white' }}
-                    />
-                    <span style={{ alignSelf: 'center', fontSize: '0.9375rem', color: '#64748b' }}>/</span>
-                    <input
-                      ref={premixCoalPercentRef}
-                      type="number"
-                      placeholder="%"
-                      value={table5FormData.premixCoalPercent}
-                      onChange={(e) => updateFormField('premixCoalPercent', e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, compactabilityValueRef)}
-                      disabled={!table5FormData.premixCoalCheckpoint}
-                      className={premixCoalPercentValid === null ? "" : premixCoalPercentValid ? "valid-input" : "invalid-input"}
-                      style={{ flex: 1, padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.premixCoalCheckpoint ? '#f1f5f9' : 'white' }}
-                    />
-                  </div>
-                </td>
-                <td style={{ padding: '8px' }}>
+                  <span>FDY-A (Min 1800)</span>
+                </label>
+                <label>
                   <input
-                    ref={compactabilityValueRef}
-                    type="number"
-                    placeholder="Value"
-                    value={table5FormData.compactabilityValue}
-                    onChange={(e) => updateFormField('compactabilityValue', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, mouldStrengthValueRef)}
-                    disabled={!table5FormData.compactabilitySetting}
-                    className={compactabilityValueValid === null ? "" : compactabilityValueValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.compactabilitySetting ? '#f1f5f9' : 'white' }}
+                    type="radio"
+                    name="gcsCheckpoint"
+                    value="FDY-B"
+                    checked={table5FormData.gcsCheckpoint === 'FDY-B'}
+                    onChange={(e) => updateFormField('gcsCheckpoint', e.target.value)}
                   />
-                </td>
-                <td style={{ padding: '8px' }}>
+                  <span>FDY-B (Min 1900)</span>
+                </label>
+              </div>
+            </div>
+            <input
+              ref={gcsValueRef}
+              type="number"
+              placeholder="Value"
+              value={table5FormData.gcsValue}
+              onChange={(e) => updateFormField('gcsValue', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, wtsRef)}
+              onFocus={() => { if (!table5FormData.gcsCheckpoint) setGcsCheckpointValid(false); }}
+              className={gcsValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>WTS N/cm² (Min 0.15)</label>
+            <input
+              ref={wtsRef}
+              type="number"
+              placeholder="Min 0.15"
+              value={table5FormData.wts}
+              onChange={(e) => updateFormField('wts', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, moistureRef)}
+              className={wtsValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Moisture (3.0-4.0%)</label>
+            <input
+              ref={moistureRef}
+              type="number"
+              placeholder="3.0-4.0"
+              value={table5FormData.moisture}
+              onChange={(e) => updateFormField('moisture', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, compactabilityRef)}
+              className={moistureValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Compactability At Dmm (33-40%)</label>
+            <input
+              ref={compactabilityRef}
+              type="number"
+              placeholder="33-40"
+              value={table5FormData.compactability}
+              onChange={(e) => updateFormField('compactability', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, compressabilityRef)}
+              className={compactabilityValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Compressability At Dmm (20-28%)</label>
+            <input
+              ref={compressabilityRef}
+              type="number"
+              placeholder="20-28"
+              value={table5FormData.compressability}
+              onChange={(e) => updateFormField('compressability', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, waterLitreRef)}
+              className={compressabilityValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Water Litre/Kg Mix</label>
+            <input
+              ref={waterLitreRef}
+              type="number"
+              placeholder="Value"
+              value={table5FormData.waterLitreKgMix}
+              onChange={(e) => updateFormField('waterLitreKgMix', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, sandTempBCRef)}
+              className={waterLitreValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Sand Temp °C (BC/WU/SSU Max 45)</label>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input
+                ref={sandTempBCRef}
+                type="number"
+                placeholder="BC"
+                value={table5FormData.sandTempBC}
+                onChange={(e) => updateFormField('sandTempBC', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, sandTempWURef)}
+                className={sandTempBCValid === false ? "invalid-input" : ""}
+              />
+              <input
+                ref={sandTempWURef}
+                type="number"
+                placeholder="WU"
+                value={table5FormData.sandTempWU}
+                onChange={(e) => updateFormField('sandTempWU', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, sandTempSSURef)}
+                className={sandTempWUValid === false ? "invalid-input" : ""}
+              />
+              <input
+                ref={sandTempSSURef}
+                type="number"
+                placeholder="SSU"
+                value={table5FormData.sandTempSSU}
+                onChange={(e) => updateFormField('sandTempSSU', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, newSandRef)}
+                className={sandTempSSUValid === false ? "invalid-input" : ""}
+              />
+            </div>
+          </div>
+
+          <div className="sand-form-field">
+            <label>New Sand Kgs/Mould (0.0-5.0)</label>
+            <input
+              ref={newSandRef}
+              type="number"
+              placeholder="0.0-5.0"
+              value={table5FormData.newSandKgsMould}
+              onChange={(e) => updateFormField('newSandKgsMould', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, bentoniteKgsRef)}
+              className={newSandValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field sand-selector-field">
+            <div className="sand-field-header">
+              <label>Bentonite (Kgs / Mix)</label>
+              <div className={`sand-radio-group ${bentoniteCheckpointValid === false ? 'invalid-input' : ''}`}>
+                <label>
                   <input
-                    ref={mouldStrengthValueRef}
-                    type="number"
-                    placeholder="Value"
-                    value={table5FormData.mouldStrengthValue}
-                    onChange={(e) => updateFormField('mouldStrengthValue', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, preparedSandLumpsRef)}
-                    disabled={!table5FormData.mouldStrengthSetting}
-                    className={mouldStrengthValueValid === null ? "" : mouldStrengthValueValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: !table5FormData.mouldStrengthSetting ? '#f1f5f9' : 'white' }}
+                    type="radio"
+                    name="bentoniteCheckpoint"
+                    value="0.60-1.20"
+                    checked={table5FormData.bentoniteCheckpoint === '0.60-1.20'}
+                    onChange={(e) => updateFormField('bentoniteCheckpoint', e.target.value)}
                   />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={preparedSandLumpsRef}
-                    type="number" 
-                    placeholder="Value" 
-                    value={table5FormData.preparedSandLumpsKg}
-                    onChange={(e) => updateFormField('preparedSandLumpsKg', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, itemNameRef)}
-                    className={preparedSandLumpsKgValid === null ? "" : preparedSandLumpsKgValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                  <span>0.60-1.20%</span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="bentoniteCheckpoint"
+                    value="0.80-2.20"
+                    checked={table5FormData.bentoniteCheckpoint === '0.80-2.20'}
+                    onChange={(e) => updateFormField('bentoniteCheckpoint', e.target.value)}
                   />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <input 
-                    ref={itemNameRef}
-                    type="text" 
-                    placeholder="Item Name" 
-                    value={table5FormData.itemName}
-                    onChange={(e) => updateFormField('itemName', e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, remarksRef)}
-                    className={itemNameValid === null ? "" : itemNameValid ? "valid-input" : "invalid-input"}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                  <span>0.80-2.20%</span>
+                </label>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input
+                ref={bentoniteKgsRef}
+                type="number"
+                placeholder="Kgs"
+                value={table5FormData.bentoniteKgs}
+                onChange={(e) => updateFormField('bentoniteKgs', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, bentonitePercentRef)}
+                onFocus={() => { if (!table5FormData.bentoniteCheckpoint) setBentoniteCheckpointValid(false); }}
+                className={bentoniteKgsValid === false ? "invalid-input" : ""}
+              />
+              <input
+                ref={bentonitePercentRef}
+                type="number"
+                placeholder="%"
+                value={table5FormData.bentonitePercent}
+                onChange={(e) => updateFormField('bentonitePercent', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, premixCoalKgsRef)}
+                onFocus={() => { if (!table5FormData.bentoniteCheckpoint) setBentoniteCheckpointValid(false); }}
+                className={bentonitePercentValid === false ? "invalid-input" : ""}
+              />
+            </div>
+          </div>
+
+          <div className="sand-form-field sand-selector-field">
+            <div className="sand-field-header">
+              <label>Premix/Coal Dust (Kgs / Mix)</label>
+              <div className={`sand-radio-group ${premixCoalCheckpointValid === false ? 'invalid-input' : ''}`}>
+                <label>
+                  <input
+                    type="radio"
+                    name="premixCoalCheckpoint"
+                    value="Premix"
+                    checked={table5FormData.premixCoalCheckpoint === 'Premix'}
+                    onChange={(e) => updateFormField('premixCoalCheckpoint', e.target.value)}
                   />
-                </td>
-                <td style={{ padding: '8px' }}>
-                  <textarea 
-                    ref={remarksRef}
-                    placeholder="Remarks" 
-                    rows="2" 
-                    value={table5FormData.remarks}
-                    onChange={(e) => updateFormField('remarks', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (submitButtonRef && submitButtonRef.current) {
-                          submitButtonRef.current.focus();
-                        }
-                      }
-                    }}
-                    style={{ width: '100%', padding: '8px', fontSize: '0.9375rem', border: '1px solid #cbd5e1', borderRadius: '4px', resize: 'vertical' }}
+                  <span>Premix (0.60-1.20%)</span>
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="premixCoalCheckpoint"
+                    value="CoalDust"
+                    checked={table5FormData.premixCoalCheckpoint === 'CoalDust'}
+                    onChange={(e) => updateFormField('premixCoalCheckpoint', e.target.value)}
                   />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <span>Coal Dust (0.28-0.70%)</span>
+                </label>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input
+                ref={premixCoalKgsRef}
+                type="number"
+                placeholder="Kgs"
+                value={table5FormData.premixCoalKgs}
+                onChange={(e) => updateFormField('premixCoalKgs', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, premixCoalPercentRef)}
+                onFocus={() => { if (!table5FormData.premixCoalCheckpoint) setPremixCoalCheckpointValid(false); }}
+                className={premixCoalKgsValid === false ? "invalid-input" : ""}
+              />
+              <input
+                ref={premixCoalPercentRef}
+                type="number"
+                placeholder="%"
+                value={table5FormData.premixCoalPercent}
+                onChange={(e) => updateFormField('premixCoalPercent', e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, compactabilityValueRef)}
+                onFocus={() => { if (!table5FormData.premixCoalCheckpoint) setPremixCoalCheckpointValid(false); }}
+                className={premixCoalPercentValid === false ? "invalid-input" : ""}
+              />
+            </div>
+          </div>
+
+          <div className="sand-form-field sand-selector-field">
+            <div className="sand-field-header">
+              <label>Compactability Setting</label>
+              <select
+                value={table5FormData.compactabilitySetting}
+                onChange={(e) => updateFormField('compactabilitySetting', e.target.value)}
+                className={compactabilitySettingValid === false ? "invalid-input" : ""}
+              >
+                <option value="">Select</option>
+                <option value="LC">LC</option>
+                <option value="SMC42">SMC42 (42±3)</option>
+              </select>
+            </div>
+            <input
+              ref={compactabilityValueRef}
+              type="number"
+              placeholder="Value"
+              value={table5FormData.compactabilityValue}
+              onChange={(e) => updateFormField('compactabilityValue', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, mouldStrengthValueRef)}
+              onFocus={() => { if (!table5FormData.compactabilitySetting) setCompactabilitySettingValid(false); }}
+              className={compactabilityValueValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field sand-selector-field">
+            <div className="sand-field-header">
+              <label>Mould Strength Setting</label>
+              <select
+                value={table5FormData.mouldStrengthSetting}
+                onChange={(e) => updateFormField('mouldStrengthSetting', e.target.value)}
+                className={mouldStrengthSettingValid === false ? "invalid-input" : ""}
+              >
+                <option value="">Select</option>
+                <option value="SMC23">SMC23 (23±3)</option>
+                <option value="At15">At15 (5.0±1%)</option>
+              </select>
+            </div>
+            <input
+              ref={mouldStrengthValueRef}
+              type="number"
+              placeholder="Value"
+              value={table5FormData.mouldStrengthValue}
+              onChange={(e) => updateFormField('mouldStrengthValue', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, preparedSandLumpsRef)}
+              onFocus={() => { if (!table5FormData.mouldStrengthSetting) setMouldStrengthSettingValid(false); }}
+              className={mouldStrengthValueValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Prepared Sand Lumps/Kg</label>
+            <input
+              ref={preparedSandLumpsRef}
+              type="number"
+              placeholder="Value"
+              value={table5FormData.preparedSandLumpsKg}
+              onChange={(e) => updateFormField('preparedSandLumpsKg', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, itemNameRef)}
+              className={preparedSandLumpsKgValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field">
+            <label>Item Name</label>
+            <input
+              ref={itemNameRef}
+              type="text"
+              placeholder="Item Name"
+              value={table5FormData.itemName}
+              onChange={(e) => updateFormField('itemName', e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, remarksRef)}
+              className={itemNameValid === false ? "invalid-input" : ""}
+            />
+          </div>
+
+          <div className="sand-form-field full-row">
+            <label>Remarks</label>
+            <input
+              ref={remarksRef}
+              type="text"
+              placeholder="Remarks"
+              value={table5FormData.remarks}
+              onChange={(e) => updateFormField('remarks', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (submitButtonRef && submitButtonRef.current) {
+                    submitButtonRef.current.focus();
+                  }
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* Submit Button */}

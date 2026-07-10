@@ -1,56 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, SectionToggles } from '../../Components/Buttons';
+import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import EntryActions from '../../Components/EntryActions';
+import { processEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const ProcessReport = () => {
 
-  // ========================================================================
-  // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
-  // ========================================================================
-  //
-  // HOW IT WORKS:
-  // 1. On mount, ALL entries are fetched once from the API and stored in `allEntries`.
-  // 2. `filteredEntries` is a subset of `allEntries` — this is what the table renders.
-  // 3. By default, only today's entries are shown (filtered on mount).
-  //
-  // FILTER STATES:
-  //   - fromDate  : Start of date range (optional — if empty, no lower bound)
-  //   - toDate    : End of date range (required — defaults to today)
-  //   - selectedX : Any additional dropdown filter (e.g., DISA, Part Name, etc.)
-  //
-  // FILTER BUTTON ENABLE LOGIC:
-  //   - Enabled when toDate is set AND toDate > fromDate (if fromDate is provided).
-  //   - This prevents filtering with an invalid/empty range.
-  //
-  // handleFilter():
-  //   - Filters `allEntries` client-side by comparing each entry's date (converted
-  //     to 'YYYY-MM-DD' string) against the fromDate–toDate range.
-  //   - If fromDate is empty, shows only entries matching toDate exactly.
-  //   - Then applies any additional dropdown filter (e.g., DISA).
-  //   - Resets pagination to page 1.
-  //
-  // handleClear():
-  //   - Resets fromDate to '', toDate to today, dropdown to 'All'.
-  //   - Re-filters to today's entries only (same as initial load, NOT all entries).
-  //   - Resets pagination to page 1.
-  //
-  // TO REUSE IN OTHER PAGES:
-  //   1. Copy the state declarations: fromDate, toDate, allEntries, filteredEntries, currentPage.
-  //   2. Copy formatDateLocal() helper for consistent date comparison.
-  //   3. Copy the useEffect fetch — store full data in allEntries, filter today's into filteredEntries.
-  //   4. Copy handleFilter() — adjust the additional dropdown filter condition as needed.
-  //   5. Copy handleClear() — adjust the dropdown reset value.
-  //   6. Copy isFilterEnabled logic.
-  //   7. In JSX, use the same filter bar layout: CustomDatePicker x2 + optional dropdown + FilterButton + ClearButton.
-  //   8. Render `paginatedEntries` (sliced from sorted filteredEntries) in the table.
-  // ========================================================================
-
-  // Helper: Convert any date value to 'YYYY-MM-DD' string in local timezone
-  // Used for consistent date comparisons (avoids timezone issues with toISOString)
   const formatDateLocal = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -64,67 +25,69 @@ const ProcessReport = () => {
 
   const todayStr = getTodayLocal();
 
-  // --- Filter States ---
-  const [fromDate, setFromDate] = useState('');           // Start date (optional — empty means no lower bound)
-  const [toDate, setToDate] = useState(todayStr);         // End date (required — defaults to today)
-  const [selectedDisa, setSelectedDisa] = useState('All'); // Additional dropdown filter (replace with your own field)
-  const [allEntries, setAllEntries] = useState([]);        // Full dataset fetched once from API
-  const [filteredEntries, setFilteredEntries] = useState([]); // Filtered subset shown in table
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(todayStr);
+  const [selectedDisa, setSelectedDisa] = useState('All');
+  const [allEntries, setAllEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);      // Pagination — reset to 1 on every filter/clear
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [show, setShow] = useState({ metalComposition: true, correctiveAdditions: true });
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
   const itemsPerPage = 15;
 
-  // FILTER BUTTON ENABLE LOGIC:
-  // Enabled when: toDate exists AND (fromDate is empty OR toDate > fromDate)
-  // This prevents users from filtering with an invalid range (e.g., toDate before fromDate)
   const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
 
-  // Get unique DISA values
   const disaOptions = useMemo(() => {
     return Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
   }, [allEntries]);
 
-  // STEP 1: Fetch ALL entries once on mount.
-  // Store full dataset in `allEntries` (never mutated after fetch).
-  // Apply initial filter: show only today's entries by default.
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(API_ENDPOINTS.process, { credentials: 'include' });
-        if (!response.ok) throw new Error('Failed to fetch process data');
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          // Optional: pre-filter invalid entries (adjust condition per page)
-          const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
-          setAllEntries(validEntries); // Store full dataset
-
-          // Default view: only today's entries
-          const todayFiltered = validEntries.filter(r => {
-            if (!r.date) return false;
-            return formatDateLocal(r.date) === todayStr;
-          });
-          setFilteredEntries(todayFiltered);
-        }
-      } catch (error) {
-        console.error('Error fetching process data:', error);
-      } finally {
-        setLoading(false);
+  // Apply the current From/To/DISA filter to a set of entries.
+  const computeFiltered = (entries) => {
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    let filtered = entries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
-    };
+      return reportDate === toDateStr;
+    });
+    if (selectedDisa && selectedDisa !== 'All') {
+      filtered = filtered.filter(r => r.disa === selectedDisa);
+    }
+    return filtered;
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_ENDPOINTS.process, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch process data');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
+        setAllEntries(validEntries);
+        setFilteredEntries(computeFiltered(validEntries));
+      }
+    } catch (error) {
+      alert('Failed to load process data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
-  // STEP 2: handleFilter — Client-side filtering of `allEntries`.
-  // Filters by date range first, then by any additional dropdown selection.
-  // Always resets pagination to page 1.
   const handleFilter = () => {
-    // Guard: toDate is required
     if (!toDate) {
       setFilteredEntries([]);
       return;
@@ -133,9 +96,6 @@ const ProcessReport = () => {
     const toDateStr = toDate;
     const fromDateStr = fromDate || '';
 
-    // Date range filter:
-    // - If fromDate is set: entry date must be >= fromDate AND <= toDate
-    // - If fromDate is empty: show only entries matching toDate exactly
     let filtered = allEntries.filter(r => {
       if (!r.date) return false;
       const reportDate = formatDateLocal(r.date);
@@ -145,29 +105,24 @@ const ProcessReport = () => {
       return reportDate === toDateStr;
     });
 
-    // Additional dropdown filter (e.g., DISA) — skip if 'All' is selected
-    // Replace `r.disa` and `selectedDisa` with your own field when reusing
     if (selectedDisa && selectedDisa !== 'All') {
       filtered = filtered.filter(r => r.disa === selectedDisa);
     }
 
     setFilteredEntries(filtered);
-    setCurrentPage(1); // Always reset to first page after filtering
+    setCurrentPage(1);
   };
 
-  // STEP 3: handleClear — Reset all filters to defaults.
-  // Shows only today's entries (same as initial load), resets dates, dropdown, and pagination.
   const handleClear = () => {
-    setFromDate('');              // Clear start date
-    setToDate(todayStr);          // Reset end date to today
-    setSelectedDisa('All');       // Reset dropdown to 'All'
-    // Re-filter to today's entries only (not all entries)
+    setFromDate('');
+    setToDate(todayStr);
+    setSelectedDisa('All');
     const todayFiltered = allEntries.filter(r => {
       if (!r.date) return false;
       return formatDateLocal(r.date) === todayStr;
     });
     setFilteredEntries(todayFiltered);
-    setCurrentPage(1);            // Reset pagination
+    setCurrentPage(1);
   };
 
   const formatDisplayDate = (dateString) => {
@@ -176,7 +131,6 @@ const ProcessReport = () => {
     return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
   };
 
-  // Sort entries by date descending, then by disa
   const sortedEntries = useMemo(() => {
     return [...filteredEntries].sort((a, b) => {
       const dateCompare = new Date(b.date) - new Date(a.date);
@@ -185,7 +139,6 @@ const ProcessReport = () => {
     });
   }, [filteredEntries]);
 
-  // Pagination
   const totalPages = Math.ceil(sortedEntries.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedEntries = sortedEntries.slice(startIndex, startIndex + itemsPerPage);
@@ -198,13 +151,11 @@ const ProcessReport = () => {
     setRemarksModal({ show: false, content: '', title: 'Remarks' });
   };
 
-  // Calculate column count for colSpan
   const baseColCount = 22;
   const metalColCount = show.metalComposition ? 8 : 0;
   const correctiveColCount = show.correctiveAdditions ? 7 : 0;
   const totalColCount = baseColCount + metalColCount + correctiveColCount;
 
-  // Group calculation for date rowSpan
   const getGroupInfo = () => {
     const groups = {};
     let currentDate = null;
@@ -228,7 +179,6 @@ const ProcessReport = () => {
 
   const dateGroups = getGroupInfo();
 
-  // Group calculation for DISA rowSpan (consecutive same date+disa)
   const getDisaGroupInfo = () => {
     const groups = {};
     let currentKey = null;
@@ -255,8 +205,97 @@ const ProcessReport = () => {
 
   const disaGroups = getDisaGroupInfo();
 
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.process, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch process data');
+      const result = await response.json();
+      if (!result.success || !result.data) throw new Error('No data received');
+
+      let rows = result.data.filter(r => {
+        if (!r.date) return false;
+        const rd = formatDateLocal(r.date);
+        return rd >= from && rd <= to;
+      });
+      if (selectedDisa && selectedDisa !== 'All') {
+        rows = rows.filter(r => r.disa === selectedDisa);
+      }
+      rows.sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.disa || '').localeCompare(b.disa || '');
+      });
+
+
+      const pouringTemp = (r) =>
+        r.pouringTemperatureMin && r.pouringTemperatureMax
+          ? `${r.pouringTemperatureMin} - ${r.pouringTemperatureMax}`
+          : '-';
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 11, value: (r) => formatDisplayDate(r.date) },
+        { header: 'DISA', key: 'disa', width: 10 },
+        { header: 'Part Name', key: 'partName', width: 24 },
+        { header: 'Date Code', key: 'datecode', width: 12 },
+        { header: 'Heat Code', key: 'heatcode', width: 12 },
+        { header: 'Qty of Moulds', key: 'quantityOfMoulds', width: 14 },
+        { header: 'C', key: 'metalCompositionC', width: 11, group: 'Metal Composition (%)' },
+        { header: 'Si', key: 'metalCompositionSi', width: 11, group: 'Metal Composition (%)' },
+        { header: 'Mn', key: 'metalCompositionMn', width: 11, group: 'Metal Composition (%)' },
+        { header: 'P', key: 'metalCompositionP', width: 11, group: 'Metal Composition (%)' },
+        { header: 'S', key: 'metalCompositionS', width: 11, group: 'Metal Composition (%)' },
+        { header: 'Mg FL', key: 'metalCompositionMgFL', width: 13, group: 'Metal Composition (%)' },
+        { header: 'Cu', key: 'metalCompositionCu', width: 11, group: 'Metal Composition (%)' },
+        { header: 'Cr', key: 'metalCompositionCr', width: 11, group: 'Metal Composition (%)' },
+        { header: 'Pouring Temp', key: 'pouringTemp', width: 16, value: pouringTemp },
+        { header: 'Time of Pouring', key: 'timeOfPouring', width: 18 },
+        { header: 'PP Code', key: 'ppCode', width: 12 },
+        { header: 'Treatment No', key: 'treatmentNo', width: 13 },
+        { header: 'FC No', key: 'fcNo', width: 10 },
+        { header: 'Heat No', key: 'heatNo', width: 12 },
+        { header: 'Con No', key: 'conNo', width: 10 },
+        { header: 'C', key: 'correctiveAdditionC', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Si', key: 'correctiveAdditionSi', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Mn', key: 'correctiveAdditionMn', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'S', key: 'correctiveAdditionS', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Cr', key: 'correctiveAdditionCr', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Cu', key: 'correctiveAdditionCu', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Sn', key: 'correctiveAdditionSn', width: 10, group: 'Corrective Additions (Kgs)' },
+        { header: 'Tapping Wt', key: 'tappingWt', width: 12 },
+        { header: 'Tapping Time', key: 'tappingTime', width: 13 },
+        { header: 'Mg', key: 'mg', width: 10 },
+        { header: 'Res Mg Convertor', key: 'resMgConvertor', width: 16 },
+        { header: 'Rec of Mg', key: 'recOfMg', width: 12 },
+        { header: 'Stream Inoculant', key: 'streamInoculant', width: 16 },
+        { header: 'P Time', key: 'pTime', width: 10 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      await exportToExcel({
+        title: 'Process Control Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Process_Control_Report',
+        sheetName: 'Process',
+      });
+    } catch (err) {
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <div className="page-wrapper">
+    <>
       <div className="process-report-header">
         <div className="process-report-header-text">
           <h2>
@@ -266,7 +305,7 @@ const ProcessReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="process-report-filter-wrapper">
         <div className="process-filter-group">
           <label className="process-report-filter-label">From Date</label>
@@ -286,9 +325,18 @@ const ProcessReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
-      {/* Section Toggles */}
+      {}
       <SectionToggles
         sections={[
           { key: 'metalComposition', label: 'Metal Composition (%)' },
@@ -299,17 +347,17 @@ const ProcessReport = () => {
         onClear={() => setShow({ metalComposition: false, correctiveAdditions: false })}
       />
 
-      {/* Table */}
+      {}
       {loading ? (
         <div className="process-loader-container"><div>Loading...</div></div>
       ) : (
         <div className="reusable-table-container">
-          <table className="reusable-table" style={{ tableLayout: 'auto' }}>
+          <table className="reusable-table" style={{ tableLayout: 'auto', minWidth: '100%' }}>
             <thead>
-              {/* Group Headers */}
+              {}
               <tr>
-                <th rowSpan={2} style={{ minWidth: '150px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date</th>
-                <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>DISA</th>
+                <th rowSpan={2} style={{ minWidth: '140px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>DISA</th>
                 <th rowSpan={2} style={{ minWidth: '200px', textAlign: 'center', whiteSpace: 'nowrap' }}>Part Name</th>
                 <th rowSpan={2} style={{ minWidth: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>Date Code</th>
                 <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Heat Code</th>
@@ -331,8 +379,9 @@ const ProcessReport = () => {
                 <th rowSpan={2} style={{ minWidth: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>Stream Inoculant</th>
                 <th rowSpan={2} style={{ minWidth: '70px', textAlign: 'center', whiteSpace: 'nowrap' }}>P Time</th>
                 <th rowSpan={2} style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
-              {/* Sub Headers */}
+              {}
               <tr>
                 {show.metalComposition && (
                   <>
@@ -362,7 +411,7 @@ const ProcessReport = () => {
             <tbody>
               {paginatedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={totalColCount} className="reusable-table-no-records">No records found</td>
+                  <td colSpan={totalColCount + 1} className="reusable-table-no-records">No records found</td>
                 </tr>
               ) : (
                 paginatedEntries.map((item, idx) => {
@@ -448,6 +497,9 @@ const ProcessReport = () => {
                       >
                         {item.remarks || '-'}
                       </td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <EntryActions entry={item} editConfig={processEditConfig} onChanged={fetchData} />
+                      </td>
                     </tr>
                   );
                 })
@@ -457,7 +509,7 @@ const ProcessReport = () => {
         </div>
       )}
 
-      {/* Pagination */}
+      {}
       {!loading && sortedEntries.length > itemsPerPage && (
         <CustomPagination
           currentPage={currentPage}
@@ -466,7 +518,7 @@ const ProcessReport = () => {
         />
       )}
 
-      {/* Remarks Modal */}
+      {}
       {remarksModal.show && (
         <div className="process-report-modal-overlay" onClick={closeRemarksModal}>
           <div className="process-report-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -478,7 +530,8 @@ const ProcessReport = () => {
           </div>
         </div>
       )}
-    </div>
+
+    </>
   );
 };
 

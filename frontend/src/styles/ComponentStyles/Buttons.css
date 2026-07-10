@@ -506,6 +506,63 @@
 	stroke-width: 2;
 }
 
+/* ==================== Excel Download Button ==================== */
+.excel-button-wrapper {
+	display: inline-block;
+}
+
+.excel-button-wrapper button.excel-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1.5rem;
+	background: linear-gradient(135deg, #1D8F4E 0%, #157f43 100%);
+	color: white;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 0.875rem;
+	font-weight: 600;
+	font-family: 'Poppins', sans-serif;
+	box-shadow: 0 2px 6px rgba(29, 143, 78, 0.3);
+	transition: all 0.3s ease;
+	white-space: nowrap;
+	min-height: 42px;
+	width: 100%;
+}
+
+.excel-button-wrapper button.excel-btn:hover:not(:disabled) {
+	background: linear-gradient(135deg, #157f43 0%, #0f6e39 100%);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(29, 143, 78, 0.5);
+}
+
+.excel-button-wrapper button.excel-btn:active:not(:disabled) {
+	transform: translateY(0);
+}
+
+.excel-button-wrapper button.excel-btn:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.excel-button-wrapper button.excel-btn svg {
+	width: 18px;
+	height: 18px;
+	stroke-width: 2;
+}
+
+.excel-btn-spin {
+	animation: excel-btn-spin 0.8s linear infinite;
+}
+
+@keyframes excel-btn-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
 /* ==================== Plus/Minus Button Styles ==================== */
 .plus-button,
 .minus-button {

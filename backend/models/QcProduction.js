@@ -2,108 +2,96 @@ const mongoose = require('mongoose');
 
 const QcProductionSchema = new mongoose.Schema({
 
-    date: { 
-        type: Date, 
-        required: true 
+    date: {
+        type: Date,
+        required: true
     },
 
-    partName: { 
-        type: String, 
-        required: true, 
+    partName: {
+        type: String,
+        required: true,
         trim: true
      },
 
-    noOfMoulds: { 
-        type: Number, 
-        required: true,
-        min: 1 
+    noOfMoulds: {
+        type: Number,
+        min: 1
         },
 
-    cPercentFrom: { 
-        type: Number, 
-        required: true
+    cPercentFrom: {
+        type: Number
     },
-    cPercentTo: { 
-        type: Number, 
-        default: 0
-    },
-
-    siPercentFrom: { 
-        type: Number, 
-        required: true
-    },
-    siPercentTo: { 
-        type: Number, 
-        default: 0
-    },
-
-    mnPercentFrom: { 
-        type: Number,
-        required: true
-    },
-    mnPercentTo: { 
+    cPercentTo: {
         type: Number,
         default: 0
     },
 
-    pPercentFrom: { 
-        type: Number,
-        required: true
+    siPercentFrom: {
+        type: Number
     },
-    pPercentTo: { 
+    siPercentTo: {
+        type: Number,
+        default: 0
+    },
+
+    mnPercentFrom: {
+        type: Number
+    },
+    mnPercentTo: {
+        type: Number,
+        default: 0
+    },
+
+    pPercentFrom: {
+        type: Number
+    },
+    pPercentTo: {
         type: Number,
         default: 0
     },
 
     sPercentFrom: {
-         type: Number, 
-         required: true
+         type: Number
     },
     sPercentTo: {
-         type: Number, 
+         type: Number,
          default: 0
     },
 
-    mgPercentFrom: { 
-        type: Number,
-        required: true
+    mgPercentFrom: {
+        type: Number
     },
-    mgPercentTo: { 
+    mgPercentTo: {
         type: Number,
         default: 0
     },
 
     cuPercentFrom: {
-        type: Number,
-        required: true
+        type: Number
     },
     cuPercentTo: {
         type: Number,
         default: 0
     },
 
-    crPercentFrom: { 
-        type: Number,
-        required: true
+    crPercentFrom: {
+        type: Number
     },
-    crPercentTo: { 
+    crPercentTo: {
         type: Number,
         default: 0
     },
 
     nodularity: {
-        type: Number,
-        required: true
+        type: Number
     },
 
     noduleCount: {
-        type: Number,
-        required: true
+        type: Number
     },
 
     graphiteTypeFrom: {
-        type: Number,
-        required: true
+        type: Number
     },
     graphiteTypeTo: {
         type: Number,
@@ -111,38 +99,37 @@ const QcProductionSchema = new mongoose.Schema({
     },
 
     pearlite: {
-        type: Number,
-        required: true
+        type: Number
     },
 
     ferrite: {
-        type: Number,
-        required: true
+        type: Number
     },
 
-    hardnessBHNFrom: { 
-        type: Number,
-        required: true
+    hardnessBHNFrom: {
+        type: Number
     },
-    hardnessBHNTo: { 
+    hardnessBHNTo: {
         type: Number,
         default: 0
     },
 
     ts: [{
         type: Number,
-        required: true
     }],
     ys: [{
         type: String,
-        required: true,
         trim: true
     }],
     el: [{
         type: String,
-        required: true,
         trim: true
-    }]
+    }],
+
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
 }, {
     timestamps: true,
     collection: 'qc_production_details'

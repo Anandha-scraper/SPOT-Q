@@ -4,28 +4,41 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
+const { assertCookieConfig } = require('./utils/cookie');
 const app = express();
 const PORT = process.env.PORT;
 if (!PORT) {
-  console.error('❌ PORT is not defined in .env — server cannot start.');
+  console.error(' PORT is not defined in .env — server cannot start.');
   process.exit(1);
 }
 
+// A misconfigured auth cookie fails silently in the browser, so refuse to boot.
+let cookieConfig;
+try {
+  cookieConfig = assertCookieConfig();
+} catch (err) {
+  console.error(`Auth cookie misconfigured: ${err.message}`);
+  process.exit(1);
+}
 
-// 1. Global Middleware
+// Nginx terminates connections on the same host; without this req.ip is the
+// proxy's address and every login audit record reads 127.0.0.1.
+app.set('trust proxy', 'loopback');
+
+
+// 1. Global Middlewa
 // Configure CORS to accept requests from development and production
 const allowedOrigins = [
-    'http://localhost:3000', // Development
-    'http://localhost:5173', // Vite dev server
-    process.env.FRONTEND_URL // Production URL from environment variable
-].filter(Boolean); // Remove undefined values
+    'http://localhost:3000',   // Vite dev server
+    process.env.FRONTEND_URL  // Production URL
+].filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps, Postman, or same-origin)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
             console.log('CORS blocked origin:', origin);
@@ -58,6 +71,8 @@ const dmmSettingParametersRoutes = require('./routes/Moulding-DmmSettingParamete
 const dismaticProductReportRoutes = require('./routes/Moulding-DismaticProductReportDISA');
 const sandTestingRecordRoutes = require('./routes/SandLab-SandTestingRecord');
 const foundrySandTestingNoteRoutes = require('./routes/SandLab-FoundrySandTestingNote');
+const downloadLogRoutes = require('./routes/DownloadLog');
+const entryStatsRoutes = require('./routes/stats');
 
 // 4. Import Controllers for Initialization
 const impactCtrl = require('./controllers/Impact');
@@ -78,7 +93,7 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('SPOT-Q Database Connected');
   })
   .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('MongoDB Connection Error:', err.message);
     console.error('Full Error:', err);
   });
 
@@ -113,6 +128,10 @@ app.use('/api/v1/moulding-dmm', protect, checkDepartmentAccess('Moulding'), dmmS
 app.use('/api/v1/melting-logs', protect, checkDepartmentAccess('Melting'), meltingLogsheetRoutes);
 app.use('/api/v1/cupola-logs', protect, checkDepartmentAccess('Melting'), cupolaHolderLogRoutes);
 
+// Cross-department, per-user features (any authenticated user; no department gate)
+app.use('/api/v1/download-logs', protect, downloadLogRoutes);
+app.use('/api/v1/entry-stats', protect, entryStatsRoutes);
+
 // 7. System Utilities
 app.get('/', (req, res) => {
   res.json({ 
@@ -142,6 +161,7 @@ app.use('*', (req, res) => res.status(404).json({ success: false, message: 'API 
 // 8. Start
 const server = app.listen(PORT, async () => {
   console.log(`Server active on port ${PORT}`);
+  console.log(`Auth cookie: secure=${cookieConfig.secure}, sameSite=${cookieConfig.sameSite}`);
 });
 
 // Graceful Error Management

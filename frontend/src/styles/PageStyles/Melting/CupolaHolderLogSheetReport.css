@@ -1,5 +1,15 @@
 /* Cupola Holder Log Sheet - Report Page Styles */
 
+/* Match Process page layout: fill the dashboard content area edge-to-edge
+   instead of the shared .page-wrapper's centered 94%/max-width/padding,
+   which created an asymmetric side margin gap vs. the Process pages. */
+.page-wrapper.melting-page-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* Report Table Overrides */
 .chr-primary-table th,
 .chr-primary-table td {

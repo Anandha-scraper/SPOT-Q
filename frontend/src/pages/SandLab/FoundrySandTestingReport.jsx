@@ -1,55 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { FilterButton, ClearButton, ShiftDropdown, DisaDropdown } from '../../Components/Buttons';
+import { ExcelDownloadDialog } from '../../Components/alert';
+import { FilterButton, ClearButton, ExcelDownloadButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
 const FoundrySandTestingReport = () => {
+  const getCurrentDate = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isRangeMode, setIsRangeMode] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
-  // Filter states
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [shift, setShift] = useState('');
-  const [sandPlant, setSandPlant] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(getCurrentDate());
+  const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
-  const getCurrentDate = () => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
+  const cacheRef = useRef({});
+
+
+
+  useEffect(() => { fetchSingleDate(getCurrentDate()); }, []);
+
+  // Fetch a single date's records (uses the in-memory cache for instant re-view)
+  const fetchSingleDate = async (date) => {
+    setError('');
+    setExpandedId(null);
+    setIsRangeMode(false);
+
+    if (cacheRef.current[date] !== undefined) {
+      setEntries(cacheRef.current[date]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(date)}&endDate=${encodeURIComponent(date)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
+      cacheRef.current[date] = list;
+      setEntries(list);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setEntries([]);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async (fromDate = null, toDate = null, shiftFilter = '', sandPlantFilter = '') => {
+  // Fetch a date range (summary/expandable view)
+  const fetchRange = async (from, to) => {
     setLoading(true);
     setError('');
     setExpandedId(null);
     try {
-      const from = fromDate || getCurrentDate();
-      const to = toDate || from;
-      const rangeMode = toDate && toDate !== fromDate;
-
-      let url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-        let filtered = data.data;
-        if (shiftFilter) filtered = filtered.filter(e => e.shift === shiftFilter);
-        if (sandPlantFilter) filtered = filtered.filter(e => e.sandPlant === sandPlantFilter);
-        setEntries(filtered);
-        setIsRangeMode(!!rangeMode);
-        if (filtered.length === 0) setError('No data found for the selected filters');
-      } else {
-        setEntries([]);
-        setIsRangeMode(!!rangeMode);
-      }
+      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
+      setEntries(list);
+      setIsRangeMode(true);
+      if (list.length === 0) setError('No data found for the selected filters');
     } catch (err) {
       console.error('Error fetching data:', err);
       setEntries([]);
@@ -60,19 +86,27 @@ const FoundrySandTestingReport = () => {
   };
 
   const handleFilter = () => {
-    if (!startDate) { alert('Please select a From date'); return; }
-    if (endDate && new Date(endDate) < new Date(startDate)) { alert('To date cannot be before From date'); return; }
-    fetchData(startDate, endDate || null, shift, sandPlant);
+    const to = toDate || getCurrentDate();
+    if (fromDate) {
+      if (new Date(to) < new Date(fromDate)) { alert('To date cannot be before From date'); return; }
+      setIsFiltered(true);
+      fetchRange(fromDate, to);
+    } else {
+      // No From ⇒ view the single "To" date
+      setIsFiltered(false);
+      fetchSingleDate(to);
+    }
   };
 
   const handleClear = () => {
-    setStartDate(null);
-    setEndDate(null);
-    setShift('');
-    setSandPlant('');
-    setExpandedId(null);
-    fetchData();
+    const today = getCurrentDate();
+    setFromDate('');
+    setToDate(today);
+    setIsFiltered(false);
+    fetchSingleDate(today);
   };
+
+
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -238,9 +272,6 @@ const FoundrySandTestingReport = () => {
   const renderDetail = (record, idx, total) => (
     <div key={record._id || idx} style={{ marginBottom: '2.5rem', borderBottom: idx < total - 1 ? '3px solid #e2e8f0' : 'none', paddingBottom: idx < total - 1 ? '2rem' : 0 }}>
       {/* Primary Info */}
-      <h3 className="foundry-section-header" style={{ marginTop: '1.5rem' }}>
-        Primary {record.date ? `( ${formatDate(record.date)} )` : ''} {record.shift ? `- Shift ${record.shift}` : ''} {record.sandPlant ? `- ${record.sandPlant}` : ''}
-      </h3>
       <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
         <div>
           <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Sand Plant</span>
@@ -298,6 +329,128 @@ const FoundrySandTestingReport = () => {
     _id: e._id
   }));
 
+  // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { alert('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      const records = (data.success && Array.isArray(data.data)) ? data.data : [];
+      records.sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
+
+      const D = (r) => formatDate(r.date);
+
+      // 1) Overview — one row per record.
+      const overviewRows = records.map((r) => ({
+        date: D(r),
+        shift: r.shift || '',
+        sandPlant: r.sandPlant || '',
+        compactability: r.compactibilitySetting || '',
+        shearStrength: r.shearStrengthSetting || '',
+        remarks: r.remarks || '',
+      }));
+      const overviewColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Sand Plant', key: 'sandPlant', width: 16 },
+        { header: 'Compactability Setting', key: 'compactability', width: 18 },
+        { header: 'Shear/Mould Strength Setting', key: 'shearStrength', width: 20 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      // 2) Clay Parameters — one row per parameter per record (computed solution %).
+      const clayRows = records.flatMap((r) =>
+        clayParamKeys.map((param, i) => ({
+          date: D(r),
+          parameter: clayParamLabels[i],
+          test1: r.clayTests?.test1?.[param] ? `${computeSolution(param, r.clayTests.test1[param]) || r.clayTests.test1[param].solution || '0'}%` : '',
+          test2: r.clayTests?.test2?.[param] ? `${computeSolution(param, r.clayTests.test2[param]) || r.clayTests.test2[param].solution || '0'}%` : '',
+        }))
+      );
+      const paramTestColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Parameter', key: 'parameter', width: 18 },
+        { header: 'TEST-1', key: 'test1', width: 14 },
+        { header: 'TEST-2', key: 'test2', width: 14 },
+      ];
+
+      // 3) Sieve Testing — one row per sieve size (+Total) per record.
+      const sieveRows = records.flatMap((r) =>
+        [...sieveData, { size: 'Total', mf: 'Total', isTotal: true }].map((row) => {
+          const sizeKey = row.isTotal ? 'total' : row.size;
+          const mfKey = row.isTotal ? 'total' : row.mf;
+          return {
+            date: D(r),
+            sieveSize: row.isTotal ? 'Total' : row.size,
+            mf: row.isTotal ? 'Total' : row.mf,
+            wtTest1: r.sieveTesting?.test1?.sieveSize?.[sizeKey] || '',
+            wtTest2: r.sieveTesting?.test2?.sieveSize?.[sizeKey] || '',
+            prodTest1: r.sieveTesting?.test1?.mf?.[mfKey] || '',
+            prodTest2: r.sieveTesting?.test2?.mf?.[mfKey] || '',
+          };
+        })
+      );
+      const sieveColumnsX = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Sieve Size (Mic)', key: 'sieveSize', width: 14 },
+        { header: 'MF', key: 'mf', width: 8 },
+        { header: '% Wt Retained - TEST-1', key: 'wtTest1', width: 16 },
+        { header: '% Wt Retained - TEST-2', key: 'wtTest2', width: 16 },
+        { header: 'Product - TEST-1', key: 'prodTest1', width: 14 },
+        { header: 'Product - TEST-2', key: 'prodTest2', width: 14 },
+      ];
+
+      // 4) Test Parameters — one row per parameter per record.
+      const testParamRows = records.flatMap((r) =>
+        testParamConfig.map((cfg) => ({
+          date: D(r),
+          parameter: cfg.label,
+          test1: r.parameters?.test1?.[cfg.key] || '',
+          test2: r.parameters?.test2?.[cfg.key] || '',
+        }))
+      );
+
+      // 5) Additional Data — one row per parameter per record.
+      const additionalRows = records.flatMap((r) =>
+        additionalParamKeys.map((param, i) => ({
+          date: D(r),
+          parameter: additionalParamLabels[i],
+          test1: r.additionalData?.test1?.[param] || '',
+          test2: r.additionalData?.test2?.[param] || '',
+        }))
+      );
+
+      await exportWorkbookToExcel({
+        title: 'Foundry Sand Testing Note - Report',
+        fromDate: from,
+        toDate: to,
+        fileName: 'Foundry_Sand_Testing_Note_Report',
+        sheets: [
+          { sheetName: 'Overview', columns: overviewColumns, rows: overviewRows },
+          { sheetName: 'Clay Parameters', columns: paramTestColumns, rows: clayRows },
+          { sheetName: 'Sieve Testing', columns: sieveColumnsX, rows: sieveRows },
+          { sheetName: 'Test Parameters', columns: paramTestColumns, rows: testParamRows },
+          { sheetName: 'Additional Data', columns: paramTestColumns, rows: additionalRows },
+        ],
+      });
+    } catch (err) {
+      alert('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="foundry-sand-testing-report-container">
       {/* Header */}
@@ -308,46 +461,47 @@ const FoundrySandTestingReport = () => {
             Foundry Sand Testing Note - Report
           </h2>
         </div>
+        {!isRangeMode && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', fontWeight: 600, color: '#1e293b' }}>
+            {entries.length === 1 && entries[0].shift && <span>{entries[0].shift}</span>}
+            {entries.length === 1 && entries[0].sandPlant && <span>Sand Plant: {entries[0].sandPlant}</span>}
+          </div>
+        )}
       </div>
 
       {/* Filter Section */}
-      <div className="foundry-sand-testing-filter-container">
+      <div className="foundry-sand-testing-filter-container"> 
         <div className="foundry-sand-testing-filter-group">
           <label style={{ fontWeight: 600 }}>From</label>
           <CustomDatePicker
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            max={getCurrentDate()}
           />
         </div>
         <div className="foundry-sand-testing-filter-group">
           <label style={{ fontWeight: 600 }}>To</label>
           <CustomDatePicker
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={!startDate}
-          />
-        </div>
-        <div className="foundry-sand-testing-filter-group">
-          <label style={{ fontWeight: 600 }}>Shift</label>
-          <ShiftDropdown
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
-            disabled={!startDate}
-          />
-        </div>
-        <div className="foundry-sand-testing-filter-group">
-          <label style={{ fontWeight: 600 }}>Sand Plant</label>
-          <DisaDropdown
-            value={sandPlant}
-            onChange={(e) => setSandPlant(e.target.value)}
-            name="sandPlant"
-            disabled={!startDate}
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            min={fromDate || undefined}
+            max={getCurrentDate()}
           />
         </div>
         <div className="foundry-sand-testing-filter-actions">
-          <FilterButton onClick={handleFilter} disabled={!startDate || loading} />
-          <ClearButton onClick={handleClear} disabled={!startDate && !endDate && !shift && !sandPlant} />
+          <FilterButton onClick={handleFilter} disabled={loading} />
+          {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
+          <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+          <ExcelDownloadDialog
+            open={showDownloadDialog}
+            onOpenChange={setShowDownloadDialog}
+            defaultFrom={fromDate}
+            defaultTo={toDate}
+            loading={isDownloading}
+            onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+          />
         </div>
+
       </div>
 
       {/* Error / Loading */}
@@ -423,6 +577,7 @@ const FoundrySandTestingReport = () => {
           No entries found for the selected date range
         </div>
       )}
+
     </div>
   );
 };

@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import EntryActions from '../../Components/EntryActions';
+import { microStructureEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/MicroStructure/MicroStructureReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
@@ -34,6 +38,8 @@ const MicroStructureReport = () => {
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Remarks' });
 
   const itemsPerPage = 15;
@@ -46,38 +52,52 @@ const MicroStructureReport = () => {
     return Array.from(new Set(allEntries.map(item => item.disa).filter(Boolean))).sort();
   }, [allEntries]);
 
+  // Apply the current From/To/DISA filter to a set of entries.
+  const computeFiltered = (entries) => {
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    let filtered = entries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
+      }
+      return reportDate === toDateStr;
+    });
+    if (selectedDisa && selectedDisa !== 'All') {
+      filtered = filtered.filter(r => r.disa === selectedDisa);
+    }
+    return filtered;
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const startDate = '2020-01-01';
+      const endDate = '2030-12-31';
+      const response = await fetch(`${API_ENDPOINTS.microStructure}/filter?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to fetch micro structure data');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
+        setAllEntries(validEntries);
+        setFilteredEntries(computeFiltered(validEntries));
+      }
+    } catch (error) {
+      console.error('Error fetching micro structure data:', error);
+      alert('Failed to load micro structure data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // STEP 1: Fetch ALL entries once on mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const startDate = '2020-01-01';
-        const endDate = '2030-12-31';
-        const response = await fetch(`${API_ENDPOINTS.microStructure}/filter?startDate=${startDate}&endDate=${endDate}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (!response.ok) throw new Error('Failed to fetch micro structure data');
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          const validEntries = result.data.filter(entry => entry.disa && entry.disa.trim() !== '');
-          setAllEntries(validEntries);
-
-          // Default view: only today's entries
-          const todayFiltered = validEntries.filter(r => {
-            if (!r.date) return false;
-            return formatDateLocal(r.date) === todayStr;
-          });
-          setFilteredEntries(todayFiltered);
-        }
-      } catch (error) {
-        console.error('Error fetching micro structure data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -159,7 +179,7 @@ const MicroStructureReport = () => {
     setRemarksModal({ show: false, content: '', title: 'Remarks' });
   };
 
-  const totalColCount = 13;
+  const totalColCount = 14;
 
   // Group calculation for date rowSpan
   const getGroupInfo = () => {
@@ -212,8 +232,74 @@ const MicroStructureReport = () => {
 
   const disaGroups = getDisaGroupInfo();
 
+  // Excel export — fetch all entries, filter by the chosen range/DISA, then build the sheet.
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(`${API_ENDPOINTS.microStructure}/filter?startDate=2020-01-01&endDate=2030-12-31`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Failed to fetch micro structure data');
+      const result = await response.json();
+      if (!result.success || !result.data) throw new Error('No data received');
+
+      let rows = result.data.filter(r => {
+        if (!r.date) return false;
+        const rd = formatDateLocal(r.date);
+        return rd >= from && rd <= to;
+      });
+      if (selectedDisa && selectedDisa !== 'All') {
+        rows = rows.filter(r => r.disa === selectedDisa);
+      }
+      rows.sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.disa || '').localeCompare(b.disa || '');
+      });
+
+
+      const exportColumns = [
+        { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },
+        { header: 'DISA', key: 'disa', width: 10 },
+        { header: 'Part Name', key: 'partName', width: 22 },
+        { header: 'Date Code', key: 'dateCode', width: 14 },
+        { header: 'Heat Code', key: 'heatCode', width: 14 },
+        { header: 'Nodularity %', key: 'nodularity', width: 14 },
+        { header: 'Graphite Type', key: 'graphiteType', width: 16 },
+        { header: 'Count Nos/mm²', key: 'count', width: 16, value: (r) => renderRange(r.countMin, r.countMax) },
+        { header: 'Size', key: 'size', width: 12, value: (r) => renderRange(r.sizeMin, r.sizeMax) },
+        { header: 'Ferrite %', key: 'ferrite', width: 12, value: (r) => renderRange(r.ferriteMin, r.ferriteMax) },
+        { header: 'Pearlite %', key: 'pearlite', width: 14, value: (r) => renderRange(r.pearliteMin, r.pearliteMax) },
+        { header: 'Carbide %', key: 'carbide', width: 12, value: (r) => renderRange(r.carbideMin, r.carbideMax) },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      await exportToExcel({
+        title: 'Micro Structure Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'Micro_Structure_Report',
+        sheetName: 'Micro Structure',
+      });
+    } catch (err) {
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
-    <div className="page-wrapper">
+    <>
       <div className="micro-report-header">
         <div className="micro-report-header-text">
           <h2>
@@ -243,6 +329,15 @@ const MicroStructureReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {/* Table */}
@@ -266,6 +361,7 @@ const MicroStructureReport = () => {
                 <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Pearlite %</th>
                 <th style={{ minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>Carbide %</th>
                 <th style={{ minWidth: '150px', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+                <th style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -320,6 +416,9 @@ const MicroStructureReport = () => {
                       >
                         {item.remarks || '-'}
                       </td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <EntryActions entry={item} editConfig={microStructureEditConfig} onChanged={fetchData} />
+                      </td>
                     </tr>
                   );
                 })
@@ -350,7 +449,8 @@ const MicroStructureReport = () => {
           </div>
         </div>
       )}
-    </div>
+
+    </>
   );
 };
 

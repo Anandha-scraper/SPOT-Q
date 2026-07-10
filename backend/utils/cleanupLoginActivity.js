@@ -126,8 +126,13 @@ async function cleanupLoginActivity(keepCount = 5) {
 if (require.main === module) {
     // Connect to MongoDB
     require('dotenv').config();
-    
-    mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/spot-q', {
+
+    if (!process.env.MONGODB_URI) {
+        console.error('[Cleanup] MONGODB_URI is not defined in .env — cannot run cleanup.');
+        process.exit(1);
+    }
+
+    mongoose.connect(process.env.MONGODB_URI, {
         useNewUrlParser: true,
         useUnifiedTopology: true
     })

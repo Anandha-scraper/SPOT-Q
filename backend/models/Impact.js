@@ -29,10 +29,11 @@ const ImpactEntrySchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
-    }
+    },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
     timestamps: true,
-    _id: true 
+    _id: true
 });
 
 // Main schema - one document per date

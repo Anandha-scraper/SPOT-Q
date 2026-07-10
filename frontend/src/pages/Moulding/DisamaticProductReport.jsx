@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
-import { FilterButton, ClearButton, ShiftDropdown, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
-import { InlineLoader } from '../../Components/Alert';
+import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
@@ -27,6 +28,10 @@ const DisamaticProductReport = () => {
   const [hoveredSummaryRow, setHoveredSummaryRow] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Excel export
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // Transform backend data to frontend format
   const transformBackendData = (dataArray) => {
@@ -175,7 +180,7 @@ const DisamaticProductReport = () => {
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
         const data = await response.json();
-        
+
         if (data.success && data.data && data.data.length > 0) {
           const grouped = groupByDateForSummary(data.data);
           setSummaryData(grouped);
@@ -196,7 +201,7 @@ const DisamaticProductReport = () => {
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
         const data = await response.json();
-        
+
         if (data.success && data.data && data.data.length > 0) {
           let filteredData = transformBackendData(data.data);
           
@@ -279,6 +284,204 @@ const DisamaticProductReport = () => {
       return `${day} / ${month} / ${year}`;
     } catch {
       return dateStr;
+    }
+  };
+
+  // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { alert('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const url = `${API_ENDPOINTS.mouldingDisa}/range?startDate=${from}&endDate=${to}`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error(`Failed to fetch data: ${response.statusText}`);
+      const data = await response.json();
+      const records = (data.success && Array.isArray(data.data)) ? data.data : [];
+      records.sort((a, b) => {
+        const dateCompare = new Date(a.date) - new Date(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return (a.shift || '').localeCompare(b.shift || '');
+      });
+      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
+
+      const D = (r) => formatDate(r.date);
+      const S = (r) => r.shift || '-';
+      const joinPairs = (arr) => (Array.isArray(arr) && arr.length
+        ? arr.map((p) => `${p[0] ?? '-'} - ${p[1] ?? '-'}`).join(', ') : '');
+
+      // 1) Overview — one row per record (shift).
+      const overviewRows = records.map((r) => ({
+        date: D(r), shift: S(r),
+        incharge: r.incharge || '',
+        ppOperator: r.ppOperator || '',
+        members: Array.isArray(r.memberspresent) ? r.memberspresent.join(', ') : '',
+      }));
+      const overviewColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Incharge', key: 'incharge', width: 16 },
+        { header: 'PP Operator', key: 'ppOperator', width: 16 },
+        { header: 'Members Present', key: 'members', width: 30 },
+      ];
+
+      // 2) Production — one row per item.
+      const productionRows = records.flatMap((r) =>
+        (Array.isArray(r.productionDetails) ? r.productionDetails : []).map((item, i) => ({
+          date: D(r), shift: S(r),
+          sNo: item.sNo || i + 1,
+          counterNo: item.counterNo || '',
+          componentName: item.componentName || '',
+          produced: item.produced ?? '',
+          poured: item.poured ?? '',
+          cycleTime: item.cycleTime || '',
+          mouldsPerHour: item.mouldsPerHour || '',
+          remarks: item.remarks || '',
+        }))
+      );
+      const productionColumnsX = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'S.No', key: 'sNo', width: 7 },
+        { header: 'Counter No', key: 'counterNo', width: 12 },
+        { header: 'Component Name', key: 'componentName', width: 22 },
+        { header: 'Produced', key: 'produced', width: 12 },
+        { header: 'Poured', key: 'poured', width: 12 },
+        { header: 'Cycle Time', key: 'cycleTime', width: 12 },
+        { header: 'Moulds/Hour', key: 'mouldsPerHour', width: 13 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      // 3) Next Shift Plan — one row per item.
+      const nextShiftRows = records.flatMap((r) =>
+        (Array.isArray(r.nextShiftPlan) ? r.nextShiftPlan : []).map((item, i) => ({
+          date: D(r), shift: S(r),
+          sNo: item.sNo || i + 1,
+          componentName: item.componentName || '',
+          plannedMoulds: item.plannedMoulds ?? '',
+          remarks: item.remarks || '',
+        }))
+      );
+      const nextShiftColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'S.No', key: 'sNo', width: 7 },
+        { header: 'Component Name', key: 'componentName', width: 24 },
+        { header: 'Planned Moulds', key: 'plannedMoulds', width: 16 },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      // 4) Delays — one row per item.
+      const delaysRows = records.flatMap((r) =>
+        (Array.isArray(r.delays) ? r.delays : []).map((item, i) => {
+          const durations = Array.isArray(item.durationMinutes)
+            ? item.durationMinutes.map((m) => `${m} min`).join(' / ')
+            : (item.durationMinutes ?? '');
+          const times = Array.isArray(item.fromTime) && Array.isArray(item.toTime)
+            ? item.fromTime.map((f, idx) => `${f} - ${item.toTime[idx] ?? ''}`).join(', ')
+            : '';
+          return {
+            date: D(r), shift: S(r),
+            sNo: item.sNo || i + 1,
+            delays: item.delays || '',
+            durationMinutes: durations,
+            durationInTime: times,
+          };
+        })
+      );
+      const delaysColumnsX = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'S.No', key: 'sNo', width: 7 },
+        { header: 'Delays', key: 'delays', width: 24 },
+        { header: 'Duration (Minutes)', key: 'durationMinutes', width: 22 },
+        { header: 'Duration in Time', key: 'durationInTime', width: 28 },
+      ];
+
+      // 5) Mould Hardness — one row per item.
+      const mouldHardnessRows = records.flatMap((r) =>
+        (Array.isArray(r.mouldHardness) ? r.mouldHardness : []).map((item, i) => ({
+          date: D(r), shift: S(r),
+          sNo: item.sNo || i + 1,
+          componentName: item.componentName || '',
+          mpPP: joinPairs(item.mpPP),
+          mpSP: joinPairs(item.mpSP),
+          bsPP: joinPairs(item.bsPP),
+          bsSP: joinPairs(item.bsSP),
+          remarks: item.remarks || '',
+        }))
+      );
+      const mouldHardnessColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'S.No', key: 'sNo', width: 7 },
+        { header: 'Component Name', key: 'componentName', width: 22 },
+        { header: 'PP', key: 'mpPP', width: 16, group: 'Mould Penetrant tester (N/cm²)' },
+        { header: 'SP', key: 'mpSP', width: 16, group: 'Mould Penetrant tester (N/cm²)' },
+        { header: 'PP', key: 'bsPP', width: 16, group: 'B - Scale' },
+        { header: 'SP', key: 'bsSP', width: 16, group: 'B - Scale' },
+        { header: 'Remarks', key: 'remarks', width: 24 },
+      ];
+
+      // 6) Pattern Temperature — one row per item.
+      const patternTempRows = records.flatMap((r) =>
+        (Array.isArray(r.patternTemperature) ? r.patternTemperature : []).map((item, i) => ({
+          date: D(r), shift: S(r),
+          sNo: i + 1,
+          item: item.item || '',
+          pp: item.pp ?? '',
+          sp: item.sp ?? '',
+        }))
+      );
+      const patternTempColumnsX = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'S.No', key: 'sNo', width: 7 },
+        { header: 'Item', key: 'item', width: 24 },
+        { header: 'PP', key: 'pp', width: 12 },
+        { header: 'SP', key: 'sp', width: 12 },
+      ];
+
+      // 7) Events & Maintenance — one row per record.
+      const eventsRows = records.map((r) => ({
+        date: D(r), shift: S(r),
+        significantEvent: r.significantEvent || '',
+        maintenance: r.maintenance || '',
+        supervisorName: r.supervisorName || '',
+      }));
+      const eventsColumns = [
+        { header: 'Date', key: 'date', width: 13 },
+        { header: 'Shift', key: 'shift', width: 10 },
+        { header: 'Significant Event', key: 'significantEvent', width: 36 },
+        { header: 'Maintenance', key: 'maintenance', width: 36 },
+        { header: 'Supervisor Name', key: 'supervisorName', width: 20 },
+      ];
+
+      await exportWorkbookToExcel({
+        title: 'Disamatic Product - Report',
+        fromDate: from,
+        toDate: to,
+        fileName: 'Disamatic_Product_Report',
+        sheets: [
+          { sheetName: 'Overview', columns: overviewColumns, rows: overviewRows },
+          { sheetName: 'Production', columns: productionColumnsX, rows: productionRows },
+          { sheetName: 'Next Shift Plan', columns: nextShiftColumns, rows: nextShiftRows },
+          { sheetName: 'Delays', columns: delaysColumnsX, rows: delaysRows },
+          { sheetName: 'Mould Hardness', columns: mouldHardnessColumns, rows: mouldHardnessRows },
+          { sheetName: 'Pattern Temperature', columns: patternTempColumnsX, rows: patternTempRows },
+          { sheetName: 'Events & Maintenance', columns: eventsColumns, rows: eventsRows },
+        ],
+      });
+    } catch (err) {
+      alert('Download failed. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -688,7 +891,7 @@ const DisamaticProductReport = () => {
   ];
 
   return (
-    <div className="page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper">
       <div className="disamatic-report-header">
         <div className="disamatic-report-header-text">
           <h2>
@@ -737,12 +940,17 @@ const DisamaticProductReport = () => {
           <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
             Clear
           </ClearButton>
+          <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+          <ExcelDownloadDialog
+            open={showDownloadDialog}
+            onOpenChange={setShowDownloadDialog}
+            defaultFrom={startDate}
+            defaultTo={endDate}
+            loading={isDownloading}
+            onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+          />
           {error && (
-            <InlineLoader 
-              message={error}
-              size="small"
-              variant="danger"
-            />
+            <span className="disa-inline-error" style={{ color: '#c0392b', fontSize: '0.85rem' }}>{error}</span>
           )}
         </div>
       )}
@@ -944,6 +1152,7 @@ const DisamaticProductReport = () => {
           </div>
         </>
       )}
+
     </div>
   );
 };

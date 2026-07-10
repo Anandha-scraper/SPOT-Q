@@ -1,5 +1,15 @@
 /* Disamatic Product - Entry Page Styles */
 
+/* Full-width layout (matches Process/Melting): override the shared
+   .page-wrapper's centered 94%/max-width/padding so the content fills the
+   dashboard padding box consistently across all resolutions. */
+.page-wrapper.moulding-page-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* Header Section */
 .disamatic-header {
   width: 100%;
@@ -64,7 +74,7 @@
 /* Form Grid and Groups */
 .primary-fields-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
 }
@@ -109,7 +119,8 @@
   box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.1);
 }
 
-/* Locked/Disabled Field Styles - Show stop cursor */
+/* Per-input locked styling (Process pattern): grey out each disabled field
+   individually rather than dimming the whole section. */
 .disamatic-form-group input:disabled,
 .disamatic-form-group select:disabled,
 .disamatic-textarea:disabled,
@@ -122,11 +133,14 @@
 .disamatic-textarea[disabled],
 .disamatic-member-input[disabled] {
   cursor: not-allowed;
-  opacity: 0.6;
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  opacity: 0.7;
 }
 
-/* pointerEvents:none on disabled elements inside sections lets clicks pass through
-   to parent div's onMouseDownCapture for "Save Primary Data First" warning */
+/* pointer-events:none lets clicks on disabled controls pass through to the
+   section so the document capture listener can show the "Save Primary Data
+   First" warning (same mechanism Process uses). */
 .disamatic-section input:disabled,
 .disamatic-section select:disabled,
 .disamatic-section textarea:disabled,
@@ -142,8 +156,8 @@
 }
 
 .disamatic-form-group .custom-date-picker {
-  width: 180px;
-  max-width: 180px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .disamatic-textarea {

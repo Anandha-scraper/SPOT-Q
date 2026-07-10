@@ -92,7 +92,7 @@ exports.createEntry = async (req, res) => {
 
         const document = await ensureDateDocument(Impact, date);
         
-        const newEntry = { partName, dateCode, specification, observedValue, remarks };
+        const newEntry = { partName, dateCode, specification, observedValue, remarks, createdBy: req.user._id };
         document.entries.push(newEntry);
         await document.save();
 
@@ -128,5 +128,38 @@ exports.filterEntries = async (req, res) => {
         res.status(200).json({ success: true, count: allEntries.length, data: allEntries });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error filtering entries.' });
+    }
+};
+
+const PROTECTED_ENTRY_FIELDS = ['_id', 'createdBy', 'createdAt', 'updatedAt', 'date'];
+
+exports.updateEntry = async (req, res) => {
+    try {
+        const updates = { ...req.body };
+        PROTECTED_ENTRY_FIELDS.forEach(f => delete updates[f]);
+
+        req.targetEntry.set(updates);
+        await req.targetDoc.save();
+
+        res.status(200).json({
+            success: true,
+            data: req.targetEntry,
+            message: 'Impact entry updated successfully.'
+        });
+    } catch (error) {
+        console.error('Error updating impact entry:', error);
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+exports.deleteEntry = async (req, res) => {
+    try {
+        req.targetEntry.deleteOne();
+        await req.targetDoc.save();
+
+        res.status(200).json({ success: true, message: 'Impact entry deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting impact entry:', error);
+        res.status(400).json({ success: false, message: error.message });
     }
 };

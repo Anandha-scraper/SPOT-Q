@@ -1,0 +1,80 @@
+/* --- Header --- */
+.dlr-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 0 0 1rem 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.dlr-header-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.dlr-header-text h2 {
+  font-size: clamp(1.2rem, 1.6vw, 1.8rem);
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  line-height: 1;
+}
+
+/* --- Filter Section --- */
+.dlr-filter-wrapper {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+/* % based (not px) so proportions hold steady across laptop screen sizes
+   instead of snapping at fixed-px breakpoints. */
+.dlr-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 16%;
+  max-width: 18%;
+}
+
+.dlr-filter-label {
+  display: block;
+  font-size: clamp(0.75rem, 0.85vw, 0.95rem);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* --- Loader --- */
+.dlr-loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(1.5rem, 3%, 3rem);
+  color: #64748b;
+}
+
+@media (max-width: 1024px) {
+  .dlr-filter-wrapper {
+    gap: 0.75rem;
+  }
+
+  .dlr-filter-group {
+    flex: 1 1 22%;
+    max-width: 26%;
+  }
+}

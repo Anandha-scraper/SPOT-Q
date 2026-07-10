@@ -1,5 +1,15 @@
 /* DMM Setting Parameters Check Sheet - Entry Page Styles */
 
+/* Full-width layout (matches Process/Melting): override the shared
+   .page-wrapper's centered 94%/max-width/padding so the content fills the
+   dashboard padding box consistently across all resolutions. */
+.page-wrapper.moulding-page-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* Loader Overlay */
 .dmm-loader-overlay {
   position: fixed;
@@ -83,14 +93,13 @@
 
 .primary-fields-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 1.25rem;
   align-items: flex-start;
 }
 
 .primary-fields-row .dmm-form-group {
-  flex: 0 0 auto;
-  width: 220px;
+  flex: 1 1 200px;
   min-width: 0;
 }
 
@@ -143,7 +152,7 @@
 /* Form Grid */
 .dmm-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
   background: transparent;
@@ -155,15 +164,11 @@
   margin-bottom: 0;
 }
 
-/* Shift parameters alignment tweaks */
-.dmm-shift-form-grid .dmm-form-group {
-  min-width: 240px;
-}
-
-/* Shift Parameters Grid: align inputs into consistent columns */
+/* Shift Parameters Grid: fluid columns that self-adjust to the viewport
+   (no fixed column count / min-width, so gaps stay consistent across devices) */
 .dmm-shift-form-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   align-items: start;
 }
@@ -187,24 +192,6 @@
 .dmm-form-grid .dmm-form-group select {
   min-height: 44px;
   box-sizing: border-box;
-}
-
-@media (max-width: 1200px) {
-  .dmm-shift-form-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 968px) {
-  .dmm-shift-form-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .dmm-shift-form-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Form Group */
@@ -572,89 +559,38 @@
 }
 
 /* ============================================================================
- * LOCKED OVERLAY SYSTEM — Progressive unlock with disabled gray styling
+ * PER-INPUT LOCK (Process pattern) — native disabled styling
+ * pointer-events:none lets clicks pass through to the .dmm-form-group /
+ * .dmm-shift-form-grid so the document capture listener can show the warning.
  * ============================================================================ */
-
-/* Wrapper for lockable fields */
-.dmm-locked-wrapper {
-  position: relative;
-}
-
-/* Inside shift form grid, locked wrapper should participate in the grid */
-.dmm-shift-form-grid > .dmm-locked-wrapper {
-  min-width: 0;
-}
-
-/* Customer field inside locked wrapper — span 2 columns */
-.dmm-shift-form-grid > .dmm-locked-wrapper:first-child {
-  grid-column: span 2;
-}
-
-/* Ensure inner form-group fills the locked wrapper */
-.dmm-locked-wrapper > .dmm-form-group {
-  width: 100%;
-}
-
-/* In primary fields row, locked wrapper fills like a normal child */
-.primary-fields-row > .dmm-locked-wrapper {
-  flex: 0 0 auto;
-  width: 220px;
-  min-width: 0;
-}
-
-/* Transparent overlay — captures clicks, shows not-allowed cursor */
-.dmm-locked-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.dmm-form-group input:disabled,
+.dmm-form-group select:disabled,
+.dmm-form-group textarea:disabled {
+  background-color: #f1f5f9;
+  color: #94a3b8;
   cursor: not-allowed;
-  z-index: 5;
-  border-radius: 8px;
-}
-
-/* Disabled gray styling for inputs inside locked wrapper */
-.dmm-locked-wrapper .dmm-form-group input,
-.dmm-locked-wrapper .dmm-form-group select,
-.dmm-locked-wrapper .dmm-form-group textarea {
-  background-color: #f1f5f9 !important;
-  color: #94a3b8 !important;
-  cursor: not-allowed !important;
   opacity: 0.7;
+  pointer-events: none;
 }
 
-.dmm-locked-wrapper .dmm-form-group label {
-  color: #94a3b8 !important;
+.dmm-form-group:has(input:disabled) label,
+.dmm-form-group:has(select:disabled) label,
+.dmm-form-group:has(textarea:disabled) label {
+  color: #94a3b8;
 }
 
-.dmm-locked-wrapper .custom-time-input-container {
+.dmm-shift-form-grid .custom-time-input-container.disabled {
   opacity: 0.7;
   background-color: #f1f5f9 !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
+  pointer-events: none;
 }
 
-/* ── Submit Entry locked state ── */
-.dmm-submit-locked-wrapper {
-  position: relative;
-  display: inline-flex;
+/* Locked shift grid / submit wrapper show a not-allowed cursor */
+.dmm-shift-form-grid,
+.dmm-submit-btn:disabled {
+  cursor: default;
 }
 
-.dmm-submit-locked-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  cursor: not-allowed;
-  z-index: 5;
-  border-radius: 8px;
-}
-
-/* Locked submit button styling */
-.dmm-submit-btn.dmm-submit-btn-locked {
-  opacity: 0.5;
-  cursor: not-allowed;
+.dmm-submit-btn:disabled {
   pointer-events: none;
 }

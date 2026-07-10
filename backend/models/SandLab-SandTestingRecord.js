@@ -6,6 +6,11 @@ const SandTestingRecordSchema = new mongoose.Schema({
     required: true,
     default: Date.now,
   },
+  plant: {
+    type: String,
+    required: true,
+    enum: ['Disa', 'Eirich'],
+  },
   sandShifts : {
     shiftI: {
       rSand: {
@@ -451,8 +456,7 @@ coalDust:{
     collection: 'sand_testing_record'
 });
 
-// Create a unique index on date field to prevent duplicate documents for the same date
-// Using sparse: true to allow multiple null dates if needed, but prevent duplicate actual dates
-SandTestingRecordSchema.index({ date: 1 }, { unique: true });
+// Create a unique compound index on date + plant to prevent duplicate documents for the same date/plant combo
+SandTestingRecordSchema.index({ date: 1, plant: 1 }, { unique: true });
 
 module.exports = mongoose.model("SandTestingRecord", SandTestingRecordSchema);

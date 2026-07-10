@@ -2,17 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, CheckCircle } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
-import { InlineLoader } from '../../Components/Alert';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { InlineLoader } from '../../Components/InlineLoader';
 import { API_ENDPOINTS } from '../../config/api';
+import { useDepartmentForm } from '../../context/DepartmentContext';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
 const CupolaHolderLogSheet = () => {
-  // Primary Data
-  const [primaryData, setPrimaryData] = useState({
-    date: "",
-    shift: '',
-    holderNumber: ''
-  });
+  // Validation-range info modal (driven by the same validationRanges that powers validation)
+  const { isOpen, openModal, closeModal } = useInfoModal();
+
+  // Primary Data — Date defaults to today (still editable; future dates blocked by the picker)
+  // Draft containers persist across Form <-> Report navigation (shared context).
+  const { primaryData, setPrimaryData, inputRows, setInputRows } = useDepartmentForm('cupola-holder-log-sheet');
 
   const [primaryLoading, setPrimaryLoading] = useState(false);
   const [primarySavedVisual, setPrimarySavedVisual] = useState(false);
@@ -111,7 +114,7 @@ const CupolaHolderLogSheet = () => {
     remarks: ''
   });
 
-  const [inputRows, setInputRows] = useState([createEmptyRow()]);
+  // inputRows draft state now comes from the shared context (see destructure above).
 
   const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -181,30 +184,80 @@ const CupolaHolderLogSheet = () => {
     }
   };
 
+  // Single source of truth for both the Info modal and field validation.
+  // Each entry's `key` matches the input row field name so validateField can look it up.
+  const validationRanges = [
+    { key: 'heatNo', field: 'Heat No', type: 'Auto', description: 'Auto-incremented per holder & date' },
+    { key: 'cpc',    field: 'CPC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'mFeSl',  field: 'Fe Sl',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'feMn',   field: 'Fe Mn',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'sic',    field: 'SIC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'pureMg', field: 'Pure Mg', type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'cu',     field: 'Cu',      type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'feCr',   field: 'Fe Cr',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+    { key: 'actualTime',  field: 'Actual Time',  type: 'Time', pattern: 'HH:MM' },
+    { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
+    { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
+    { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
+    { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
+    { key: 'indFur', field: 'IND FUR', type: 'Text' },
+    { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
+    { key: 'tap',    field: 'TAP',     type: 'Text' },
+    { key: 'kw',     field: 'KW',      type: 'Number', min: 0, max: 5000, unit: 'KW' },
+    { key: 'remarks', field: 'Remarks', type: 'Text' },
+  ];
+
+  // Derived min/max lookup used by validateField — keeps validation in lock-step with the Info modal
+  const FIELD_RANGES = Object.fromEntries(
+    validationRanges
+      .filter(r => r.key && (r.min !== undefined || r.max !== undefined))
+      .map(r => [r.key, { min: r.min, max: r.max }])
+  );
+
+  // Which row fields are required — derived from validationRanges (single source of truth).
+  // The two time entries map onto their hour/minute sub-fields used by the row state.
+  const REQUIRED_FIELDS = (() => {
+    const set = {};
+    validationRanges.forEach(r => {
+      if (!r.required) return;
+      if (r.key === 'actualTime') { set.actualTimeHour = true; set.actualTimeMinute = true; }
+      else if (r.key === 'tappingTime') { set.tappingTimeHour = true; set.tappingTimeMinute = true; }
+      else set[r.key] = true;
+    });
+    return set;
+  })();
+  const isFieldRequired = (field) => !!REQUIRED_FIELDS[field];
+
+  // Human-readable hint for the input's title attribute
+  const rangeHint = (field) => {
+    const r = FIELD_RANGES[field];
+    return r ? `Range: ${r.min}–${r.max}` : undefined;
+  };
+
   // Validation function for individual field
   const validateField = (field, value) => {
-    // All fields are required - empty values not allowed
-    if (value === '' || value === null || value === undefined) {
-      return false;
+    const isEmpty = value === '' || value === null || value === undefined || String(value).trim() === '';
+
+    // Empty is allowed unless the field is marked required in validationRanges
+    if (isEmpty) {
+      return !isFieldRequired(field);
     }
-    
-    // Numeric fields that should be validated for datatype
+
+    // Numeric fields: validate datatype + allowed min/max range
     const numericFields = ['cpc', 'mFeSl', 'feMn', 'sic', 'pureMg', 'cu', 'feCr', 'tappingTemp', 'metalKg', 'kw'];
-    
+
     if (numericFields.includes(field)) {
-      // Check if it's a valid number
       const num = parseFloat(value);
       if (isNaN(num) || !isFinite(num)) {
         return false;
       }
+      const range = FIELD_RANGES[field];
+      if (range) {
+        if (range.min !== undefined && num < range.min) return false;
+        if (range.max !== undefined && num > range.max) return false;
+      }
     }
-    
-    // Text fields must not be empty
-    const textValue = String(value).trim();
-    if (textValue === '') {
-      return false;
-    }
-    
+
     return true;
   };
 
@@ -427,12 +480,16 @@ const CupolaHolderLogSheet = () => {
     const errors = {};
     let isValid = true;
 
-    // All fields are required (including time fields and text fields)
+    // Every editable field is checked; validateField enforces the required flag
+    // (from validationRanges) and the min/max range per field.
     const allFields = [
       'cpc', 'mFeSl', 'feMn', 'sic', 'pureMg', 'cu', 'feCr',
       'actualTimeHour', 'actualTimeMinute', 'tappingTimeHour', 'tappingTimeMinute',
       'tappingTemp', 'metalKg', 'disaLine', 'indFur', 'bailNo', 'tap', 'kw', 'remarks'
     ];
+
+    let hasRangeError = false;
+    let hasRequiredError = false;
 
     inputRows.forEach((row, rowIndex) => {
       allFields.forEach(field => {
@@ -443,6 +500,9 @@ const CupolaHolderLogSheet = () => {
           }
           errors[rowIndex][field] = true;
           isValid = false;
+          const filled = value !== '' && value !== null && value !== undefined && String(value).trim() !== '';
+          if (filled && FIELD_RANGES[field]) hasRangeError = true;
+          if (!filled) hasRequiredError = true;
         }
       });
     });
@@ -450,7 +510,10 @@ const CupolaHolderLogSheet = () => {
     setValidationErrors(errors);
 
     if (!isValid) {
-      setErrorMessage('All fields are required. Please enter data in all fields.');
+      const msgs = [];
+      if (hasRequiredError) msgs.push('Please fill all required fields.');
+      if (hasRangeError) msgs.push('Some values are outside the allowed range.');
+      setErrorMessage(msgs.join(' '));
     } else {
       setErrorMessage('');
     }
@@ -477,23 +540,23 @@ const CupolaHolderLogSheet = () => {
       // Build entries from all input rows
       const entries = inputRows.map((row, idx) => ({
         heatNo: `Heat No ${heatNo + idx}`,
-        cpc: row.cpc ? parseFloat(row.cpc) : null,
-        FeSl: row.mFeSl ? parseFloat(row.mFeSl) : null,
-        feMn: row.feMn ? parseFloat(row.feMn) : null,
-        sic: row.sic ? parseFloat(row.sic) : null,
-        pureMg: row.pureMg ? parseFloat(row.pureMg) : null,
-        cu: row.cu ? parseFloat(row.cu) : null,
-        feCr: row.feCr ? parseFloat(row.feCr) : null,
-        actualTime: (row.actualTimeHour && row.actualTimeMinute) ? `${row.actualTimeHour}:${row.actualTimeMinute}` : '',
-        tappingTime: (row.tappingTimeHour && row.tappingTimeMinute) ? `${row.tappingTimeHour}:${row.tappingTimeMinute}` : '',
-        tappingTemp: row.tappingTemp ? parseFloat(row.tappingTemp) : null,
-        metalKg: row.metalKg ? parseFloat(row.metalKg) : null,
-        disaLine: row.disaLine || '',
-        indFur: row.indFur || '',
-        bailNo: row.bailNo || '',
-        tap: row.tap || '',
-        kw: row.kw ? parseFloat(row.kw) : null,
-        remarks: row.remarks || ''
+        cpc: row.cpc ? parseFloat(row.cpc) : '-',
+        FeSl: row.mFeSl ? parseFloat(row.mFeSl) : '-',
+        feMn: row.feMn ? parseFloat(row.feMn) : '-',
+        sic: row.sic ? parseFloat(row.sic) : '-',
+        pureMg: row.pureMg ? parseFloat(row.pureMg) : '-',
+        cu: row.cu ? parseFloat(row.cu) : '-',
+        feCr: row.feCr ? parseFloat(row.feCr) : '-',
+        actualTime: (row.actualTimeHour && row.actualTimeMinute) ? `${row.actualTimeHour}:${row.actualTimeMinute}` : '-',
+        tappingTime: (row.tappingTimeHour && row.tappingTimeMinute) ? `${row.tappingTimeHour}:${row.tappingTimeMinute}` : '-',
+        tappingTemp: row.tappingTemp ? parseFloat(row.tappingTemp) : '-',
+        metalKg: row.metalKg ? parseFloat(row.metalKg) : '-',
+        disaLine: row.disaLine || '-',
+        indFur: row.indFur || '-',
+        bailNo: row.bailNo || '-',
+        tap: row.tap || '-',
+        kw: row.kw ? parseFloat(row.kw) : '-',
+        remarks: row.remarks || '-'
       }));
 
       const response = await fetch(`${API_ENDPOINTS.cupolaLogs}/table-update`, {
@@ -519,6 +582,8 @@ const CupolaHolderLogSheet = () => {
         setSubmitAttempted(false);
         setErrorMessage('');
         setFocusedField(null);
+        // Show branded loader after successful entry save
+        alert('Entry saved successfully.');
       } else {
         alert('Error: ' + result.message);
       }
@@ -553,16 +618,12 @@ const CupolaHolderLogSheet = () => {
     return '#cbd5e1'; // Default gray
   };
 
-  // Get border color for time fields (check both hour and minute)
-  const getTimeBorderColor = (rowIndex, hourField, minuteField) => {
-    const hasError = validationErrors[rowIndex]?.[hourField] || validationErrors[rowIndex]?.[minuteField];
-    
-    if (hasError) {
-      return '#ef4444'; // Red for errors
-    }
-    
-    return '#cbd5e1'; // Default gray
-  };
+  // Whether a time field (hour or minute) has a validation error
+  const hasTimeError = (rowIndex, hourField, minuteField) =>
+    !!(validationErrors[rowIndex]?.[hourField] || validationErrors[rowIndex]?.[minuteField]);
+
+  // Spatial arrow-key navigation across the whole form (matches Process page).
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
   const handleEnterFocusNext = (e) => {
     if (e.key !== 'Enter') return;
@@ -641,19 +702,33 @@ const CupolaHolderLogSheet = () => {
   const fmtVal = (v) => (v !== undefined && v !== null && v !== '' && v !== 0) ? v : '-';
 
   return (
-    <div className="page-wrapper" onKeyDown={handleEnterFocusNext}>
+    <>
+      {/* Entry save loader overlay */}
+    <div
+      className="page-wrapper melting-page-wrapper"
+      ref={gridRef}
+      onKeyDown={(e) => { handleEnterFocusNext(e); handleArrowKeyDown(e); }}
+    >
       {/* Header */}
       <div className="cupola-holder-header">
         <div className="cupola-holder-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Cupola Holder Log Sheet - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
           DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB') : '-'}
         </div>
       </div>
+
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Cupola Holder Log Sheet - Validation Ranges"
+        validationRanges={validationRanges}
+      />
 
       {/* Primary Section */}
       <div>
@@ -834,56 +909,56 @@ const CupolaHolderLogSheet = () => {
                 </td>
                 {/* ADDITIONS */}
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.cpc} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('cpc')}
+                    value={row.cpc}
                     onChange={(e) => handleRowChange(rowIdx, 'cpc', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'cpc' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'cpc') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.mFeSl} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('mFeSl')}
+                    value={row.mFeSl}
                     onChange={(e) => handleRowChange(rowIdx, 'mFeSl', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'mFeSl' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'mFeSl') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.feMn} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('feMn')}
+                    value={row.feMn}
                     onChange={(e) => handleRowChange(rowIdx, 'feMn', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'feMn' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'feMn') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.sic} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('sic')}
+                    value={row.sic}
                     onChange={(e) => handleRowChange(rowIdx, 'sic', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'sic' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'sic') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.pureMg} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('pureMg')}
+                    value={row.pureMg}
                     onChange={(e) => handleRowChange(rowIdx, 'pureMg', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'pureMg' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'pureMg') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.cu} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('cu')}
+                    value={row.cu}
                     onChange={(e) => handleRowChange(rowIdx, 'cu', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'cu' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'cu') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="0"
-                    value={row.feCr} 
+                  <input type="number" step="0.1" placeholder="0" title={rangeHint('feCr')}
+                    value={row.feCr}
                     onChange={(e) => handleRowChange(rowIdx, 'feCr', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'feCr' })}
                     onBlur={() => setFocusedField(null)}
@@ -891,40 +966,30 @@ const CupolaHolderLogSheet = () => {
                 </td>
                 {/* TAPPING */}
                 <td style={tdStyle}>
-                  <div style={{ 
-                    border: `2px solid ${getTimeBorderColor(rowIdx, 'actualTimeHour', 'actualTimeMinute')}`,
-                    borderRadius: '4px',
-                    overflow: 'hidden'
-                  }}>
-                    <CustomTimeInput
-                      value={createTimeFromHourMinute(row.actualTimeHour, row.actualTimeMinute)}
-                      onChange={(time) => handleTimeChange(rowIdx, 'actualTimeHour', 'actualTimeMinute', time)}
-                    />
-                  </div>
+                  <CustomTimeInput
+                    hasError={hasTimeError(rowIdx, 'actualTimeHour', 'actualTimeMinute')}
+                    value={createTimeFromHourMinute(row.actualTimeHour, row.actualTimeMinute)}
+                    onChange={(time) => handleTimeChange(rowIdx, 'actualTimeHour', 'actualTimeMinute', time)}
+                  />
                 </td>
                 <td style={tdStyle}>
-                  <div style={{ 
-                    border: `2px solid ${getTimeBorderColor(rowIdx, 'tappingTimeHour', 'tappingTimeMinute')}`,
-                    borderRadius: '4px',
-                    overflow: 'hidden'
-                  }}>
-                    <CustomTimeInput
-                      value={createTimeFromHourMinute(row.tappingTimeHour, row.tappingTimeMinute)}
-                      onChange={(time) => handleTimeChange(rowIdx, 'tappingTimeHour', 'tappingTimeMinute', time)}
-                    />
-                  </div>
+                  <CustomTimeInput
+                    hasError={hasTimeError(rowIdx, 'tappingTimeHour', 'tappingTimeMinute')}
+                    value={createTimeFromHourMinute(row.tappingTimeHour, row.tappingTimeMinute)}
+                    onChange={(time) => handleTimeChange(rowIdx, 'tappingTimeHour', 'tappingTimeMinute', time)}
+                  />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="1500"
-                    value={row.tappingTemp} 
+                  <input type="number" step="0.1" placeholder="1500" title={rangeHint('tappingTemp')}
+                    value={row.tappingTemp}
                     onChange={(e) => handleRowChange(rowIdx, 'tappingTemp', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'tappingTemp' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'tappingTemp') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="2000"
-                    value={row.metalKg} 
+                  <input type="number" step="0.1" placeholder="2000" title={rangeHint('metalKg')}
+                    value={row.metalKg}
                     onChange={(e) => handleRowChange(rowIdx, 'metalKg', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'metalKg' })}
                     onBlur={() => setFocusedField(null)}
@@ -982,8 +1047,8 @@ const CupolaHolderLogSheet = () => {
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'tap') }} />
                 </td>
                 <td style={tdStyle}>
-                  <input type="number" step="0.1" placeholder="2500"
-                    value={row.kw} 
+                  <input type="number" step="0.1" placeholder="2500" title={rangeHint('kw')}
+                    value={row.kw}
                     onChange={(e) => handleRowChange(rowIdx, 'kw', e.target.value)}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'kw' })}
                     onBlur={() => setFocusedField(null)}
@@ -1028,6 +1093,7 @@ const CupolaHolderLogSheet = () => {
       </div>
       </div>
     </div>
+    </>
   );
 };
 

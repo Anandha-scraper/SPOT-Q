@@ -5,7 +5,7 @@ const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 exports.getAllEntries = async (req, res) => {
     try {
-        const { startDate, endDate, page = 1, limit = 10 } = req.query;
+        const { startDate, endDate, plant, page = 1, limit = 10 } = req.query;
         let query = {};
 
         if (startDate || endDate) {
@@ -13,6 +13,7 @@ exports.getAllEntries = async (req, res) => {
             if (startDate) query.date.$gte = new Date(startDate);
             if (endDate) query.date.$lte = new Date(endDate);
         }
+        if (plant) query.plant = plant;
 
         const entries = await SandTestingRecord.find(query)
             .sort({ date: -1 })
@@ -35,16 +36,18 @@ exports.getAllEntries = async (req, res) => {
 exports.getEntriesByDate = async (req, res) => {
     try {
         const { date } = req.params;
+        const { plant } = req.query;
         const [year, month, day] = date.split('-').map(Number);
         const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
         const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
-        
+
         // Find document without creating if it doesn't exist
-        const document = await SandTestingRecord.findOne({ 
-            date: { 
-                $gte: startOfDay, 
-                $lte: endOfDay 
-            } 
+        const document = await SandTestingRecord.findOne({
+            date: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            },
+            ...(plant ? { plant } : {})
         });
         
         // Return as array for frontend compatibility (empty array if no document)
@@ -65,9 +68,14 @@ exports.createTableEntry = async (req, res) => {
         const tableNum = Number(req.params.tableNum || req.body.tableNum);
         const data = req.body.data || req.body;
         const targetDate = data.date || getCurrentDate();
-        
-        // Batch Update: Find or Create for this day
-        const document = await ensureDateDocument(SandTestingRecord, targetDate);
+        const plant = req.body.plant || data.plant;
+
+        if (!['Disa', 'Eirich'].includes(plant)) {
+            return res.status(400).json({ success: false, message: 'A valid plant ("Disa" or "Eirich") is required.' });
+        }
+
+        // Batch Update: Find or Create for this day + plant
+        const document = await ensureDateDocument(SandTestingRecord, targetDate, { plant }, { plant });
         
         // Deep merge helper for nested objects and arrays
         const deepMerge = (target, source) => {
@@ -156,13 +164,14 @@ exports.createTableEntry = async (req, res) => {
 
 exports.getStats = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
+        const { startDate, endDate, plant } = req.query;
         let matchStage = {};
         if (startDate || endDate) {
             matchStage.date = {};
             if (startDate) matchStage.date.$gte = new Date(startDate);
             if (endDate) matchStage.date.$lte = new Date(endDate);
         }
+        if (plant) matchStage.plant = plant;
 
         const stats = await SandTestingRecord.aggregate([
             { $match: matchStage },

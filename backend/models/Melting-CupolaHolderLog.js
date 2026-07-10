@@ -1,30 +1,33 @@
 const mongoose = require('mongoose');
 
-// Sub-schema for a single entry row (one heat)
+// Sub-schema for a single entry row (one heat).
+// Optional value fields use Mixed with a '-' default so an empty cell is stored
+// as '-' (hyphen) rather than 0/'' — matching the Process entry convention.
+const Mixed = mongoose.Schema.Types.Mixed;
 const EntrySchema = new mongoose.Schema({
-    heatNo: { type: String, default: '' },
+    heatNo: { type: String, default: '-' },
     // Additions
-    cpc: { type: Number, default: 0 },
-    FeSl: { type: Number, default: 0 },
-    feMn: { type: Number, default: 0 },
-    sic: { type: Number, default: 0 },
-    pureMg: { type: Number, default: 0 },
-    cu: { type: Number, default: 0 },
-    feCr: { type: Number, default: 0 },
+    cpc: { type: Mixed, default: '-' },
+    FeSl: { type: Mixed, default: '-' },
+    feMn: { type: Mixed, default: '-' },
+    sic: { type: Mixed, default: '-' },
+    pureMg: { type: Mixed, default: '-' },
+    cu: { type: Mixed, default: '-' },
+    feCr: { type: Mixed, default: '-' },
     // Tapping
-    actualTime: { type: String, default: '' },
-    tappingTime: { type: String, default: '' },
-    tappingTemp: { type: Number, default: 0 },
-    metalKg: { type: Number, default: 0 },
+    actualTime: { type: String, default: '-' },
+    tappingTime: { type: String, default: '-' },
+    tappingTemp: { type: Mixed, default: '-' },
+    metalKg: { type: Mixed, default: '-' },
     // Pouring
-    disaLine: { type: String, default: '' },
-    indFur: { type: String, default: '' },
-    bailNo: { type: String, default: '' },
+    disaLine: { type: String, default: '-' },
+    indFur: { type: String, default: '-' },
+    bailNo: { type: String, default: '-' },
     // Electrical
-    tap: { type: String, default: '' },
-    kw: { type: Number, default: 0 },
+    tap: { type: String, default: '-' },
+    kw: { type: Mixed, default: '-' },
     // Remarks
-    remarks: { type: String, default: '' }
+    remarks: { type: String, default: '-' }
 }, { _id: true, timestamps: true });
 
 // Sub-schema for a primary combination (shift + holderNumber)

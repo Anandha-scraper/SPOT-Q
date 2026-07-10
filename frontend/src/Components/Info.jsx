@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Info, X } from 'lucide-react';
-import '../styles/ComponentStyles/Info.css';
+import React, { useState, useEffect, useRef } from "react";
+import { Info, X } from "lucide-react";
+import "../styles/ComponentStyles/Info.css";
 
 /**
  * INFO CARD VALIDATION RANGE CONFIGURATION
- * 
+ *
  * Properties that can be included in each validation range object:
- * 
+ *
  * {
  *   field: 'Part Name',              // Field name to display (required) - Shows as the heading
  *   required: true,                   // Shows red asterisk (*) if true
@@ -20,12 +20,12 @@ import '../styles/ComponentStyles/Info.css';
  *   allowedValues: ['Val1', 'Val2'],  // Array of allowed values (for dropdowns) - Shows as "Allowed Values: Val1, Val2"
  *   description: 'Enter the part name' // Additional notes/guidelines - Shows as "Note: Enter the part name"
  * }
- * 
+ *
  * All properties are optional except 'field'. The Info card will display only the properties
  * that are provided, creating a clean and relevant validation reference for users.
- * 
+ *
  * USAGE EXAMPLE:
- * 
+ *
  * const validationRanges = [
  *   {
  *     field: 'Part Name',
@@ -57,7 +57,7 @@ import '../styles/ComponentStyles/Info.css';
  */
 
 // Info Icon Button Component
-export const InfoIcon = ({ onClick, className = '' }) => (
+export const InfoIcon = ({ onClick, className = "" }) => (
   <button
     type="button"
     onClick={onClick}
@@ -80,21 +80,21 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
     };
 
     const handleEscape = (event) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
@@ -106,7 +106,7 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
         <div className="info-modal-header">
           <div className="info-modal-title">
             <Info size={20} />
-            <h3>{title || 'Validation Ranges'}</h3>
+            <h3>{title || "Validation Ranges"}</h3>
           </div>
         </div>
 
@@ -121,9 +121,11 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                 <div key={index} className="info-validation-item">
                   <div className="info-field-name">
                     <span className="info-field-label">{item.field}</span>
-                    {item.required && <span className="info-required-asterisk">*</span>}
+                    {item.required && (
+                      <span className="info-required-asterisk">*</span>
+                    )}
                   </div>
-                  
+
                   <div className="info-validation-details">
                     {item.type && (
                       <div className="info-detail-row">
@@ -131,14 +133,14 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         <span className="info-detail-value">{item.type}</span>
                       </div>
                     )}
-                    
+
                     {item.unit && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Unit:</span>
                         <span className="info-detail-value">{item.unit}</span>
                       </div>
                     )}
-                    
+
                     {item.min !== undefined && item.max !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Range:</span>
@@ -147,59 +149,65 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
                         </span>
                       </div>
                     )}
-                    
+
                     {item.min !== undefined && item.max === undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Min:</span>
-                        <span className="info-detail-value">
-                          {item.min}
-                        </span>
+                        <span className="info-detail-value">{item.min}</span>
                       </div>
                     )}
-                    
+
                     {item.max !== undefined && item.min === undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Max:</span>
-                        <span className="info-detail-value">
-                          {item.max}
-                        </span>
+                        <span className="info-detail-value">{item.max}</span>
                       </div>
                     )}
-                    
+
                     {item.minLength !== undefined && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Min Length:</span>
-                        <span className="info-detail-value">{item.minLength}</span>
-                      </div>
-                    )}
-                    
-                    {item.maxLength !== undefined && (
-                      <div className="info-detail-row">
-                        <span className="info-detail-label">Max Length:</span>
-                        <span className="info-detail-value">{item.maxLength}</span>
-                      </div>
-                    )}
-                    
-                    {item.pattern && (
-                      <div className="info-detail-row">
-                        <span className="info-detail-label">Pattern:</span>
-                        <span className="info-detail-value">{item.pattern}</span>
-                      </div>
-                    )}
-                    
-                    {item.allowedValues && item.allowedValues.length > 0 && (
-                      <div className="info-detail-row">
-                        <span className="info-detail-label">Allowed Values:</span>
                         <span className="info-detail-value">
-                          {item.allowedValues.join(', ')}
+                          {item.minLength}
                         </span>
                       </div>
                     )}
-                    
+
+                    {item.maxLength !== undefined && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">Max Length:</span>
+                        <span className="info-detail-value">
+                          {item.maxLength}
+                        </span>
+                      </div>
+                    )}
+
+                    {item.pattern && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">Pattern:</span>
+                        <span className="info-detail-value">
+                          {item.pattern}
+                        </span>
+                      </div>
+                    )}
+
+                    {item.allowedValues && item.allowedValues.length > 0 && (
+                      <div className="info-detail-row">
+                        <span className="info-detail-label">
+                          Allowed Values:
+                        </span>
+                        <span className="info-detail-value">
+                          {item.allowedValues.join(", ")}
+                        </span>
+                      </div>
+                    )}
+
                     {item.description && (
                       <div className="info-detail-row">
                         <span className="info-detail-label">Note:</span>
-                        <span className="info-detail-value">{item.description}</span>
+                        <span className="info-detail-value">
+                          {item.description}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -223,19 +231,18 @@ export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
   );
 };
 
-// Hook for managing info modal state
 export const useInfoModal = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const openModal = () => setIsOpen(true);
   const closeModal = () => setIsOpen(false);
-  const toggleModal = () => setIsOpen(prev => !prev);
+  const toggleModal = () => setIsOpen((prev) => !prev);
 
   return {
     isOpen,
     openModal,
     closeModal,
-    toggleModal
+    toggleModal,
   };
 };
 

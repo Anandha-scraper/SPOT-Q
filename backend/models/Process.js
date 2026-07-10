@@ -57,8 +57,9 @@ const ProcessEntrySchema = new mongoose.Schema({
     recOfMg: { type: mongoose.Schema.Types.Mixed, default: '-' },
     streamInoculant: { type: mongoose.Schema.Types.Mixed, default: '-' },
     pTime: { type: mongoose.Schema.Types.Mixed, default: '-' },
-    remarks: { type: String, trim: true, default: '' }
-}, { _id: true });
+    remarks: { type: String, trim: true, default: '' },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { _id: true, timestamps: true });
 
 const ProcessSchema = new mongoose.Schema({
     date: { 

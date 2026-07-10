@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination } from '../../Components/Buttons';
+import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
+import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
+import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import EntryActions from '../../Components/EntryActions';
+import { qcProductionEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 const QcProductionDetailsReport = () => {
@@ -26,45 +30,53 @@ const QcProductionDetailsReport = () => {
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   const itemsPerPage = 15;
 
   const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
 
-  // Fetch ALL entries once on mount (server + localStorage)
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
-        const data = await response.json();
-
-        let serverItems = [];
-        if (data.success) serverItems = data.data || [];
-
-        let localItems = [];
-        try {
-          const localRaw = localStorage.getItem('qcProductionLocalEntries');
-          localItems = localRaw ? JSON.parse(localRaw) : [];
-        } catch (e) {
-          console.error('Error reading local QC entries:', e);
-        }
-
-        const combined = [...serverItems, ...localItems];
-        setAllEntries(combined);
-
-        // Default: show only today's entries
-        const todayFiltered = combined.filter(r => {
-          if (!r.date) return false;
-          return formatDateLocal(r.date) === todayStr;
-        });
-        setFilteredEntries(todayFiltered);
-      } catch (error) {
-        console.error('Error fetching QC production details:', error);
-      } finally {
-        setLoading(false);
+  const computeFiltered = (entries) => {
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    return entries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
-    };
+      return reportDate === toDateStr;
+    });
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
+      const data = await response.json();
+
+      let serverItems = [];
+      if (data.success) serverItems = data.data || [];
+
+      let localItems = [];
+      try {
+        const localRaw = localStorage.getItem('qcProductionLocalEntries');
+        localItems = localRaw ? JSON.parse(localRaw) : [];
+      } catch (e) {
+      }
+
+      const combined = [...serverItems, ...localItems];
+      setAllEntries(combined);
+      setFilteredEntries(computeFiltered(combined));
+    } catch (error) {
+      alert('Failed to load QC production data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -99,7 +111,6 @@ const QcProductionDetailsReport = () => {
     setCurrentPage(1);
   };
 
-  // Sort: date descending
   const sortedEntries = useMemo(() => {
     return [...filteredEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [filteredEntries]);
@@ -121,27 +132,125 @@ const QcProductionDetailsReport = () => {
     }
   };
 
-  // Helper function to format range display - if max is 0, show only min
+  // Normalise a "min - max" string (max of 0/blank collapses to a single value).
+  // Defensive against non-string input so a stray number/array never crashes the table.
   const formatRangeDisplay = (rangeStr) => {
-    if (!rangeStr) return '-';
-    const trimmed = rangeStr.trim();
-    
-    // Check if it contains a hyphen (range format)
+    if (rangeStr === null || rangeStr === undefined || rangeStr === '') return '-';
+    const trimmed = String(rangeStr).trim();
+    if (trimmed === '') return '-';
+
     if (trimmed.includes('-')) {
       const parts = trimmed.split('-').map(p => p.trim());
       if (parts.length === 2) {
         const min = parts[0];
         const max = parts[1];
-        // If max is 0 or empty, show only min
         if (max === '0' || max === '0.0' || max === '') {
           return min;
         }
         return `${min} - ${max}`;
       }
     }
-    
-    // Return as-is if not a range format
+
     return trimmed;
+  };
+
+  // Build a display string from the model's flat From/To pair (To of 0/blank = single value).
+  const formatFromTo = (from, to) => {
+    if (from === null || from === undefined || from === '') return '-';
+    return Number(to) ? `${from} - ${to}` : `${from}`;
+  };
+
+  // ts/ys/el are stored as arrays (ts: numbers, ys/el: range strings).
+  const formatList = (arr, fmt) => {
+    if (!Array.isArray(arr) || arr.length === 0) return '-';
+    return arr.map(fmt).join(', ');
+  };
+
+  const tableColumns = [
+    { key: 'date', label: 'Date', width: '130px', xlsWidth: 16, align: 'center', render: (item) => formatDateDisplay(item.date) },
+    { key: 'partName', label: 'Part Name', width: '180px', xlsWidth: 22, align: 'center' },
+    { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', xlsWidth: 14, align: 'center' },
+    { key: 'cPercent', label: 'C %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.cPercentFrom, item.cPercentTo) },
+    { key: 'siPercent', label: 'Si %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.siPercentFrom, item.siPercentTo) },
+    { key: 'mnPercent', label: 'Mn %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.mnPercentFrom, item.mnPercentTo) },
+    { key: 'pPercent', label: 'P %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.pPercentFrom, item.pPercentTo) },
+    { key: 'sPercent', label: 'S %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.sPercentFrom, item.sPercentTo) },
+    { key: 'mgPercent', label: 'Mg %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.mgPercentFrom, item.mgPercentTo) },
+    { key: 'cuPercent', label: 'Cu %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.cuPercentFrom, item.cuPercentTo) },
+    { key: 'crPercent', label: 'Cr %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.crPercentFrom, item.crPercentTo) },
+    { key: 'nodularity', label: 'Nodularity', width: '150px', xlsWidth: 14, align: 'center', render: (item) => (item.nodularity ?? '-') },
+    { key: 'noduleCount', label: 'Nodule count', width: '120px', xlsWidth: 14, align: 'center', render: (item) => (item.noduleCount ?? '-') },
+    { key: 'graphiteType', label: 'Graphite Type', width: '150px', xlsWidth: 16, align: 'center', render: (item) => formatFromTo(item.graphiteTypeFrom, item.graphiteTypeTo) },
+    { key: 'pearlite', label: 'Pearlite', width: '120px', xlsWidth: 12, align: 'center', render: (item) => (item.pearlite ?? '-') },
+    { key: 'ferrite', label: 'Ferrite', width: '120px', xlsWidth: 12, align: 'center', render: (item) => (item.ferrite ?? '-') },
+    { key: 'hardnessBHN', label: 'Hardness BHN', width: '150px', xlsWidth: 16, align: 'center', render: (item) => formatFromTo(item.hardnessBHNFrom, item.hardnessBHNTo) },
+    { key: 'ts', label: 'TS', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatList(item.ts, (v) => `${v}`) },
+    { key: 'ys', label: 'YS', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatList(item.ys, formatRangeDisplay) },
+    { key: 'el', label: 'EL', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatList(item.el, formatRangeDisplay) }
+  ];
+
+  // Display-only Actions column (not part of the Excel export).
+  const actionsColumn = {
+    key: 'actions',
+    label: 'Actions',
+    width: '100px',
+    align: 'center',
+    render: (item) => (
+      <EntryActions entry={item} editConfig={qcProductionEditConfig} onChanged={fetchData} />
+    )
+  };
+
+  const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
+    const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { alert('From date cannot be after To date.'); return; }
+    const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
+    if (dayDiff > MAX_EXPORT_DAYS) {
+      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.qcReports, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch QC reports');
+      const data = await response.json();
+      if (!data.success) throw new Error('No data received');
+
+      let localItems = [];
+      try {
+        const localRaw = localStorage.getItem('qcProductionLocalEntries');
+        localItems = localRaw ? JSON.parse(localRaw) : [];
+      } catch { localItems = []; }
+
+      const combined = [...(data.data || []), ...localItems];
+      const rows = combined
+        .filter(r => {
+          if (!r.date) return false;
+          const rd = formatDateLocal(r.date);
+          return rd >= from && rd <= to;
+        })
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
+
+      const exportColumns = tableColumns.map(c => ({
+        header: c.label, key: c.key, width: c.xlsWidth, value: c.render
+      }));
+
+      await exportToExcel({
+        title: 'QC Production Details Report',
+        fromDate: from,
+        toDate: to,
+        columns: exportColumns,
+        rows,
+        fileName: 'QC_Production_Details_Report',
+        sheetName: 'QC Production',
+      });
+    } catch (err) {
+      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -177,6 +286,15 @@ const QcProductionDetailsReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
+        <ExcelDownloadDialog
+          open={showDownloadDialog}
+          onOpenChange={setShowDownloadDialog}
+          defaultFrom={fromDate}
+          defaultTo={toDate}
+          loading={isDownloading}
+          onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+        />
       </div>
 
       {loading ? (
@@ -185,136 +303,7 @@ const QcProductionDetailsReport = () => {
         </div>
       ) : (
         <Table
-          columns={[
-            { 
-              key: 'date', 
-              label: 'Date', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatDateDisplay(item.date)
-            },
-            { key: 'partName', label: 'Part Name', width: '180px', align: "center" },
-            { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', align: 'center' },
-            { 
-              key: 'cPercent', 
-              label: 'C %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.cPercent)
-            },
-            { 
-              key: 'siPercent', 
-              label: 'Si %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.siPercent)
-            },
-            { 
-              key: 'mnPercent', 
-              label: 'Mn %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.mnPercent)
-            },
-            { 
-              key: 'pPercent', 
-              label: 'P %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.pPercent)
-            },
-            { 
-              key: 'sPercent', 
-              label: 'S %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.sPercent)
-            },
-            { 
-              key: 'mgPercent', 
-              label: 'Mg %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.mgPercent)
-            },
-            { 
-              key: 'cuPercent', 
-              label: 'Cu %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.cuPercent)
-            },
-            { 
-              key: 'crPercent', 
-              label: 'Cr %', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.crPercent)
-            },
-            {
-              key: 'nodularity',
-              label: 'Nodularity',
-              width: '150px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.nodularity)
-            },
-            {
-              key: 'noduleCount',
-              label: 'Nodule count',
-              width: '120px',
-              align: 'center',
-              render: (item) => item.noduleCount || '--'
-            },
-            { 
-              key: 'graphiteType', 
-              label: 'Graphite Type', 
-              width: '150px', 
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.graphiteType)
-            },
-            {
-              key: 'pearlite',
-              label: 'Pearlite',
-              width: '120px',
-              align: 'center',
-              render: (item) => item.pearlite || '--'
-            },
-            {
-              key: 'ferrite',
-              label: 'Ferrite',
-              width: '120px',
-              align: 'center',
-              render: (item) => item.ferrite || '--'
-            },
-            { 
-              key: 'hardnessBHN', 
-              label: 'Hardness BHN', 
-              width: '150px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.hardnessBHN)
-            },
-            { 
-              key: 'ts', 
-              label: 'TS', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.ts)
-            },
-            { 
-              key: 'ys', 
-              label: 'YS', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.ys)
-            },
-            { 
-              key: 'el', 
-              label: 'EL', 
-              width: '130px',
-              align: 'center',
-              render: (item) => formatRangeDisplay(item.el)
-            }
-          ]}
+          columns={[...tableColumns, actionsColumn]}
           data={paginatedEntries}
           minWidth={2400}
           defaultAlign="left"
@@ -330,6 +319,7 @@ const QcProductionDetailsReport = () => {
           onPageChange={setCurrentPage}
         />
       )}
+
     </>
   );
 };

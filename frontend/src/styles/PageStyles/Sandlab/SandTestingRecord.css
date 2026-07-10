@@ -25,7 +25,7 @@
 }
 
 .sand-header-text h2 {
-  font-size: 1.875rem;
+  font-size: clamp(1.3rem, 1.8vw, 2rem);
   font-weight: 700;
   color: #1e293b;
   margin: 0;
@@ -52,7 +52,7 @@
 }
 
 .sand-section-header h3 {
-  font-size: 1.375rem;
+  font-size: clamp(1rem, 1.3vw, 1.5rem);
   font-weight: 600;
   color: #ffffff;
   margin: 0;
@@ -60,8 +60,12 @@
   letter-spacing: 0.3px;
 }
 
-/* Table 5: Sand Properties & Test Parameters Form Grid */
+/* Table 5: Sand Properties & Test Parameters Form Grid (matches Process.jsx's entry-form pattern) */
 .sand-table5-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  align-items: start;
   background: #ffffff;
   padding: 1.5rem;
   border-radius: 8px;
@@ -69,14 +73,95 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+.sand-table5-form-grid .sand-form-field.full-row {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+/* Selector fields (radio group / dropdown + input) stay one column wide so the grid
+   keeps 4 per row; the radio/dropdown controls are shrunk to fit beside the label. */
+.sand-table5-form-grid .sand-form-field.sand-selector-field {
+  grid-column: span 1;
+}
+
 .sand-form-field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Uniform cell height so every control lines up straight under its label */
+  min-height: 92px;
+}
+
+/* Reusable "Label + Selector" header row for selector fields (radio group / dropdown).
+   Row 1 = label (left) + selector (right); the field's input(s) sit on the row below. */
+.sand-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin-bottom: 0.5rem; /* spacing between the label row and the input row */
+}
+
+.sand-field-header > label {
+  margin: 0;
+}
+
+/* Shrink the dropdown toward its label size so the header row fits one grid column */
+.sand-field-header select {
+  width: auto;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.72rem;
+}
+
+/* Compact radio group beside the label (no box padding / min-height in header context) */
+.sand-field-header .sand-radio-group {
+  min-height: 0;
+  padding: 0.15rem 0.3rem;
+  gap: 0.2rem 0.5rem;
+}
+
+.sand-field-header .sand-radio-group label {
+  font-size: 0.68rem;
+  gap: 0.2rem;
+}
+
+.sand-field-header .sand-radio-group input[type="radio"] {
+  width: 13px;
+  height: 13px;
+}
+
+/* Inline radio group, one row, vertically centered with its label */
+.sand-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.sand-radio-group.invalid-input {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.sand-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin: 0;
 }
 
 .sand-form-field label {
-  font-size: 1rem;
+  font-size: clamp(0.75rem, 0.85vw, 0.95rem);
   font-weight: 600;
   color: #1e293b;
   margin: 0;
@@ -92,20 +177,13 @@
   padding: 0.75rem 0.875rem;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: clamp(0.8rem, 0.9vw, 1rem);
   color: #1e293b;
   background-color: #ffffff;
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
-/* Validation states */
-.sand-form-field input.valid-input,
-.sand-form-field textarea.valid-input,
-.sand-form-field select.valid-input {
-  border-color: #10b981;
-  background-color: #f0fdf4;
-}
-
+/* Validation state - red only, shown on submit when a field is invalid/required-missing */
 .sand-form-field input.invalid-input,
 .sand-form-field textarea.invalid-input,
 .sand-form-field select.invalid-input {
@@ -171,22 +249,31 @@
   color: #334155;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+/* ─── Media Queries ─── */
+
+@media (max-width: 1440px) {
   .sand-table5-form-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sand-section-header {
+    padding: 0.75rem 1rem;
+  }
+}
+
+@media (max-width: 1280px) {
+  .sand-table5-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .sand-table5-form-grid {
+    grid-template-columns: 1fr;
     padding: 1rem;
   }
   
   .sand-section-header {
     padding: 0.75rem 1rem;
-  }
-  
-  .sand-section-header h3 {
-    font-size: 1.125rem;
-  }
-  
-  .sand-header-text h2 {
-    font-size: 1.5rem;
   }
 }

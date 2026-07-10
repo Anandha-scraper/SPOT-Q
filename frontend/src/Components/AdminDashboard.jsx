@@ -1,418 +1,703 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { DeleteButton } from './Buttons';
-import { Eye, EyeOff, UserRoundPen } from 'lucide-react';
-import DeletingStatus, { CreatingEmployeeStatus } from './Alert';
-import { API_ENDPOINTS } from '../config/api';//deployment ready API endpoints
-import '../styles/ComponentStyles/AdminDashboard.css';
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { DeleteButton, DeptTrendDropdown } from "./Buttons";
+import { Eye, EyeOff, UserRoundPen } from "lucide-react";
+import "../styles/ComponentStyles/Alert.css";
+import { API_ENDPOINTS } from "../config/api"; //deployment ready API endpoints
+import "../styles/ComponentStyles/AdminDashboard.css";
+
+const DeletingStatus = () => (
+  <div className="delete-alert-overlay">
+    <div className="delete-alert-content">
+      <div className="delete-loader">
+        <div className="trash-lid"></div>
+        <div className="trash-body">
+          <div className="trash-line"></div>
+          <div className="trash-line"></div>
+        </div>
+        <div className="deleting-item"></div>
+      </div>
+      <div className="delete-alert-text">
+        <h2 className="delete-alert-title">Permanently removing employee...</h2>
+      </div>
+    </div>
+  </div>
+);
+
+const CreatingEmployeeStatus = () => (
+  <div className="create-alert-overlay">
+    <div className="create-alert-content">
+      <div className="employee-builder-loader">
+        <div className="profile-card">
+          <div className="profile-avatar"></div>
+          <div className="profile-details">
+            <div className="detail-line text-short"></div>
+            <div className="detail-line text-long"></div>
+          </div>
+        </div>
+        <div className="success-badge">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="w-5 h-5"
+          >
+            <path
+              fillRule="evenodd"
+              d="M19.916 4.626a.75.75 0 0 1 .207 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+      </div>
+      <div className="create-alert-text">
+        <h2 className="create-alert-title">Onboarding New Member</h2>
+        <p className="create-alert-subtitle">Finalizing profile details...</p>
+      </div>
+    </div>
+  </div>
+);
 
 const AdminDashboard = () => {
+  // Hooks and Context
+  const { user, isAdmin } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-    // Hooks and Context
-    const { user, isAdmin } = useContext(AuthContext);
-    const navigate = useNavigate();
+  // Data States
+  const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [currentView, setCurrentView] = useState("add");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
 
-    // Data States
-    const [users, setUsers] = useState([]);
-    const [departments, setDepartments] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [currentView, setCurrentView] = useState('add');
-    const [selectedDepartment, setSelectedDepartment] = useState('All');
+  // Form States
+  const [formData, setFormData] = useState({
+    employeeId: "",
+    name: "",
+    department: "",
+    password: "",
+  });
+  const [formError, setFormError] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+  const [formSuccess, setFormSuccess] = useState("");
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
 
-    // Form States
-    const [formData, setFormData] = useState({ employeeId: '', name: '', department: '', password: ''});
-    const [formError, setFormError] = useState('');
-    const [formLoading, setFormLoading] = useState(false);
-    const [formSuccess, setFormSuccess] = useState('');
-    const [showCreatePassword, setShowCreatePassword] = useState(false);
+  // Modal States (Crucial missing states)
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
-    // Modal States (Crucial missing states)
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [newPassword, setNewPassword] = useState('');
-    const [passwordError, setPasswordError] = useState('');
-    const [passwordLoading, setPasswordLoading] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
+  // Delete Modal States
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    // Delete Modal States
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [userToDelete, setUserToDelete] = useState(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+  // Creating Employee State
+  const [isCreating, setIsCreating] = useState(false);
 
-    // Creating Employee State
-    const [isCreating, setIsCreating] = useState(false);
+  // Security Redirect
+  useEffect(() => {
+    if (!isAdmin) navigate("/");
+  }, [isAdmin, navigate]);
 
-    // Security Redirect
-    useEffect(() => {
-        if (!isAdmin) navigate('/');
-    }, [isAdmin, navigate]);
+  useEffect(() => {
+    if (isAdmin) fetchDepartments();
+  }, [isAdmin]);
 
-    useEffect(() => {
-        if (isAdmin) fetchDepartments();
-    }, [isAdmin]);
+  // Functions
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.adminDepartments, {
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (data.success) setDepartments(data.data);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    }
+  };
 
-    // Functions
-    const fetchDepartments = async () => {
-        try {
-            const response = await fetch(API_ENDPOINTS.adminDepartments, {
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (data.success) setDepartments(data.data);
-        } catch (error) {
-            console.error('Error fetching departments:', error);
-        }
-    };
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_ENDPOINTS.adminUsers, {
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (data.success) setUsers(data.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchUsers = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ENDPOINTS.adminUsers, {
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (data.success) setUsers(data.data);
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleViewChange = (view) => {
+    setCurrentView(view);
+    if (view === "view") {
+      setLoading(true);
+      fetchUsers();
+    }
+  };
 
-    const handleViewChange = (view) => {
-        setCurrentView(view);
-        if (view === 'view') {
-            setLoading(true);
-            fetchUsers();
-        }
-    };
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "employeeId" ? value.toUpperCase() : value,
+    }));
+    setFormError("");
+    setFormSuccess("");
+  };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: name === 'employeeId' ? value.toUpperCase() : value }));
-        setFormError('');
-        setFormSuccess('');
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (
+      !formData.employeeId ||
+      !formData.name ||
+      !formData.department ||
+      !formData.password
+    ) {
+      setFormError("Enter all required fields.");
+      return;
+    }
+    if (formData.password.length < 6) {
+      setFormError("Password must be at least 6 characters.");
+      return;
+    }
+    try {
+      setIsCreating(true);
+      setFormLoading(true);
+      const payload = {
+        employeeId: formData.employeeId,
+        name: formData.name,
+        password: formData.password,
+        department: formData.department,
+      };
+      const response = await fetch(API_ENDPOINTS.adminUsers, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setFormLoading(false);
+        setFormData({ employeeId: "", name: "", department: "", password: "" });
+        if (currentView === "view") fetchUsers();
+        setTimeout(() => {
+          setIsCreating(false);
+          setFormSuccess(`Employee ${formData.name} created successfully.`);
+          setTimeout(() => setFormSuccess(""), 2000);
+        }, 3000);
+      } else {
+        setIsCreating(false);
+        setFormError(data.message || "Failed to create employee.");
+      }
+    } catch (error) {
+      setIsCreating(false);
+      setFormError("Error connecting to server.");
+    } finally {
+      if (!isCreating) setFormLoading(false);
+    }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.employeeId || !formData.name || !formData.department || !formData.password) {
-            setFormError('Enter all required fields.');
-            return;
-        }
-        if (formData.password.length < 6) {
-            setFormError('Password must be at least 6 characters.');
-            return;
-        }
-        try {
-            setIsCreating(true);
-            setFormLoading(true);
-            const payload = {
-                employeeId: formData.employeeId,
-                name: formData.name,
-                password: formData.password,
-                department: formData.department
-            };
-            const response = await fetch(API_ENDPOINTS.adminUsers, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (data.success) {
-                setFormLoading(false);
-                setFormData({ employeeId: '', name: '', department: '', password: '' });
-                if (currentView === 'view') fetchUsers();
-                setTimeout(() => {
-                    setIsCreating(false);
-                    setFormSuccess(`Employee ${formData.name} created successfully.`);
-                    setTimeout(() => setFormSuccess(''), 2000);
-                }, 3000);
-            } else {
-                setIsCreating(false);
-                setFormError(data.message || 'Failed to create employee.');
-            }
-        } catch (error) {
-            setIsCreating(false);
-            setFormError('Error connecting to server.');
-        } finally {
-            if (!isCreating) setFormLoading(false);
-        }
-    };
+  const handleOpenDeleteModal = (userId, employeeId) => {
+    setUserToDelete({ userId, employeeId });
+    setShowDeleteModal(true);
+  };
 
-    const handleOpenDeleteModal = (userId, employeeId) => {
-        setUserToDelete({ userId, employeeId });
-        setShowDeleteModal(true);
-    };
+  const handleConfirmDelete = async () => {
+    setShowDeleteModal(false);
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `${API_ENDPOINTS.adminUsers}/${userToDelete.userId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        await fetchUsers();
+        setTimeout(() => {
+          setIsDeleting(false);
+          setUserToDelete(null);
+        }, 1000); // set suration of deleting animation
+      } else {
+        setIsDeleting(false);
+        alert(data.message || "Failed to delete employee");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setIsDeleting(false);
+      alert("Error deleting employee");
+    }
+  };
 
-    const handleConfirmDelete = async () => {
-        setShowDeleteModal(false);
-        setIsDeleting(true);
-        try {
-            const response = await fetch(`${API_ENDPOINTS.adminUsers}/${userToDelete.userId}`, { 
-                method: 'DELETE',
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (data.success) {
-                await fetchUsers();
-                setTimeout(() => {
-                    setIsDeleting(false);
-                    setUserToDelete(null);
-                }, 1000); // set suration of deleting animation
-            } else {
-                setIsDeleting(false);
-                alert(data.message || 'Failed to delete employee');
-            }
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            setIsDeleting(false);
-            alert('Error deleting employee');
-        }
-    };
+  const handleOpenPasswordModal = (targetUser) => {
+    setSelectedUser(targetUser);
+    setNewPassword("");
+    setPasswordError("");
+    setShowNewPassword(false);
+    setShowPasswordModal(true);
+  };
 
-    const handleOpenPasswordModal = (targetUser) => {
-        setSelectedUser(targetUser);
-        setNewPassword('');
-        setPasswordError('');
-        setShowNewPassword(false);
-        setShowPasswordModal(true);
-    };
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+    try {
+      setPasswordLoading(true);
+      const response = await fetch(
+        `${API_ENDPOINTS.adminUsers}/${selectedUser._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ password: newPassword }),
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        alert("Password updated successfully!");
+        setShowPasswordModal(false);
+      } else {
+        setPasswordError(data.message || "Failed to update password.");
+      }
+    } catch (error) {
+      setPasswordError("Error updating password.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
-    const handleChangePassword = async (e) => {
-        e.preventDefault();
-        if (newPassword.length < 6) {
-            setPasswordError('Password must be at least 6 characters.');
-            return;
-        }
-        try {
-            setPasswordLoading(true);
-            const response = await fetch(`${API_ENDPOINTS.adminUsers}/${selectedUser._id}`, {
-                method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
-                body: JSON.stringify({ password: newPassword })
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert('Password updated successfully!');
-                setShowPasswordModal(false);
-            }
-        } catch (error) {
-            setPasswordError('Error updating password.');
-        } finally {
-            setPasswordLoading(false);
-        }
-    };
+  return (
+    <div className="admin-dash">
+      <div className="admin-dash-header">
+        <h2 className="admin-dash-title">Admin Employee Management</h2>
+        <div className="toggle-buttons">
+          <button
+            className={`tog-btn ${currentView === "view" ? "active" : ""}`}
+            onClick={() => handleViewChange("view")}
+          >
+            <span className="admin-toggle"> View Employees</span>
+          </button>
+          <button
+            className={`tog-btn ${currentView === "add" ? "active" : ""}`}
+            onClick={() => handleViewChange("add")}
+          >
+            <span className="admin-toggle"> Add Employees</span>
+          </button>
+        </div>
+      </div>
 
-    return (
-        <div className="admin-dash">
-            <div className="admin-dash-header">
-                <h2 className="admin-dash-title">Admin Employee Management</h2>
-                <div className="toggle-buttons">
-                    <button className={`tog-btn ${currentView === 'view' ? 'active' : ''}`} onClick={() => handleViewChange('view')}>
-                        <span className="admin-toggle"> View Employees</span>
-                    </button>
-                    <button className={`tog-btn ${currentView === 'add' ? 'active' : ''}`} onClick={() => handleViewChange('add')}>
-                        <span className="admin-toggle"> Add Employees</span>
-                    </button>
-                </div>
+      {/* VIEW EMPLOYEES TAB */}
+      {currentView === "view" && (
+        <div className="emp-card">
+          <div className="emp-filter-bar">
+            <span className="emp-filter-label">Department</span>
+            <DeptTrendDropdown
+              value={selectedDepartment}
+              onChange={setSelectedDepartment}
+              options={departments.filter((d) => d !== "Admin")}
+            />
+            {selectedDepartment && (
+              <button
+                className="emp-filter-clear"
+                onClick={() => setSelectedDepartment("")}
+                title="Show all departments"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+          {loading ? (
+            <div className="loading-state">Loading employees...</div>
+          ) : (
+            <div className="emp-table-container">
+              <table className="emp-table">
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        width: "50px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      S.no
+                    </th>
+                    <th
+                      style={{
+                        width: "130px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      Employee ID
+                    </th>
+                    <th
+                      style={{
+                        width: "250px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      Department
+                    </th>
+                    <th
+                      style={{
+                        width: "250px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      Last Login
+                    </th>
+                    <th
+                      style={{
+                        width: "120px",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users
+                    .filter(
+                      (u) =>
+                        u.role !== "admin" &&
+                        (!selectedDepartment ||
+                          u.department === selectedDepartment),
+                    )
+                    .map((u, index) => (
+                      <tr key={u._id}>
+                        <td
+                          style={{
+                            fontSize: "0.95rem",
+                            color: "#2d3748",
+                            textAlign: "center",
+                          }}
+                        >
+                          {index + 1}
+                        </td>
+                        <td
+                          className="emp-id"
+                          style={{
+                            fontSize: "1.25rem",
+                            color: "#000000",
+                            letterSpacing: "0.5px",
+                            textAlign: "center",
+                          }}
+                        >
+                          {u.employeeId}
+                        </td>
+                        <td
+                          style={{
+                            fontSize: "0.95rem",
+                            color: "#2d3748",
+                            textAlign: "center",
+                          }}
+                        >
+                          {u.department}
+                        </td>
+                        <td
+                          style={{
+                            fontSize: "0.95rem",
+                            color: "#2d3748",
+                            textAlign: "center",
+                          }}
+                        >
+                          {u.lastLogin
+                            ? (() => {
+                                const date = new Date(u.lastLogin);
+                                const day = String(date.getDate()).padStart(
+                                  2,
+                                  "0",
+                                );
+                                const month = String(
+                                  date.getMonth() + 1,
+                                ).padStart(2, "0");
+                                const year = String(date.getFullYear()).slice(
+                                  -2,
+                                );
+                                let hours = date.getHours();
+                                const minutes = String(
+                                  date.getMinutes(),
+                                ).padStart(2, "0");
+                                const ampm = hours >= 12 ? "PM" : "AM";
+                                hours = hours % 12 || 12;
+                                return `${day}/${month}/${year} - ${hours}:${minutes} ${ampm}`;
+                              })()
+                            : "Never"}
+                        </td>
+                        <td
+                          className="actions"
+                          style={{
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap: "10px",
+                          }}
+                        >
+                          {u.role !== "admin" && (
+                            <>
+                              <button
+                                onClick={() => handleOpenPasswordModal(u)}
+                                className="action-btn edit-btn"
+                                title="Change Password"
+                              >
+                                <UserRoundPen size={20} />
+                              </button>
+                              <DeleteButton
+                                onClick={() =>
+                                  handleOpenDeleteModal(u._id, u.employeeId)
+                                }
+                              />
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ADD EMPLOYEE TAB */}
+      {currentView === "add" && (
+        <div className="emp-card">
+          <div className="emp-header">
+            <h3 className="emp-title">Add New Employee</h3>
+          </div>
+          <form onSubmit={handleSubmit} className="emp-form-content">
+            <div
+              className="form-row"
+              style={{ display: "flex", gap: "20px", marginBottom: "15px" }}
+            >
+              <div className="input-block" style={{ flex: 1 }}>
+                <label>Employee ID *</label>
+                <input
+                  name="employeeId"
+                  value={formData.employeeId}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="input-block" style={{ flex: 1 }}>
+                <label>Department *</label>
+                <select
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">-- Select --</option>
+                  {departments
+                    .filter((d) => d !== "Admin")
+                    .map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
 
-            {/* VIEW EMPLOYEES TAB */}
-            {currentView === 'view' && (
-                <div className="emp-card">
-                    {loading ? (
-                        <div className="loading-state">Loading employees...</div>
-                    ) : (
-                        <div className="emp-table-container">
-                            <table className="emp-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '50px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>S.no</th>
-                                        <th style={{ width: '130px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Employee ID</th>
-                                        <th style={{ width: '250px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
-                                        <th style={{ width: '250px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Last Login</th>
-                                        <th style={{ width: '120px', fontSize: '0.875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users
-                                        .filter(u => u.role !== 'admin' && (selectedDepartment === 'All' || u.department === selectedDepartment))
-                                        .map((u, index) => (
-                                            <tr key={u._id}>
-                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{index + 1}</td>
-                                                <td className="emp-id" style={{ fontSize: '1.25rem', color: '#000000', letterSpacing: '0.5px', textAlign: 'center' }}>{u.employeeId}</td>
-                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{u.department}</td>
-                                                <td style={{ fontSize: '0.95rem', color: '#2d3748', textAlign: 'center' }}>{u.lastLogin ? (() => {
-                                                    const date = new Date(u.lastLogin);
-                                                    const day = String(date.getDate()).padStart(2, '0');
-                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                                                    const year = String(date.getFullYear()).slice(-2);
-                                                    let hours = date.getHours();
-                                                    const minutes = String(date.getMinutes()).padStart(2, '0');
-                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
-                                                    hours = hours % 12 || 12;
-                                                    return `${day}/${month}/${year} - ${hours}:${minutes} ${ampm}`;
-                                                })() : 'Never'}</td>
-                                                <td className="actions" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
-                                                    {u.role !== 'admin' && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => handleOpenPasswordModal(u)}
-                                                                className="action-btn edit-btn"
-                                                                title="Change Password"
-                                                            >
-                                                                <UserRoundPen size={20} />
-                                                            </button>
-                                                            <DeleteButton onClick={() => handleOpenDeleteModal(u._id, u.employeeId)} />
-                                                        </>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
+            <div
+              className="form-row"
+              style={{ display: "flex", gap: "20px", marginBottom: "15px" }}
+            >
+              <div className="input-block" style={{ flex: 1 }}>
+                <label>Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div
+                className="input-block"
+                style={{ flex: 1, position: "relative" }}
+              >
+                <label>Password *</label>
+                <input
+                  type={showCreatePassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePassword(!showCreatePassword)}
+                  style={{
+                    position: "absolute",
+                    right: "15px",
+                    top: "45px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {showCreatePassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {formError && (
+              <div className="status-msg error" style={{ color: "red" }}>
+                {formError}
+              </div>
+            )}
+            {formSuccess && (
+              <div className="status-msg success" style={{ color: "green" }}>
+                {formSuccess}
+              </div>
             )}
 
-            {/* ADD EMPLOYEE TAB */}
-            {currentView === 'add' && (
-                <div className="emp-card">
-                    <div className="emp-header">
-                        <h3 className="emp-title">Add New Employee</h3>
-                    </div>
-                    <form onSubmit={handleSubmit} className="emp-form-content">
-                        <div className="form-row" style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-                            <div className="input-block" style={{ flex: 1 }}>
-                                <label>Employee ID *</label>
-                                <input name="employeeId" value={formData.employeeId} onChange={handleInputChange} required />
-                            </div>
-                            <div className="input-block" style={{ flex: 1 }}>
-                                <label>Department *</label>
-                                <select name="department" value={formData.department} onChange={handleInputChange} required>
-                                    <option value="">-- Select --</option>
-                                    {departments.filter(d => d !== 'Admin').map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="form-row" style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-                            <div className="input-block" style={{ flex: 1 }}>
-                                <label>Name *</label>
-                                <input 
-                                    type="text"
-                                    name="name" 
-                                    value={formData.name} 
-                                    onChange={handleInputChange} 
-                                    required 
-                                />
-                            </div>
-                            <div className="input-block" style={{ flex: 1, position: 'relative' }}>
-                                <label>Password *</label>
-                                <input 
-                                    type={showCreatePassword ? "text" : "password"} 
-                                    name="password" 
-                                    value={formData.password} 
-                                    onChange={handleInputChange} 
-                                    required 
-                                    minLength={6}
-                                />
-                                <button 
-                                    type="button" 
-                                    onClick={() => setShowCreatePassword(!showCreatePassword)}
-                                    style={{ position: 'absolute', right: '15px', top: '45px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                >
-                                    {showCreatePassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {formError && <div className="status-msg error" style={{ color: 'red' }}>{formError}</div>}
-                        {formSuccess && <div className="status-msg success" style={{ color: 'green' }}>{formSuccess}</div>}
-
-                        <button type="submit" className="submit-btn-main" disabled={formLoading} style={{ marginTop: '20px', padding: '10px 20px', cursor: 'pointer' }}>
-                            {formLoading ? 'Creating...' : 'Create Employee'}
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            {/* PASSWORD MODAL */}
-            {showPasswordModal && selectedUser && (
-                <div className="overlay-blur" onClick={() => setShowPasswordModal(false)}>
-                    <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="modal-title">Change Password</h3>
-                        <p className="modal-subtitle">Update password for <strong>{selectedUser.employeeId}</strong></p>
-                        <form onSubmit={handleChangePassword} className="modal-form">
-                            <div className="input-block">
-                                <label>New Password *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input 
-                                        type={showNewPassword ? "text" : "password"} 
-                                        value={newPassword} 
-                                        onChange={(e) => setNewPassword(e.target.value)} 
-                                        required 
-                                        minLength={6}
-                                        className="modal-input"
-                                        placeholder="Enter new password"
-                                    />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setShowNewPassword(!showNewPassword)}
-                                        className="password-toggle"
-                                    >
-                                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                </div>
-                            </div>
-                            {passwordError && <div className="modal-error">{passwordError}</div>}
-                            <div className="modal-btns">
-                                <button type="submit" disabled={passwordLoading} className="btn-save">
-                                    {passwordLoading ? 'Updating...' : 'Save Changes'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* DELETE CONFIRMATION MODAL */}
-            {showDeleteModal && userToDelete && (
-                <div className="overlay-blur" onClick={() => setShowDeleteModal(false)}>
-                    <div className="modal-content-box" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="modal-title">Delete Employee</h2>
-                        <p className="modal-subtitle">
-                            Are you sure you want to delete <strong>{userToDelete.employeeId}</strong>?
-                        </p>
-                        <div className="modal-btns">
-                            <button 
-                                onClick={handleConfirmDelete} 
-                                className="btn-delete"
-                                type="button"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* DELETING ALERT */}
-            {isDeleting && <DeletingStatus />}
-
-            {/* CREATING EMPLOYEE ALERT */}
-            {isCreating && <CreatingEmployeeStatus />}
+            <button
+              type="submit"
+              className="submit-btn-main"
+              disabled={formLoading}
+              style={{
+                marginTop: "20px",
+                padding: "10px 20px",
+                cursor: "pointer",
+              }}
+            >
+              {formLoading ? "Creating..." : "Create Employee"}
+            </button>
+          </form>
         </div>
-    );
+      )}
+
+      {/* PASSWORD MODAL */}
+      {showPasswordModal && selectedUser && (
+        <div
+          className="overlay-blur"
+          onClick={() => setShowPasswordModal(false)}
+        >
+          <div
+            className="modal-content-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="modal-title">Change Password</h3>
+            <p className="modal-subtitle">
+              Update password for <strong>{selectedUser.employeeId}</strong>
+            </p>
+            <form onSubmit={handleChangePassword} className="modal-form">
+              <div className="input-block">
+                <label>New Password *</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="modal-input"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="password-toggle"
+                  >
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              {passwordError && (
+                <div className="modal-error">{passwordError}</div>
+              )}
+              <div className="modal-btns">
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="btn-save"
+                >
+                  {passwordLoading ? "Updating..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteModal && userToDelete && (
+        <div className="overlay-blur" onClick={() => setShowDeleteModal(false)}>
+          <div
+            className="modal-content-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="modal-title">Delete Employee</h2>
+            <p className="modal-subtitle">
+              Are you sure you want to delete{" "}
+              <strong>{userToDelete.employeeId}</strong>?
+            </p>
+            <div className="modal-btns">
+              <button
+                onClick={handleConfirmDelete}
+                className="btn-delete"
+                type="button"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETING ALERT */}
+      {isDeleting && <DeletingStatus />}
+
+      {/* CREATING EMPLOYEE ALERT */}
+      {isCreating && <CreatingEmployeeStatus />}
+    </div>
+  );
 };
 
 export default AdminDashboard;

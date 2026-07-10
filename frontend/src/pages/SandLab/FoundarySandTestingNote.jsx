@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
-import { Save, RefreshCw, FileText, Loader2, RotateCcw } from 'lucide-react';
+import { Save, RefreshCw, FileText, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { DisaDropdown, ShiftDropdown, SubmitButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
+import { InlineLoader } from '../../Components/InlineLoader';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -88,7 +91,9 @@ const initialFormData = {
 
 export default function FoundrySandTestingNote() {
   const navigate = useNavigate();
-  
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
+  const { isOpen: isInfoOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useInfoModal();
+
   // Primary data (must be saved first)
   const [primaryData, setPrimaryData] = useState({
     date: "",
@@ -100,22 +105,85 @@ export default function FoundrySandTestingNote() {
   const [checkingData, setCheckingData] = useState(false);
   const [primaryId, setPrimaryId] = useState(null);
   const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
+
+  // Combination-fetch feedback (mirrors Process.jsx)
+  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
+  const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
   const [lockedFields, setLockedFields] = useState({
     compactibilitySetting: false,
     shearStrengthSetting: false
   });
 
+  // "Save Primary first" interaction (mirrors Process.jsx)
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
+  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
+  const primarySectionRef = useRef(null);
+
+  // Default the date to today on mount (still user-changeable) — mirrors Process.jsx
+  useEffect(() => {
+    if (!primaryData.date) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      setPrimaryData(prev => ({ ...prev, date: `${y}-${m}-${d}` }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch primary data when date, shift, or sandPlant changes
   useEffect(() => {
-    if (primaryData.date && primaryData.shift && primaryData.sandPlant) {
-      fetchPrimaryData(primaryData.date, primaryData.shift, primaryData.sandPlant);
+    if (!primaryData.date || !primaryData.shift || !primaryData.sandPlant) {
+      setIsPrimaryDataSaved(false);
+      setSavePrimaryLoading(false);
+      setShowCombinationFound(false);
+      setShowCombinationAdded(false);
+      return;
     }
+    fetchPrimaryData(primaryData.date, primaryData.shift, primaryData.sandPlant);
   }, [primaryData.date, primaryData.shift, primaryData.sandPlant]);
+
+  // Before primary data is saved, clicking anywhere in a locked section flashes a
+  // "save primary first" warning, highlights the primary fields, and scrolls up to them.
+  const handleDisabledFieldClick = () => {
+    setShowPrimaryWarning(true);
+    setHighlightPrimaryFields(true);
+    if (primarySectionRef.current) {
+      primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setTimeout(() => {
+      setShowPrimaryWarning(false);
+      setHighlightPrimaryFields(false);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    const handleLockedSectionClick = (e) => {
+      if (isPrimaryDataSaved) return;
+      // Every section below PRIMARY is a `.foundry-section` and stays locked until
+      // primary is saved; the primary grid is not a `.foundry-section`, so it's safe.
+      const section = e.target.closest && e.target.closest('.foundry-section');
+      if (section) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDisabledFieldClick();
+      }
+    };
+
+    document.addEventListener('mousedown', handleLockedSectionClick, true);
+    return () => document.removeEventListener('mousedown', handleLockedSectionClick, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPrimaryDataSaved]);
 
   // Fetch primary data from backend
   const fetchPrimaryData = async (date, shift, sandPlant) => {
     try {
       setCheckingData(true);
+      setSavePrimaryLoading(true);
+      setShowCombinationFound(false);
+      setShowCombinationAdded(false);
+      const startTime = Date.now();
       const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
       const res = await fetch(`${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(dateStr)}&endDate=${encodeURIComponent(dateStr)}`, { credentials: 'include' });
       const response = await res.json();
@@ -125,6 +193,12 @@ export default function FoundrySandTestingNote() {
         // Find the record matching the shift and sandPlant
         record = response.data.find(entry => entry.shift === shift && entry.sandPlant === sandPlant) || null;
       }
+
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsedTime);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+      setSavePrimaryLoading(false);
 
       if (record) {
         setPrimaryId(record._id || null);
@@ -142,6 +216,9 @@ export default function FoundrySandTestingNote() {
           compactibilitySetting: !!(record.compactibilitySetting && record.compactibilitySetting.trim()),
           shearStrengthSetting: !!(record.shearStrengthSetting && record.shearStrengthSetting.trim())
         });
+
+        setShowCombinationFound(true);
+        setTimeout(() => setShowCombinationFound(false), 1500);
 
         setIsPrimaryDataSaved(true);
 
@@ -293,6 +370,7 @@ export default function FoundrySandTestingNote() {
       console.error('Error fetching primary data:', error);
       setPrimaryId(null);
       setIsPrimaryDataSaved(false);
+      setSavePrimaryLoading(false);
     } finally {
       setCheckingData(false);
     }
@@ -488,6 +566,8 @@ export default function FoundrySandTestingNote() {
       
       if (response.success) {
         setPrimaryId(response.data?._id || null);
+        setShowCombinationAdded(true);
+        setTimeout(() => setShowCombinationAdded(false), 1500);
         // Lock fields that now have values (sandPlant is a selection key, not locked)
         setLockedFields({
           compactibilitySetting: !!(primaryData.compactibilitySetting && primaryData.compactibilitySetting.trim()),
@@ -632,6 +712,15 @@ export default function FoundrySandTestingNote() {
         sectionPayload.clayTests = filterEmptyValues(sectionData.clayTests);
       } else if (sectionName === 'sieveTesting') {
         sectionPayload.sieveTesting = filterEmptyValues(sectionData.sieveTesting);
+        // Persist the auto-computed column totals (filterEmptyValues drops the manual 'total' fields)
+        [['test1', 'sieveSize'], ['test2', 'sieveSize'], ['test1', 'mf'], ['test2', 'mf']].forEach(([testNum, group]) => {
+          const total = sumSieveColumn(testNum, group);
+          if (total !== '') {
+            sectionPayload.sieveTesting[testNum] = sectionPayload.sieveTesting[testNum] || {};
+            sectionPayload.sieveTesting[testNum][group] = sectionPayload.sieveTesting[testNum][group] || {};
+            sectionPayload.sieveTesting[testNum][group].total = total;
+          }
+        });
       } else if (sectionName === 'testParameters') {
         sectionPayload.parameters = filterEmptyValues(sectionData.parameters);
       } else if (sectionName === 'additionalData') {
@@ -667,71 +756,6 @@ export default function FoundrySandTestingNote() {
       setLoadingStates(prev => ({ ...prev, [sectionName]: false }));
     }
   };
-
-  // Reset primary data
-  const resetPrimaryData = () => {
-    if (!window.confirm('Are you sure you want to reset Primary data?')) return;
-    setPrimaryData({
-      date: "",
-      shift: "",
-      sandPlant: "",
-      compactibilitySetting: "",
-      shearStrengthSetting: ""
-    });
-    setLockedFields({
-      compactibilitySetting: false,
-      shearStrengthSetting: false
-    });
-    setIsPrimaryDataSaved(false);
-    setPrimaryId(null);
-    setFieldLocks({
-      clayTests: {},
-      sieveTesting: {},
-      parameters: {},
-      additionalData: {},
-      remarks: false
-    });
-    setSectionData({
-      clayTests: initialFormData.clayTests,
-      sieveTesting: initialFormData.sieveTesting,
-      parameters: initialFormData.parameters,
-      additionalData: initialFormData.additionalData,
-      remarks: ""
-    });
-  };
-
-  // Handle section-wise resets
-  const handleSectionReset = (sectionName) => {
-    if (!window.confirm(`Are you sure you want to reset ${sectionName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}?`)) return;
-    
-    if (sectionName === 'clayParameters') {
-      setSectionData(prev => ({
-        ...prev,
-        clayTests: initialFormData.clayTests
-      }));
-    } else if (sectionName === 'sieveTesting') {
-      setSectionData(prev => ({
-        ...prev,
-        sieveTesting: initialFormData.sieveTesting
-      }));
-    } else if (sectionName === 'testParameters') {
-      setSectionData(prev => ({
-        ...prev,
-        parameters: initialFormData.parameters
-      }));
-    } else if (sectionName === 'additionalData') {
-      setSectionData(prev => ({
-        ...prev,
-        additionalData: initialFormData.additionalData
-      }));
-    } else if (sectionName === 'remarks') {
-      setSectionData(prev => ({
-        ...prev,
-        remarks: ""
-      }));
-    }
-  };
-
 
   const handleViewReport = () => {
     navigate('/sand-lab/foundry-sand-testing-note/report');
@@ -799,7 +823,7 @@ export default function FoundrySandTestingNote() {
             step="0.01"
             placeholder="Input 1"
             value={sectionData.clayTests[testNum][param]?.input1 || ''}
-            disabled={isFieldLocked('clayTests', `${testNum}.${param}.input1`)}
+            disabled={!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)}
             onKeyDown={(e) => handleKeyDown(e, clayParametersSubmitRef, clayParametersFirstInputRef)}
             onChange={(e) => {
               const val = e.target.value;
@@ -815,7 +839,7 @@ export default function FoundrySandTestingNote() {
             step="0.01"
             placeholder="Input 2"
             value={sectionData.clayTests[testNum][param]?.input2 || ''}
-            disabled={isFieldLocked('clayTests', `${testNum}.${param}.input2`)}
+            disabled={!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)}
             onKeyDown={(e) => handleKeyDown(e, clayParametersSubmitRef, clayParametersFirstInputRef)}
             onChange={(e) => {
               const val = e.target.value;
@@ -839,7 +863,7 @@ export default function FoundrySandTestingNote() {
           step="0.01"
           placeholder="Input 1"
           value={sectionData.clayTests[testNum][param]?.input1 || ''}
-          disabled={isFieldLocked('clayTests', `${testNum}.${param}.input1`)}
+          disabled={!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)}
           onKeyDown={(e) => handleKeyDown(e, clayParametersSubmitRef, clayParametersFirstInputRef)}
           onChange={(e) => {
             const val = e.target.value;
@@ -855,7 +879,7 @@ export default function FoundrySandTestingNote() {
           step="0.01"
           placeholder="Input 2"
           value={sectionData.clayTests[testNum][param]?.input2 || ''}
-          disabled={isFieldLocked('clayTests', `${testNum}.${param}.input2`)}
+          disabled={!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)}
           onKeyDown={(e) => handleKeyDown(e, clayParametersSubmitRef, clayParametersFirstInputRef)}
           onChange={(e) => {
             const val = e.target.value;
@@ -871,7 +895,7 @@ export default function FoundrySandTestingNote() {
           step="0.01"
           placeholder="Input 3"
           value={sectionData.clayTests[testNum][param]?.input3 || ''}
-          disabled={isFieldLocked('clayTests', `${testNum}.${param}.input3`)}
+          disabled={!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input3`)}
           onKeyDown={(e) => handleKeyDown(e, clayParametersSubmitRef, clayParametersFirstInputRef)}
           onChange={(e) => {
             const val = e.target.value;
@@ -890,6 +914,32 @@ export default function FoundrySandTestingNote() {
   };
 
   // === Sieve Testing config ===
+  // Total for a column is auto-computed as the numeric sum of that column's sieve rows.
+  const sumSieveColumn = (testNum, group) => {
+    const src = sectionData.sieveTesting?.[testNum]?.[group] || {};
+    let sum = 0;
+    let hasAny = false;
+    sieveData.forEach((r) => {
+      const key = group === 'mf' ? r.mf : r.size;
+      const n = parseFloat(src[key]);
+      if (!isNaN(n)) { sum += n; hasAny = true; }
+    });
+    if (!hasAny) return '';
+    return Number.isInteger(sum) ? String(sum) : String(parseFloat(sum.toFixed(2)));
+  };
+
+  const renderSieveTotalCell = (testNum, group) => (
+    <input
+      type="text"
+      readOnly
+      disabled
+      tabIndex={-1}
+      value={sumSieveColumn(testNum, group)}
+      placeholder="Total"
+      style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', fontWeight: 700 }}
+    />
+  );
+
   const renderSieveCell = (rowIndex, colIndex, colKey) => {
     const isTotal = rowIndex === sieveData.length;
     const row = isTotal ? null : sieveData[rowIndex];
@@ -903,70 +953,78 @@ export default function FoundrySandTestingNote() {
       return <strong style={{ fontWeight: isTotal ? 700 : 600, color: '#1e293b' }}>{isTotal ? 'Total' : row.mf}</strong>;
     }
     if (colKey === 'wtTest1') {
+      if (isTotal) return renderSieveTotalCell('test1', 'sieveSize');
+      const locked = isFieldLocked('sieveTesting', `test1.sieveSize.${sizeKey}`);
       return (
         <input
           type="text"
-          placeholder={isTotal ? "Total" : "Enter %"}
+          placeholder="Enter %"
           value={sectionData.sieveTesting?.test1?.sieveSize?.[sizeKey] || ''}
           onChange={(e) => handleInputChange("sieveTesting", "test1", e.target.value, "sieveSize", sizeKey)}
           onKeyDown={(e) => handleKeyDown(e, sieveTestingSubmitRef, sieveTestingFirstInputRef)}
-          disabled={isFieldLocked('sieveTesting', `test1.sieveSize.${sizeKey}`)}
-          readOnly={isFieldLocked('sieveTesting', `test1.sieveSize.${sizeKey}`)}
+          disabled={!isPrimaryDataSaved || locked}
+          readOnly={locked}
           ref={rowIndex === 0 ? sieveTestingFirstInputRef : null}
           style={{
-            backgroundColor: isFieldLocked('sieveTesting', `test1.sieveSize.${sizeKey}`) ? '#f1f5f9' : '#ffffff',
-            cursor: isFieldLocked('sieveTesting', `test1.sieveSize.${sizeKey}`) ? 'not-allowed' : 'text'
+            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
+            cursor: locked ? 'not-allowed' : 'text'
           }}
         />
       );
     }
     if (colKey === 'wtTest2') {
+      if (isTotal) return renderSieveTotalCell('test2', 'sieveSize');
+      const locked = isFieldLocked('sieveTesting', `test2.sieveSize.${sizeKey}`);
       return (
         <input
           type="text"
-          placeholder={isTotal ? "Total" : "Enter %"}
+          placeholder="Enter %"
           value={sectionData.sieveTesting?.test2?.sieveSize?.[sizeKey] || ''}
           onChange={(e) => handleInputChange("sieveTesting", "test2", e.target.value, "sieveSize", sizeKey)}
           onKeyDown={(e) => handleKeyDown(e, sieveTestingSubmitRef, sieveTestingFirstInputRef)}
-          disabled={isFieldLocked('sieveTesting', `test2.sieveSize.${sizeKey}`)}
-          readOnly={isFieldLocked('sieveTesting', `test2.sieveSize.${sizeKey}`)}
+          disabled={!isPrimaryDataSaved || locked}
+          readOnly={locked}
           style={{
-            backgroundColor: isFieldLocked('sieveTesting', `test2.sieveSize.${sizeKey}`) ? '#f1f5f9' : '#ffffff',
-            cursor: isFieldLocked('sieveTesting', `test2.sieveSize.${sizeKey}`) ? 'not-allowed' : 'text'
+            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
+            cursor: locked ? 'not-allowed' : 'text'
           }}
         />
       );
     }
     if (colKey === 'prodTest1') {
+      if (isTotal) return renderSieveTotalCell('test1', 'mf');
+      const locked = isFieldLocked('sieveTesting', `test1.mf.${mfKey}`);
       return (
         <input
           type="text"
-          placeholder={isTotal ? "Total" : "Product"}
+          placeholder="Product"
           value={sectionData.sieveTesting?.test1?.mf?.[mfKey] || ''}
           onChange={(e) => handleInputChange("sieveTesting", "test1", e.target.value, "mf", mfKey)}
           onKeyDown={(e) => handleKeyDown(e, sieveTestingSubmitRef, sieveTestingFirstInputRef)}
-          disabled={isFieldLocked('sieveTesting', `test1.mf.${mfKey}`)}
-          readOnly={isFieldLocked('sieveTesting', `test1.mf.${mfKey}`)}
+          disabled={!isPrimaryDataSaved || locked}
+          readOnly={locked}
           style={{
-            backgroundColor: isFieldLocked('sieveTesting', `test1.mf.${mfKey}`) ? '#f1f5f9' : '#ffffff',
-            cursor: isFieldLocked('sieveTesting', `test1.mf.${mfKey}`) ? 'not-allowed' : 'text'
+            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
+            cursor: locked ? 'not-allowed' : 'text'
           }}
         />
       );
     }
     if (colKey === 'prodTest2') {
+      if (isTotal) return renderSieveTotalCell('test2', 'mf');
+      const locked = isFieldLocked('sieveTesting', `test2.mf.${mfKey}`);
       return (
         <input
           type="text"
-          placeholder={isTotal ? "Total" : "Product"}
+          placeholder="Product"
           value={sectionData.sieveTesting?.test2?.mf?.[mfKey] || ''}
           onChange={(e) => handleInputChange("sieveTesting", "test2", e.target.value, "mf", mfKey)}
           onKeyDown={(e) => handleKeyDown(e, sieveTestingSubmitRef, sieveTestingFirstInputRef)}
-          disabled={isFieldLocked('sieveTesting', `test2.mf.${mfKey}`)}
-          readOnly={isFieldLocked('sieveTesting', `test2.mf.${mfKey}`)}
+          disabled={!isPrimaryDataSaved || locked}
+          readOnly={locked}
           style={{
-            backgroundColor: isFieldLocked('sieveTesting', `test2.mf.${mfKey}`) ? '#f1f5f9' : '#ffffff',
-            cursor: isFieldLocked('sieveTesting', `test2.mf.${mfKey}`) ? 'not-allowed' : 'text'
+            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
+            cursor: locked ? 'not-allowed' : 'text'
           }}
         />
       );
@@ -1002,7 +1060,7 @@ export default function FoundrySandTestingNote() {
         value={sectionData.parameters?.[testNum]?.[paramConfig.key] || ''}
         onChange={(e) => handleInputChange("parameters", testNum, e.target.value, paramConfig.key)}
         onKeyDown={(e) => handleKeyDown(e, testParametersSubmitRef, testParametersFirstInputRef)}
-        disabled={isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)}
+        disabled={!isPrimaryDataSaved || isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)}
         readOnly={isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)}
         ref={paramConfig.key === "compactability" && testNum === "test1" ? testParametersFirstInputRef : null}
         style={{
@@ -1030,7 +1088,7 @@ export default function FoundrySandTestingNote() {
         value={sectionData.additionalData?.[testNum]?.[param] || ''}
         onChange={(e) => handleInputChange("additionalData", testNum, e.target.value, param)}
         onKeyDown={(e) => handleKeyDown(e, additionalDataSubmitRef, additionalDataFirstInputRef)}
-        disabled={isFieldLocked('additionalData', `${testNum}.${param}`)}
+        disabled={!isPrimaryDataSaved || isFieldLocked('additionalData', `${testNum}.${param}`)}
         readOnly={isFieldLocked('additionalData', `${testNum}.${param}`)}
         ref={param === "afsNo" && testNum === "test1" ? additionalDataFirstInputRef : null}
         style={{
@@ -1041,19 +1099,57 @@ export default function FoundrySandTestingNote() {
     );
   };
 
+  // Validation ranges for the Foundry Sand Testing Note info modal
+  const foundrySandValidationRanges = [
+    { field: 'Date', required: true, type: 'Date' },
+    { field: 'Shift', required: true, type: 'Select', allowedValues: ['Shift I', 'Shift II', 'Shift III'] },
+    { field: 'Sand Plant', required: true, type: 'Select', description: 'Select the Disa sand plant' },
+    { field: 'Compactability Setting', required: false, type: 'Text', pattern: 'e.g. J.C. mode', description: 'Enter the compactability machine setting' },
+    { field: 'Shear/Mould Strength Setting', required: false, type: 'Text', pattern: 'e.g. MP.VOX', description: 'Enter the shear/mould strength machine setting' },
+    // Clay Parameters
+    { field: 'Total Clay — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
+    { field: 'Total Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 11.0, max: 14.5 },
+    { field: 'Active Clay — Input 1 & 2', required: false, type: 'Number', description: 'Formula: Input1 × Input2 = Solution %' },
+    { field: 'Active Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 8.5, max: 11.0 },
+    { field: 'Dead Clay — Input 1 & 2', required: false, type: 'Number', description: 'Formula: Input1 − Input2 = Solution %' },
+    { field: 'Dead Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 2.0, max: 4.0 },
+    { field: 'VCM — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
+    { field: 'VCM (Solution %)', required: false, type: 'Number', unit: '%', min: 2.0, max: 3.2 },
+    { field: 'LOI — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
+    { field: 'LOI (Solution %)', required: false, type: 'Number', unit: '%', min: 4.5, max: 6.0 },
+    // Sieve Testing
+    { field: 'Sieve Size — % Wt Retained (TEST-1 & TEST-2)', required: false, type: 'Number', unit: '%', description: 'Enter % weight retained on each sieve size' },
+    { field: 'Sieve Total', required: false, type: 'Number', description: 'Auto-computed as the numeric sum of the sieve column; not editable' },
+    { field: 'MF Product (TEST-1 & TEST-2)', required: false, type: 'Number', description: 'Enter the product value for each MF sieve row' },
+    // Test Parameters
+    { field: 'Compactability', required: false, type: 'Number', unit: '%', min: 33, max: 40 },
+    { field: 'Permeability', required: false, type: 'Number', min: 90, max: 160 },
+    { field: 'GCS', required: false, type: 'Number', unit: 'Gm/cm²', description: 'Green Compressive Strength' },
+    { field: 'WTS', required: false, type: 'Number', unit: 'N/cm²', min: 0.15, description: 'Minimum 0.15' },
+    { field: 'Moisture', required: false, type: 'Number', unit: '%', min: 3.0, max: 4.0 },
+    { field: 'Bentonite', required: false, type: 'Number', description: 'Bentonite addition quantity' },
+    { field: 'CoalDust', required: false, type: 'Number', description: 'Coal dust addition quantity' },
+    { field: 'Hopper Level', required: false, type: 'Text', description: 'Return sand hopper level reading' },
+    { field: 'Shear Strength', required: false, type: 'Number', unit: 'N/cm²' },
+    { field: 'Dust Collector Settings', required: false, type: 'Text', description: 'Dust collector machine settings' },
+    { field: 'Return Sand Moisture', required: false, type: 'Number', unit: '%' },
+    // Additional Data
+    { field: 'AFS No.', required: false, type: 'Number', min: 48, description: 'Minimum 48' },
+    { field: 'Fines', required: false, type: 'Number', unit: '%', max: 10, description: 'Maximum 10%' },
+    { field: 'GD', required: false, type: 'Number', description: 'Green Density value' },
+    // Remarks
+    { field: 'Remarks', required: false, type: 'Text', maxLength: 80, description: 'Any additional observations or notes' }
+  ];
+
   return (
-    <div className="page-wrapper">
-      {checkingData && (
-        <div className="foundry-loader-overlay">
-          <div>Loading...</div>
-        </div>
-      )}
+    <div className="page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       {/* Header */}
       <div className="foundry-header">
         <div className="foundry-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Foundry Sand Testing Note
+            <InfoIcon onClick={openInfoModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -1064,12 +1160,19 @@ export default function FoundrySandTestingNote() {
         </div>
       </div>
 
+      <InfoCard
+        isOpen={isInfoOpen}
+        onClose={closeInfoModal}
+        title="Foundry Sand Testing Note — Validation Ranges & Field Guide"
+        validationRanges={foundrySandValidationRanges}
+      />
+
       {/* Primary Section */}
-      <div className="primary-header-container" style={{ marginBottom: '0.5rem' }}>
-        <h3 className="foundry-section-title">PRIMARY</h3>
+      <div ref={primarySectionRef} className="primary-header-container" style={{ marginBottom: '0.5rem' }}>
+        <h3 className="foundry-section-title">Primary</h3>
       </div>
 
-      <div className="foundry-form-grid" style={{ marginBottom: '1.5rem' }}>
+      <div className={`foundry-form-grid${highlightPrimaryFields ? ' primary-highlight' : ''}`} >
         <div className="foundry-form-group">
           <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
           <CustomDatePicker
@@ -1093,6 +1196,38 @@ export default function FoundrySandTestingNote() {
             name="sandPlant"
             disabled={!primaryData.date || !primaryData.shift}
           />
+          {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'flex-start' }}>
+              {savePrimaryLoading && (
+                <InlineLoader
+                  message="Fetching Date, Shift, Plant"
+                  size="medium"
+                  variant="primary"
+                />
+              )}
+              {showCombinationFound && (
+                <InlineLoader
+                  message="Combination found"
+                  size="medium"
+                  variant="success"
+                />
+              )}
+              {showCombinationAdded && (
+                <InlineLoader
+                  message="Combination Added"
+                  size="medium"
+                  variant="success"
+                />
+              )}
+              {showPrimaryWarning && (
+                <InlineLoader
+                  message="Save Date, Shift, Plant"
+                  size="medium"
+                  variant="danger"
+                />
+              )}
+            </div>
+          )}
         </div>
         <div className="foundry-form-group">
           <label>
@@ -1123,7 +1258,12 @@ export default function FoundrySandTestingNote() {
           />
         </div>
       </div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+        {showPrimaryWarning ? (
+          <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>
+            ⚠ Save Primary Data first
+          </span>
+        ) : <span />}
         {checkingData ? (
           <div style={{ padding: '0.75rem 1.5rem', color: '#64748b', fontWeight: 500 }}>
             Loading...
@@ -1139,7 +1279,7 @@ export default function FoundrySandTestingNote() {
       </div>
 
       {/* Clay Parameters */}
-      <div className="foundry-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="foundry-section">
         <h3 className="foundry-section-title">Clay Parameters {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <Table
           template
@@ -1149,22 +1289,13 @@ export default function FoundrySandTestingNote() {
           columns={clayColumns}
           renderCell={renderClayCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => handleSectionReset('clayParameters')}
-          disabled={loadingStates.clayParameters}
-          className="foundry-reset-btn"
-        >
-          <RotateCcw size={16} />
-          Reset
-        </button>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
           ref={clayParametersSubmitRef}
           type="button"
           onClick={() => handleSectionSubmit('clayParameters')}
           onKeyDown={(e) => handleSubmitButtonKeyDown(e, () => handleSectionSubmit('clayParameters'))}
-          disabled={loadingStates.clayParameters}
+          disabled={!isPrimaryDataSaved || loadingStates.clayParameters}
           className="foundry-submit-btn"
         >
           {loadingStates.clayParameters ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -1174,7 +1305,7 @@ export default function FoundrySandTestingNote() {
       </div>
 
       {/* Sieve Testing */}
-      <div className="foundry-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="foundry-section">
         <h3 className="foundry-section-title">Sieve Testing {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <Table
           template
@@ -1184,22 +1315,13 @@ export default function FoundrySandTestingNote() {
           columns={sieveColumns}
           renderCell={renderSieveCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => handleSectionReset('sieveTesting')}
-          disabled={loadingStates.sieveTesting}
-          className="foundry-reset-btn"
-        >
-          <RotateCcw size={16} />
-          Reset
-        </button>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
           ref={sieveTestingSubmitRef}
           type="button"
           onClick={() => handleSectionSubmit('sieveTesting')}
           onKeyDown={(e) => handleSubmitButtonKeyDown(e, () => handleSectionSubmit('sieveTesting'))}
-          disabled={loadingStates.sieveTesting}
+          disabled={!isPrimaryDataSaved || loadingStates.sieveTesting}
           className="foundry-submit-btn"
         >
           {loadingStates.sieveTesting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -1209,7 +1331,7 @@ export default function FoundrySandTestingNote() {
       </div>
 
       {/* Test Parameters */}
-      <div className="foundry-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="foundry-section">
         <h3 className="foundry-section-title">Test Parameters {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <Table
           template
@@ -1219,22 +1341,13 @@ export default function FoundrySandTestingNote() {
           columns={testParamColumns}
           renderCell={renderTestParamCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => handleSectionReset('testParameters')}
-          disabled={loadingStates.testParameters}
-          className="foundry-reset-btn"
-        >
-          <RotateCcw size={16} />
-          Reset
-        </button>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
           ref={testParametersSubmitRef}
           type="button"
           onClick={() => handleSectionSubmit('testParameters')}
           onKeyDown={(e) => handleSubmitButtonKeyDown(e, () => handleSectionSubmit('testParameters'))}
-          disabled={loadingStates.testParameters}
+          disabled={!isPrimaryDataSaved || loadingStates.testParameters}
           className="foundry-submit-btn"
         >
           {loadingStates.testParameters ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -1244,7 +1357,7 @@ export default function FoundrySandTestingNote() {
       </div>
 
       {/* Additional Data */}
-      <div className="foundry-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="foundry-section">
         <h3 className="foundry-section-title">Additional Data {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <Table
           template
@@ -1254,22 +1367,13 @@ export default function FoundrySandTestingNote() {
           columns={additionalColumns}
           renderCell={renderAdditionalCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => handleSectionReset('additionalData')}
-          disabled={loadingStates.additionalData}
-          className="foundry-reset-btn"
-        >
-          <RotateCcw size={16} />
-          Reset
-        </button>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <button
           ref={additionalDataSubmitRef}
           type="button"
           onClick={() => handleSectionSubmit('additionalData')}
           onKeyDown={(e) => handleSubmitButtonKeyDown(e, () => handleSectionSubmit('additionalData'))}
-          disabled={loadingStates.additionalData}
+          disabled={!isPrimaryDataSaved || loadingStates.additionalData}
           className="foundry-submit-btn"
         >
           {loadingStates.additionalData ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -1279,7 +1383,7 @@ export default function FoundrySandTestingNote() {
       </div>
 
       {/* Remarks */}
-      <div className="foundry-section" style={{ opacity: isPrimaryDataSaved ? 1 : 0.6, pointerEvents: isPrimaryDataSaved ? 'auto' : 'none' }}>
+      <div className="foundry-section">
         <h3 className="foundry-section-title">Remarks {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <div className="foundry-form-group">
           <label>Remarks</label>
@@ -1291,7 +1395,7 @@ export default function FoundrySandTestingNote() {
             onKeyDown={(e) => handleKeyDown(e, remarksSubmitRef, remarksFirstInputRef)}
             placeholder="Enter any additional remarks..."
             maxLength={80}
-            disabled={fieldLocks.remarks}
+            disabled={!isPrimaryDataSaved || fieldLocks.remarks}
             readOnly={fieldLocks.remarks}
             style={{
               width: '100%',
@@ -1302,22 +1406,13 @@ export default function FoundrySandTestingNote() {
             }}
           />
         </div>
-        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            type="button"
-            onClick={() => handleSectionReset('remarks')}
-            disabled={loadingStates.remarks}
-            className="foundry-reset-btn"
-          >
-            <RotateCcw size={16} />
-            Reset
-          </button>
+        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
           <button
             ref={remarksSubmitRef}
             type="button"
             onClick={() => handleSectionSubmit('remarks')}
             onKeyDown={(e) => handleSubmitButtonKeyDown(e, () => handleSectionSubmit('remarks'))}
-            disabled={loadingStates.remarks}
+            disabled={!isPrimaryDataSaved || loadingStates.remarks}
             className="foundry-submit-btn"
           >
             {loadingStates.remarks ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}

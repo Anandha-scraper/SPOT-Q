@@ -7,13 +7,14 @@ dist/
 
 # Environment variables
 .env
-.env.local
-.env.production
 
 # Logs
 *.log
 
-# Deployment documentation
+#ClaudE
+.claude/
+CLAUDE.md
+Department.md
 DEPLOYMENT.md
 QUICK-DEPLOY.md
 README-DEPLOY.md

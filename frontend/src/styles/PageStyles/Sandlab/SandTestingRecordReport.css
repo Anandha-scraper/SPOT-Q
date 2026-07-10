@@ -1,5 +1,7 @@
+/* ─── Page Container ─── */
 .sand-record-report-container {
-  padding: 12px 18px;
+  width: 100%;
+  padding: 0;
 }
 
 .sand-record-report-header {
@@ -23,7 +25,7 @@
 }
 
 .sand-record-report-header-text h2 {
-  font-size: 1.625rem;
+  font-size: clamp(1.2rem, 1.6vw, 1.8rem);
   font-weight: 700;
   color: #1e293b;
   margin: 0;
@@ -48,7 +50,8 @@
 .sand-record-filter-group {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 0.4rem;
+  min-width: 160px;
 }
 
 .sand-record-filter-group label {
@@ -56,16 +59,31 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: #334155;
-  margin-bottom: 0.25rem;
+  margin: 0;
 }
 
 .sand-record-filter-group input {
-  width: 200px;
+  flex: 1 1 160px;
+  min-width: 130px;
+  max-width: 240px;
   padding: 0.6rem 1rem;
-  font-size: 0.875rem;
+  font-size: clamp(0.78rem, 0.85vw, 0.95rem);
 }
 
 .sand-record-filter-actions {
   display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+/* ─── Media Queries ─── */
+
+@media (max-width: 1024px) {
+  .sand-record-filter-container {
+    gap: 0.75rem;
+  }
+  .sand-record-filter-group input {
+    flex: 1 1 130px;
+    min-width: 110px;
+  }
 }

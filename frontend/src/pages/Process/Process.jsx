@@ -8,6 +8,8 @@ import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
+import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import '../../styles/PageStyles/Process/Process.css';
 
@@ -62,64 +64,55 @@ export default function ProcessControl() {
     },
     {
       field: 'Qty. Of Moulds',
-      required: true,
       type: 'Number',
-      min: 1
+      min: 0
     },
     {
       field: 'Metal Composition - C',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - Si',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - Mn',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - P',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - S',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - Mg F/L',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - Cu',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Metal Composition - Cr',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
@@ -150,7 +143,8 @@ export default function ProcessControl() {
     },
     {
       field: 'Heat No',
-      type: 'Text'
+      type:'Number',
+      min:0
     },
     {
       field: 'Con No',
@@ -226,7 +220,6 @@ export default function ProcessControl() {
       field: 'Rec. Of Mg',
       type: 'Number',
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
@@ -245,7 +238,8 @@ export default function ProcessControl() {
     },
     {
       field: 'Remarks',
-      type: 'Text'
+      type: 'Text',
+      maxLength: 200
     }
   ];
 
@@ -290,11 +284,9 @@ export default function ProcessControl() {
   const primarySectionRef = useRef(null);
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  const [showCombinationFound, setShowCombinationFound] = useState(false);
-  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
-  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
-  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
+
+  const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+  const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
   const [dateValid, setDateValid] = useState(null);
   const [disaValid, setDisaValid] = useState(null);
@@ -384,125 +376,25 @@ export default function ProcessControl() {
     return '';
   };
 
-  const validateField = (rule, mappedFields, formData) => {
-    if (Array.isArray(mappedFields)) {
-      const [minField, maxField] = mappedFields;
-      const minValue = formData[minField];
-      const maxValue = formData[maxField];
-      const minInput = inputRefs?.current?.[minField];
-      const maxInput = inputRefs?.current?.[maxField];
-
-      if ((minInput && minInput.validity && minInput.validity.badInput) ||
-          (maxInput && maxInput.validity && maxInput.validity.badInput)) {
-        return { isValid: false, message: `${rule.field} must contain valid numbers` };
-      }
-
-      if (rule.required) {
-        if (!minValue || !maxValue) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
-      }
-
-      if (minValue && maxValue) {
-        const min = parseFloat(minValue);
-        const max = parseFloat(maxValue);
-
-        if (isNaN(min) || isNaN(max)) {
-          return { isValid: false, message: `${rule.field} must contain valid numbers` };
-        }
-
-        if (min >= max) {
-          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
-        }
-      }
-
-      return { isValid: true };
+  // Date + DISA must be saved before the entry fields unlock.
+  const { status, highlightPrimaryFields, savePrimary } = usePrimaryLock({
+    endpoint: API_ENDPOINTS.process,
+    date: formData.date,
+    disa: formData.disa,
+    isPrimarySaved,
+    setIsPrimarySaved,
+    setEntryCount,
+    primarySectionRef,
+    formGroupClass: 'process-form-group',
+    onSaved: () => {
+      toast.success('Primary saved');
+      setTimeout(() => inputRefs.current.partName?.focus(), 100);
     }
+  });
 
-    const fieldName = mappedFields;
-    const value = formData[fieldName];
-    const inputElement = inputRefs?.current?.[fieldName];
+  const primaryBusy = status === 'checking' || status === 'saving' || status === 'found' || status === 'added';
+  const statusInfo = PRIMARY_STATUS[status];
 
-    if (inputElement && inputElement.validity && inputElement.validity.badInput) {
-      return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
-    }
-
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
-    }
-
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return { isValid: true };
-    }
-
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        const stringValue = String(value).trim();
-
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-
-        if (rule.field === 'Date Code') {
-          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
-          if (!dateCodePattern.test(textValue)) {
-            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
-          }
-        }
-        break;
-
-      case 'Select':
-        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
-          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
-        }
-        break;
-
-      case 'Date':
-        if (value && typeof value === 'string' && value.trim() !== '') {
-          const dateValue = new Date(value);
-          if (isNaN(dateValue.getTime())) {
-            return { isValid: false, message: `${rule.field} must be a valid date` };
-          }
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return { isValid: true };
-  };
 
   useEffect(() => {
     if (!formData.date) {
@@ -545,54 +437,6 @@ export default function ProcessControl() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const checkDateDisaExists = async () => {
-      if (!formData.date || !formData.disa) {
-        setIsPrimarySaved(false);
-        setEntryCount(0);
-        setSavePrimaryLoading(false);
-        setShowCombinationFound(false);
-        setShowCombinationAdded(false);
-        return;
-      }
-
-      try {
-        setSavePrimaryLoading(true);
-        setShowCombinationFound(false);
-
-        const startTime = Date.now();
-
-        const response = await fetch(`${API_ENDPOINTS.process}/check?date=${formData.date}&disa=${encodeURIComponent(formData.disa)}`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        const data = await response.json();
-
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = Math.max(0, 1000 - elapsedTime);
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-
-        setSavePrimaryLoading(false);
-
-        if (data.success && data.exists) {
-          setShowCombinationFound(true);
-
-          setTimeout(() => {
-            setShowCombinationFound(false);
-            setIsPrimarySaved(true);
-            setEntryCount(data.count || 0);
-          }, 1500);
-        } else {
-          setIsPrimarySaved(false);
-          setEntryCount(0);
-        }
-      } catch (error) {
-        setSavePrimaryLoading(false);
-      }
-    };
-
-    checkDateDisaExists();
-  }, [formData.date, formData.disa]);
 
   useEffect(() => {
     setPouringTimeValid(null);
@@ -607,64 +451,6 @@ export default function ProcessControl() {
     }
   }, [tappingTime]);
 
-  useEffect(() => {
-    const handleDisabledClick = (e) => {
-      const target = e.target;
-
-      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
-        handleDisabledFieldClick(e);
-        return;
-      }
-
-      if (target.tagName === 'LABEL') {
-        let formGroup = target.closest('.process-form-group');
-        if (formGroup) {
-          const input = formGroup.querySelector('input, select, textarea');
-          if (input && input.disabled) {
-            handleDisabledFieldClick(e);
-            return;
-          }
-        }
-      }
-
-      if (target.classList && target.classList.contains('process-form-grid') && !isPrimarySaved) {
-        handleDisabledFieldClick(e);
-        return;
-      }
-
-      let formGroup = null;
-      if (target.classList && target.classList.contains('process-form-group')) {
-        formGroup = target;
-      } else {
-        formGroup = target.closest('.process-form-group');
-      }
-
-      if (formGroup) {
-        const input = formGroup.querySelector('input, select, textarea');
-        if (input && input.disabled) {
-          handleDisabledFieldClick(e);
-          return;
-        }
-      }
-
-      if (!isPrimarySaved) {
-        const closestFormGroup = target.closest('.process-form-group');
-        if (closestFormGroup) {
-          const input = closestFormGroup.querySelector('input, select, textarea');
-          if (input && input.disabled) {
-            handleDisabledFieldClick(e);
-            return;
-          }
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleDisabledClick, true);
-
-    return () => {
-      document.removeEventListener('mousedown', handleDisabledClick, true);
-    };
-  }, [isPrimarySaved]);
 
   const fieldOrder = ['date', 'disa', 'partName', 'datecode', 'heatcode', 'quantityOfMoulds', 'metalCompositionC', 'metalCompositionSi',
     'metalCompositionMn', 'metalCompositionP', 'metalCompositionS', 'metalCompositionMgFL', 'metalCompositionCu',
@@ -917,176 +703,65 @@ export default function ProcessControl() {
     }
   };
 
-  const handleDisabledFieldClick = (e) => {
-    if (!isPrimarySaved) {
-      e.preventDefault();
-      e.stopPropagation();
 
-      setShowPrimaryWarning(true);
-      setHighlightPrimaryFields(true);
-
-      if (primarySectionRef.current) {
-        primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-
-      setTimeout(() => {
-        setShowPrimaryWarning(false);
-        setHighlightPrimaryFields(false);
-      }, 3000);
+  // Time of Pouring and Tapping Time live outside fieldMapping (they are
+  // {hour, minute} objects, not formData strings), so they are checked here and
+  // then folded into the shared required-wins result.
+  const validateTimes = () => {
+    if (!pouringFromTime || !pouringToTime) {
+      const rule = validationRanges.find(r => r.field === 'Time of Pouring (Range)');
+      if (rule?.required) return { missing: true };
+      return {};
     }
-  };
-
-  const handlePrimarySubmit = async () => {
-    if (!formData.date || !formData.disa) {
-      toast.error('Please fill in Date and DISA');
-
-      if (!formData.date) {
-        inputRefs.current.date?.focus();
-      } else if (!formData.disa) {
-        inputRefs.current.disa?.focus();
-      }
-
-      return;
-    }
-
-    if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
-      return;
-    }
-
-    try {
-      setSavePrimaryLoading(true);
-
-      const startTime = Date.now();
-
-      const response = await fetch(`${API_ENDPOINTS.process}/save-primary`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          date: formData.date,
-          disa: formData.disa
-        })
-      });
-
-      const rawResponse = await response.text();
-      let data = null;
-      if (rawResponse) {
-        try {
-          data = JSON.parse(rawResponse);
-        } catch (parseError) {
-          throw new Error('Invalid server response');
-        }
-      } else {
-        data = { success: false, message: 'Empty response from server' };
-      }
-
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 1000 - elapsedTime);
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
-
-      setSavePrimaryLoading(false);
-
-      if (data.success) {
-        setShowCombinationAdded(true);
-        toast.success('Primary saved');
-
-        setTimeout(() => {
-          setShowCombinationAdded(false);
-          setIsPrimarySaved(true);
-          setEntryCount(data.count || 0);
-          setTimeout(() => {
-            inputRefs.current.partName?.focus();
-          }, 100);
-        }, 1000);
-      } else {
-        toast.error('Failed to save primary: ' + data.message);
-      }
-    } catch (error) {
-      setSavePrimaryLoading(false);
-      toast.error('Failed to save primary: ' + error.message);
-    }
+    const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
+    const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
+    if (fromMinutes >= toMinutes) return { message: 'Time of Pouring: Start time must be less than end time' };
+    if (toMinutes - fromMinutes > 60) return { message: 'Time of Pouring: Maximum allowed difference is 1 hour' };
+    return {};
   };
 
   const handleSubmit = async () => {
-    let hasErrors = false;
-    let firstErrorField = null;
-
     setSubmitErrorMessage('');
 
-    for (const rule of validationRanges) {
-      const mappedFields = fieldMapping[rule.field];
+    const time = validateTimes();
+    const tappingRule = validationRanges.find(r => r.field === 'Tapping Time');
+    const tappingMissing = Boolean(tappingRule?.required && !tappingTime);
 
-      if (rule.field === 'Time of Pouring (Range)') {
-        if (rule.required && (!pouringFromTime || !pouringToTime)) {
-          setPouringTimeValid(false);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = 'pouringFromTime';
-        } else if (pouringFromTime && pouringToTime) {
-          const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
-          const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
+    setPouringTimeValid(time.missing || time.message ? false : null);
+    setTappingTimeValid(tappingMissing ? false : null);
 
-          if (fromMinutes >= toMinutes) {
-            setPouringTimeValid(false);
-            setSubmitErrorMessage('Time of Pouring: Start time must be less than end time');
-            hasErrors = true;
-            if (!firstErrorField) firstErrorField = 'pouringFromTime';
-          } else if ((toMinutes - fromMinutes) > 60) {
-            setPouringTimeValid(false);
-            setSubmitErrorMessage('Time of Pouring: Maximum allowed difference is 1 hour');
-            hasErrors = true;
-            if (!firstErrorField) firstErrorField = 'pouringFromTime';
-          } else {
-            setPouringTimeValid(null);
-          }
-        } else {
-          setPouringTimeValid(null);
-        }
-        continue;
+    const { ok, message, firstErrorField, fieldStates } = runValidation({
+      validationRanges,
+      fieldMapping,
+      formData,
+      inputRefs
+    });
+
+    // Feed the per-field validity setters; the Pouring Temp range shares one setter.
+    Object.entries(fieldStates).forEach(([key, state]) => {
+      if (key === 'pouringTemperatureMin' || key === 'pouringTemperatureMax') {
+        if (state === false) setPouringTempValid(false);
+        return;
       }
-
-      if (rule.field === 'Tapping Time') {
-        if (rule.required && !tappingTime) {
-          setTappingTimeValid(false);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = 'tappingTime';
-        } else {
-          setTappingTimeValid(null);
-        }
-        continue;
-      }
-
-      if (!mappedFields) continue;
-
-      const result = validateField(rule, mappedFields, formData);
-
-      let setter;
-      if (Array.isArray(mappedFields)) {
-        setter = setPouringTempValid;
-      } else {
-        setter = validationSetters[mappedFields];
-      }
-
-      if (setter) {
-        if (!result.isValid) {
-          setter(false);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
-        } else {
-          setter(null);
-        }
-      }
+      validationSetters[key]?.(state);
+    });
+    if (fieldStates.pouringTemperatureMin === null && fieldStates.pouringTemperatureMax === null) {
+      setPouringTempValid(null);
     }
 
+    const anyMissing = time.missing || tappingMissing || (!ok && message === MESSAGE_REQUIRED);
+    const hasErrors = anyMissing || Boolean(time.message) || !ok;
+
     if (hasErrors) {
-      setSubmitErrorMessage('Fill required Field in Correct format');
-      toast.error('Fill required Field in Correct format');
+      // Required-wins; otherwise prefer the specific time message over the generic one.
+      const finalMessage = anyMissing ? MESSAGE_REQUIRED : (time.message || MESSAGE_FORMAT);
+      setSubmitErrorMessage(finalMessage);
+      toast.error(finalMessage);
 
-      if (firstErrorField) {
-        inputRefs.current[firstErrorField]?.focus();
-      }
-
+      const focusField = (time.missing || time.message) ? 'pouringFromTime'
+        : tappingMissing ? 'tappingTime'
+        : firstErrorField;
+      inputRefs.current[focusField]?.focus();
       return;
     }
 
@@ -1290,7 +965,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group">
-              <label>Date </label>
+              <label>Date {mark('date')}</label>
               <CustomDatePicker
                 ref={el => inputRefs.current.date = el}
                 name="date"
@@ -1311,7 +986,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group" style={{ minHeight: 'auto' }}>
-              <label>DISA </label>
+              <label>DISA {mark('disa')}</label>
               <DisaDropdown
                 ref={el => inputRefs.current.disa = el}
                 name="disa"
@@ -1324,40 +999,9 @@ export default function ProcessControl() {
                   transition: 'all 0.3s ease'
                 }}
               />
-              {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
-                <div style={{
-                  marginTop: '0.75rem',
-                  display: 'flex',
-                  alignItems: 'flex-start'
-                }}>
-                  {savePrimaryLoading && (
-                    <InlineLoader
-                      message="Fetching Date, Disa"
-                      size="medium"
-                      variant="primary"
-                    />
-                  )}
-                  {showCombinationFound && (
-                    <InlineLoader
-                      message="Combination found"
-                      size="medium"
-                      variant="success"
-                    />
-                  )}
-                  {showCombinationAdded && (
-                    <InlineLoader
-                      message="Combination Added"
-                      size="medium"
-                      variant="success"
-                    />
-                  )}
-                  {showPrimaryWarning && (
-                    <InlineLoader
-                      message="Save Date, Disa"
-                      size="medium"
-                      variant="danger"
-                    />
-                  )}
+              {statusInfo && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'flex-start' }}>
+                  <InlineLoader message={statusInfo.message} size="medium" variant={statusInfo.variant} />
                 </div>
               )}
             </div>
@@ -1365,8 +1009,8 @@ export default function ProcessControl() {
             <div className="process-form-group">
               <label>&nbsp;</label>
               <LockPrimaryButton
-                onClick={handlePrimarySubmit}
-                disabled={savePrimaryLoading || showCombinationFound || showCombinationAdded || !formData.date || !formData.disa || isPrimarySaved}
+                onClick={savePrimary}
+                disabled={primaryBusy || !formData.date || !formData.disa || isPrimarySaved}
                 isLocked={isPrimarySaved}
               />
             </div>
@@ -1375,7 +1019,7 @@ export default function ProcessControl() {
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
             <div className="process-form-group" ref={partNameDropdownRef} style={{ position: 'relative' }}>
-              <label>Part Name </label>
+              <label>Part Name {mark('partName')}</label>
               <input
                 ref={el => inputRefs.current.partName = el}
                 type="text"
@@ -1433,7 +1077,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group">
-              <label>Date Code </label>
+              <label>Date Code {mark('datecode')}</label>
               <input
                 ref={el => inputRefs.current.datecode = el}
                 type="text"
@@ -1448,7 +1092,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group">
-              <label>Heat Code </label>
+              <label>Heat Code {mark('heatcode')}</label>
               <input
                 ref={el => inputRefs.current.heatcode = el}
                 type="number"
@@ -1463,7 +1107,7 @@ export default function ProcessControl() {
             </div>
 
             <div className="process-form-group">
-              <label>Qty. Of Moulds </label>
+              <label>Qty. Of Moulds {mark('quantityOfMoulds')}</label>
               <input
                 ref={el => inputRefs.current.quantityOfMoulds = el}
                 type="number"
@@ -1722,7 +1366,7 @@ export default function ProcessControl() {
                 <label>Heat No </label>
                 <input
                   ref={el => inputRefs.current.heatNo = el}
-                  type="text"
+                  type="number"
                   name="heatNo"
                   value={formData.heatNo}
                   onChange={handleChange}
@@ -1868,10 +1512,7 @@ export default function ProcessControl() {
                 />
               </div>
             </div>
-
-            {}
             <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '0.5rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
-
             <div className="additional-fields-row" style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
                 <label>Tapping Wt (Kgs) </label>
@@ -1974,7 +1615,6 @@ export default function ProcessControl() {
                 onChange={handleChange}
                 onKeyDown={e => handleKeyDown(e, 'remarks')}
                 placeholder="Enter any additional notes..."
-                maxLength={200}
                 rows={3}
                 disabled={!isPrimarySaved}
                 className={getInputClassName('remarks', remarksValid)}

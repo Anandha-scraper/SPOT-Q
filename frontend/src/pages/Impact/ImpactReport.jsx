@@ -5,6 +5,8 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
+import EntryActions from '../../Components/EntryActions';
+import { impactEditConfig } from '../../utils/editFieldConfigs';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
@@ -35,31 +37,41 @@ const ImpactReport = () => {
 
   const isFilterEnabled = toDate && toDate.trim() !== '' && !(fromDate && fromDate.trim() !== '' && toDate <= fromDate);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${API_ENDPOINTS.impactTests}/filter?startDate=2000-01-01&endDate=2099-12-31`, {
-          credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Failed to fetch impact data');
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          setAllEntries(result.data);
-
-          const todayFiltered = result.data.filter(r => {
-            if (!r.date) return false;
-            return formatDateLocal(r.date) === todayStr;
-          });
-          setFilteredEntries(todayFiltered);
-        }
-      } catch (error) {
-        alert('Failed to load impact data. Please refresh.');
-      } finally {
-        setLoading(false);
+  // Apply the current From/To filter to a set of entries.
+  const computeFiltered = (entries) => {
+    const toDateStr = toDate;
+    const fromDateStr = fromDate || '';
+    return entries.filter(r => {
+      if (!r.date) return false;
+      const reportDate = formatDateLocal(r.date);
+      if (fromDateStr) {
+        return reportDate >= fromDateStr && reportDate <= toDateStr;
       }
-    };
+      return reportDate === toDateStr;
+    });
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_ENDPOINTS.impactTests}/filter?startDate=2000-01-01&endDate=2099-12-31`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch impact data');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setAllEntries(result.data);
+        setFilteredEntries(computeFiltered(result.data));
+      }
+    } catch (error) {
+      alert('Failed to load impact data. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -241,12 +253,13 @@ const ImpactReport = () => {
                 <th style={{ width: '25%', textAlign: 'center', whiteSpace: 'nowrap' }}>Specification</th>
                 <th style={{ width: '20%', textAlign: 'center', whiteSpace: 'nowrap' }}>Observed Value</th>
                 <th style={{ width: '15%', textAlign: 'center', whiteSpace: 'nowrap' }}>Remarks</th>
+                <th style={{ width: '10%', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {paginatedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="reusable-table-no-records">No records found</td>
+                  <td colSpan={7} className="reusable-table-no-records">No records found</td>
                 </tr>
               ) : (
                 paginatedEntries.map((item, idx) => {
@@ -269,6 +282,9 @@ const ImpactReport = () => {
                         {item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}
                       </td>
                       <td style={{ textAlign: 'center' }}>{item.remarks || '-'}</td>
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <EntryActions entry={item} editConfig={impactEditConfig} onChanged={fetchData} />
+                      </td>
                     </tr>
                   );
                 })

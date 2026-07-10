@@ -106,6 +106,19 @@ export const meltingEditConfig = {
     ]
 };
 
+export const impactEditConfig = {
+    endpoint: API_ENDPOINTS.impactTests,
+    title: 'Edit Impact Entry',
+    fields: [
+        { name: 'partName', label: 'Part Name', type: 'text' },
+        { name: 'dateCode', label: 'Date Code', type: 'text' },
+        { name: 'specification', label: 'Specification', type: 'text' },
+        // Stored as a comma-separated list ("12.5, 34.6"), not a single number.
+        { name: 'observedValue', label: 'Observed Value', type: 'text' },
+        { name: 'remarks', label: 'Remarks', type: 'textarea' }
+    ]
+};
+
 export const tensileEditConfig = {
     endpoint: API_ENDPOINTS.tensile,
     title: 'Edit Tensile Entry',

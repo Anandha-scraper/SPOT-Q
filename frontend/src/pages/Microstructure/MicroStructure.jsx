@@ -7,6 +7,8 @@ import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
+import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
@@ -57,7 +59,6 @@ const MicroStructure = () => {
     {
       field: 'Heat Code',
       key: 'heatCode',
-      required: true,
       type: 'Number',
       pattern: 'e.g., 20'
     },
@@ -133,14 +134,7 @@ const MicroStructure = () => {
   } = useDepartmentForm('micro-structure');
 
   // Local UI states that don't need to persist
-  const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
-  const [checkingPrimary, setCheckingPrimary] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [showCombinationFound, setShowCombinationFound] = useState(false);
-  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
-  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
-  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
-  const [primaryErrorMessage, setPrimaryErrorMessage] = useState('');
 
   // Extract form field values from context for easier access
   const date = formData.date;
@@ -202,152 +196,36 @@ const MicroStructure = () => {
   const carbideMaxValid = validationStates.carbideMax;
   const remarksValid = validationStates.remarks;
 
-  // ====================== Validation Functions ======================
-  /**
-   * Validates a single field based on validation rules
-   * Handles both single fields and range fields (min/max pairs)
-   */
-  const validateField = (rule, mappedFields, stateData) => {
-    // Handle range fields (arrays)
-    if (Array.isArray(mappedFields)) {
-      const [minField, maxField] = mappedFields;
-      const minValue = stateData[minField];
-      const maxValue = stateData[maxField];
-      const minInput = inputRefs?.current?.[minField];
-      const maxInput = inputRefs?.current?.[maxField];
-
-      // Check if browser considers input intuitively invalid (e.g. typing 'e' in type "number")
-      if ((minInput && minInput.validity && minInput.validity.badInput) ||
-          (maxInput && maxInput.validity && maxInput.validity.badInput)) {
-        return { isValid: false, message: `${rule.field} must contain valid numbers` };
-      }
-
-      // For range fields, check if both values exist when required
-      if (rule.required) {
-        if (!minValue || !maxValue) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
-      }
-
-      // Validate range values if they exist
-      if (minValue && maxValue) {
-        const min = parseFloat(minValue);
-        const max = parseFloat(maxValue);
-
-        if (isNaN(min) || isNaN(max)) {
-          return { isValid: false, message: `${rule.field} must contain valid numbers` };
-        }
-
-        if (min >= max) {
-          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
-        }
-
-        // Check min/max constraints for range fields
-        if (rule.min !== undefined && (min < rule.min || max < rule.min)) {
-          return { isValid: false, message: `${rule.field} values must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && (min > rule.max || max > rule.max)) {
-          return { isValid: false, message: `${rule.field} values must be no more than ${rule.max}` };
-        }
-      }
-
-      return { isValid: true };
-    }
-
-    // Handle single fields
-    const fieldName = mappedFields;
-    const value = stateData[fieldName];
-    const inputElement = inputRefs?.current?.[fieldName];
-
-    // Check if the browser considers the input intuitively invalid (e.g. 'e' pushed to type "number")
-    // This catches invalid strings that are reflected as empty in 'value'
-    if (inputElement && inputElement.validity && inputElement.validity.badInput) {
-      return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
-    }
-
-    // Check required fields
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
-    }
-
-    // If field is empty and not required, it's valid
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return { isValid: true };
-    }
-
-    // Type-specific validation
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        // Enhanced number validation to catch edge cases that type="number" allows
-        const stringValue = String(value).trim();
-
-        // Check for invalid characters that browsers allow in number inputs
-        // but aren't valid for our use case
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/; // e, E, +, multiple dots, multiple signs
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        // Additional check for values ending with invalid characters
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        // Check min/max constraints
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        // For Integer type, check if it's actually an integer
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-        break;
-
-      case 'Select':
-        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
-          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
-        }
-        break;
-
-      case 'Date':
-        // Date validation - assuming value is in YYYY-MM-DD format
-        if (rule.required && (!value || value.trim() === '')) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return { isValid: true };
-  };
-
   // Refs for navigation
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
 
   // Spatial arrow-key navigation across the form grid (↑/↓/←/→ move focus)
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
+
+  // Rule `key` doubles as the formData key, so the mapping falls out of the rules.
+  const fieldMapping = Object.fromEntries(validationRanges.map(r => [r.field, r.key]));
+  const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+  const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+
+  // Date + DISA must be saved before the entry fields unlock.
+  const { status, highlightPrimaryFields, savePrimary } = usePrimaryLock({
+    endpoint: API_ENDPOINTS.microStructure,
+    date: formData.date,
+    disa: formData.disa,
+    isPrimarySaved,
+    setIsPrimarySaved,
+    setEntryCount,
+    primarySectionRef,
+    formGroupClass: 'microstructure-field',
+    onSaved: () => {
+      toast.success('Primary saved');
+      setTimeout(() => inputRefs.current.partName?.focus(), 100);
+    }
+  });
+
+  const primaryBusy = status === 'checking' || status === 'saving' || status === 'found' || status === 'added';
+  const statusInfo = PRIMARY_STATUS[status];
 
   // Field order for Enter key navigation
   const fieldOrder = [
@@ -389,125 +267,6 @@ const MicroStructure = () => {
     }
   }, []);
   
-  // Check if date+disa combination exists in database
-  useEffect(() => {
-    const checkDateDisaExists = async () => {
-      if (!date || !disa) {
-        setIsPrimarySaved(false);
-        setEntryCount(0);
-        setSavePrimaryLoading(false);
-        setShowCombinationFound(false);
-        setShowCombinationAdded(false);
-        return;
-      }
-      setCheckingPrimary(true);
-      try {
-        setSavePrimaryLoading(true);
-        setShowCombinationFound(false);
-        
-        const startTime = Date.now();
-        
-        const response = await fetch(`${API_ENDPOINTS.microStructure}/check?date=${date}&disa=${encodeURIComponent(disa)}`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        const data = await response.json();
-        
-        // Ensure minimum 1 second loading time
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = Math.max(0, 1000 - elapsedTime);
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
-        
-        setSavePrimaryLoading(false);
-        
-        if (data.success && data.exists) {
-          setShowCombinationFound(true);
-          
-          // Hide "Combination found" message after 1.5 seconds
-          setTimeout(() => {
-            setShowCombinationFound(false);
-            setIsPrimarySaved(true);
-            setEntryCount(data.count || 0);
-          }, 1500);
-        } else {
-          // Combination not found, just update states
-          setIsPrimarySaved(false);
-          setEntryCount(0);
-        }
-      } catch (error) {
-        console.error('Error checking date+disa:', error);
-        setSavePrimaryLoading(false);
-      }
-    };
-    checkDateDisaExists();
-  }, [date, disa]);
-  
-  // Add click listeners to all disabled fields to show warning
-  useEffect(() => {
-    const handleDisabledClick = (e) => {
-      const target = e.target;
-
-      // Check if clicked element is a disabled input or select
-      if ((target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') && target.disabled) {
-        handleDisabledFieldClick(e);
-        return;
-      }
-
-      // Check if clicked on a label that's associated with a disabled field
-      if (target.tagName === 'LABEL') {
-        let fieldDiv = target.closest('.microstructure-field');
-        if (fieldDiv) {
-          const input = fieldDiv.querySelector('input, select, textarea');
-          if (input && input.disabled) {
-            handleDisabledFieldClick(e);
-            return;
-          }
-        }
-      }
-
-      // Check if clicked on microstructure-form-row (the main row container)
-      if (target.classList && target.classList.contains('microstructure-form-row') && !isPrimarySaved) {
-        handleDisabledFieldClick(e);
-        return;
-      }
-
-      // Check if clicked on a field div that contains a disabled field
-      let fieldDiv = null;
-      if (target.classList && target.classList.contains('microstructure-field')) {
-        fieldDiv = target;
-      } else {
-        fieldDiv = target.closest('.microstructure-field');
-      }
-
-      if (fieldDiv) {
-        const input = fieldDiv.querySelector('input, select, textarea');
-        if (input && input.disabled) {
-          handleDisabledFieldClick(e);
-          return;
-        }
-      }
-
-      // Handle clicks on any child elements of a field div with disabled fields
-      if (!isPrimarySaved) {
-        const closestFieldDiv = target.closest('.microstructure-field');
-        if (closestFieldDiv) {
-          const input = closestFieldDiv.querySelector('input, select, textarea');
-          if (input && input.disabled) {
-            handleDisabledFieldClick(e);
-            return;
-          }
-        }
-      }
-    };
-
-    // Add event listener to document to catch all clicks
-    document.addEventListener('mousedown', handleDisabledClick, true);
-
-    return () => {
-      document.removeEventListener('mousedown', handleDisabledClick, true);
-    };
-  }, [isPrimarySaved]);
-
   // ====================== Helpers ======================
   
   const getInputClassName = (baseClass, validationState) => {
@@ -547,7 +306,6 @@ const MicroStructure = () => {
     // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
-    setPrimaryErrorMessage('');
   };
 
   const handleDisaChange = (e) => {
@@ -579,29 +337,6 @@ const MicroStructure = () => {
     // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
-    setPrimaryErrorMessage('');
-  };
-
-  const handleDisabledFieldClick = (e) => {
-    if (!isPrimarySaved) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Show warning
-      setShowPrimaryWarning(true);
-      setHighlightPrimaryFields(true);
-      
-      // Scroll to primary section
-      if (primarySectionRef.current) {
-        primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      
-      // Hide warning and remove highlight after 3 seconds
-      setTimeout(() => {
-        setShowPrimaryWarning(false);
-        setHighlightPrimaryFields(false);
-      }, 3000);
-    }
   };
 
   const handleInputChange = (setter, fieldKey) => (e) => {
@@ -618,7 +353,7 @@ const MicroStructure = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = fieldOrder.indexOf(field);
-      
+
       if (field === 'remarks') {
         inputRefs.current.submitBtn?.focus();
       } else if (idx < fieldOrder.length - 1) {
@@ -628,193 +363,28 @@ const MicroStructure = () => {
     }
   };
 
-  const handlePrimarySubmit = async () => {
-    // Clear any previous inline error
-    setPrimaryErrorMessage('');
-
-    // Validate required fields
-    if (!date || !disa) {
-      setPrimaryErrorMessage('Enter Date and DISA');
-      toast.error('Enter Date and DISA');
-      return;
-    }
-
-    // If already processing, don't submit again
-    if (savePrimaryLoading || showCombinationFound || showCombinationAdded) {
-      return;
-    }
-
-    try {
-      setSavePrimaryLoading(true);
-      
-      const startTime = Date.now();
-      
-      // Call save-primary API to save date+disa and get entry count
-      const response = await fetch(`${API_ENDPOINTS.microStructure}/save-primary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ date, disa })
-      });
-
-      const rawResponse = await response.text();
-      let data = null;
-      if (rawResponse) {
-        try {
-          data = JSON.parse(rawResponse);
-        } catch (parseError) {
-          throw new Error('Invalid server response');
-        }
-      } else {
-        data = { success: false, message: 'Empty response from server' };
-      }
-      
-      // Ensure minimum 1 second for consistent UX
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = Math.max(0, 1000 - elapsedTime);
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
-      
-      setSavePrimaryLoading(false);
-      
-      if (data.success) {
-        setShowCombinationAdded(true);
-        toast.success('Primary saved');
-
-        // Hide "Combination Added" message after 1 second
-        setTimeout(() => {
-          setShowCombinationAdded(false);
-          setIsPrimarySaved(true);
-          setEntryCount(data.count || 0);
-          // Focus on Part Name field after primary is saved
-          setTimeout(() => {
-            inputRefs.current.partName?.focus();
-          }, 100);
-        }, 1000);
-      } else {
-        setPrimaryErrorMessage('Technical error');
-        toast.error('Technical error');
-      }
-    } catch (error) {
-      console.error('Error saving primary:', error);
-      setSavePrimaryLoading(false);
-      setPrimaryErrorMessage('Technical error');
-      toast.error('Technical error');
-    }
-  };
-
-  /*
-   * Handle form submission with validation
-   * 
-   * Validation Flow:
-   * 1. Check each required field for empty/invalid values
-   * 2. If invalid, set validation state to false (shows red border)
-   * 3. If valid, set validation state to null (neutral, no color)
-   * 4. If any errors exist, show error message and stop submission
-   * 5. On successful submission, reset all validation states to null
-   * 
-   * ============================================================
-   * AUTO-NAVIGATION TO FIRST ERROR PATTERN:
-   * ============================================================
-   * This pattern ensures the cursor automatically focuses on the 
-   * FIRST error field immediately when the user clicks Submit.
-   * 
-   * HOW IT WORKS:
-   * 1. Initialize a tracking variable BEFORE validation loop:
-   *    let firstErrorField = null;
-   * 
-   * 2. In EACH validation check, set firstErrorField ONLY if it's 
-   *    still null (this captures only the first error):
-   *    if (!formData.fieldName || validation_fails) {
-   *      setFieldValid(false);
-   *      hasErrors = true;
-   *      if (!firstErrorField) firstErrorField = 'fieldName'; // Capture first error
-   *    }
-   * 
-   * 3. AFTER all validations, focus immediately using the tracking variable:
-   *    if (hasErrors) {
-   *      if (firstErrorField) {
-   *        inputRefs.current[firstErrorField]?.focus();
-   *      }
-   *      return;
-   *    }
-   * 
-   * WHY THIS WORKS ON FIRST CLICK:
-   * - Uses a plain variable (not state) to track synchronously
-   * - Doesn't depend on state updates (which are async)
-   * - Focus happens immediately in the same execution cycle
-   * 
-   * TO IMPLEMENT IN ANOTHER PAGE:
-   * - Add: let firstErrorField = null; at start of submit handler
-   * - Add: if (!firstErrorField) firstErrorField = 'refName'; in each validation
-   * - Add: if (firstErrorField) inputRefs.current[firstErrorField]?.focus(); before return
-   * ============================================================
-   */
+  // Verify the whole form from validationRanges via the shared validator. It
+  // surfaces one message, required-wins, and returns the per-field validity map
+  // that feeds the context's setValidation.
   const handleSubmit = async () => {
-    let hasErrors = false;
-    let firstErrorField = null;
-    let firstErrorMessage = null;
-
-    // Clear any previous error messages
     setSubmitErrorMessage('');
 
-    // Create state data object for validation
-    const stateData = {
-      date,
-      disa,
-      partName,
-      dateCode,
-      heatCode,
-      nodularity,
-      graphiteType,
-      countMin,
-      countMax,
-      sizeMin,
-      sizeMax,
-      ferriteMin,
-      ferriteMax,
-      pearliteMin,
-      pearliteMax,
-      carbideMin,
-      carbideMax,
-      remarks
-    };
+    const { ok, message, firstErrorField, fieldStates } = runValidation({
+      validationRanges,
+      fieldMapping,
+      formData,
+      inputRefs
+    });
 
-    // Verify the whole form purely from validationRanges. Each rule's `key` is the
-    // state field (string) or [min, max] pair (range) it governs; mark every governed
-    // field invalid/neutral via the context setValidation.
-    for (const rule of validationRanges) {
-      const key = rule.key;
-      if (!key) continue;
+    Object.entries(fieldStates).forEach(([key, state]) => setValidation(key, state));
 
-      const result = validateField(rule, key, stateData);
-      const keys = Array.isArray(key) ? key : [key];
-
-      if (!result.isValid) {
-        keys.forEach(k => setValidation(k, false));
-        hasErrors = true;
-        if (!firstErrorField) {
-          firstErrorField = keys[0];
-          firstErrorMessage = result.message;
-        }
-      } else {
-        keys.forEach(k => setValidation(k, null));
-      }
-    }
-
-    if (hasErrors) {
-      const message = firstErrorMessage || 'Enter data in correct format';
+    if (!ok) {
       setSubmitErrorMessage(message);
       toast.error(message);
-
-      // AUTO-NAVIGATION: Focus on the first field that failed validation
-      if (firstErrorField) {
-        inputRefs.current[firstErrorField]?.focus();
-      }
-
+      inputRefs.current[firstErrorField]?.focus();
       return;
     }
 
-    setSubmitErrorMessage('');
 
     try {
       setSubmitLoading(true);
@@ -949,7 +519,7 @@ const MicroStructure = () => {
 
         <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
           <div className="microstructure-field" style={{ maxWidth: '10%', position: 'relative', zIndex: 100 }}>
-            <label>Ins. Date</label>
+            <label>Ins. Date{mark('date')}</label>
             <CustomDatePicker
               ref={el => inputRefs.current.date = el}
               value={date}
@@ -968,7 +538,7 @@ const MicroStructure = () => {
             />
           </div>
           <div className="microstructure-field" style={{ maxWidth: '5%' }}>
-            <label>DISA</label>
+            <label>DISA{mark('disa')}</label>
             <DisaDropdown
               ref={el => inputRefs.current.disa = el}
               value={disa}
@@ -981,55 +551,17 @@ const MicroStructure = () => {
                 transition: 'all 0.3s ease'
               }}
             />
-            {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning || primaryErrorMessage) && (
-              <div style={{
-                marginTop: '0.75rem',
-                display: 'flex',
-                alignItems: 'flex-start'
-              }}>
-                {savePrimaryLoading && (
-                  <InlineLoader 
-                    message="Fetching Date, Disa" 
-                    size="medium" 
-                    variant="primary" 
-                  />
-                )}
-                {showCombinationFound && (
-                  <InlineLoader 
-                    message="Combination found" 
-                    size="medium" 
-                    variant="success" 
-                  />
-                )}
-                {showCombinationAdded && (
-                  <InlineLoader 
-                    message="Combination Added" 
-                    size="medium" 
-                    variant="success" 
-                  />
-                )}
-                {showPrimaryWarning && (
-                  <InlineLoader
-                    message="Save Date, Disa"
-                    size="medium"
-                    variant="danger"
-                  />
-                )}
-                {primaryErrorMessage && (
-                  <InlineLoader
-                    message={primaryErrorMessage}
-                    size="medium"
-                    variant="danger"
-                  />
-                )}
+            {statusInfo && (
+              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'flex-start' }}>
+                <InlineLoader message={statusInfo.message} size="medium" variant={statusInfo.variant} />
               </div>
             )}
           </div>
           <div className="microstructure-field" style={{ maxWidth: '15%' }}>
             <label>&nbsp;</label>
             <LockPrimaryButton
-              onClick={handlePrimarySubmit}
-              disabled={savePrimaryLoading || showCombinationFound || showCombinationAdded || !date || !disa || isPrimarySaved}
+              onClick={savePrimary}
+              disabled={primaryBusy || !date || !disa || isPrimarySaved}
               isLocked={isPrimarySaved}
             />
           </div>
@@ -1039,7 +571,7 @@ const MicroStructure = () => {
       {/* Row 1 — identity + nodularity + graphite type */}
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
         <div className="microstructure-field">
-          <label>Part Name</label>
+          <label>Part Name{mark('partName')}</label>
           <input
             ref={el => inputRefs.current.partName = el}
             type="text"
@@ -1053,7 +585,7 @@ const MicroStructure = () => {
           />
         </div>
         <div className="microstructure-field">
-          <label>Date Code</label>
+          <label>Date Code{mark('dateCode')}</label>
           <input
             ref={el => inputRefs.current.dateCode = el}
             type="text"
@@ -1067,7 +599,7 @@ const MicroStructure = () => {
           />
         </div>
         <div className="microstructure-field">
-          <label>Heat Code</label>
+          <label>Heat Code{mark('heatCode')}</label>
           <input
             ref={el => inputRefs.current.heatCode = el}
             type="text"
@@ -1081,7 +613,7 @@ const MicroStructure = () => {
           />
         </div>
         <div className="microstructure-field">
-          <label>Nodularity %</label>
+          <label>Nodularity %{mark('nodularity')}</label>
           <input
             ref={el => inputRefs.current.nodularity = el}
             type="number"
@@ -1098,7 +630,7 @@ const MicroStructure = () => {
           />
         </div>
         <div className="microstructure-field">
-          <label>Graphite Type</label>
+          <label>Graphite Type{mark('graphiteType')}</label>
           <input
             ref={el => inputRefs.current.graphiteType = el}
             type="text"
@@ -1116,7 +648,7 @@ const MicroStructure = () => {
       {/* Row 2 — count, size, ferrite, pearlite, carbide ranges */}
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
         <div className="microstructure-field">
-          <label>Count (Nos / mm²)</label>
+          <label>Count (Nos / mm²){mark('countMin')}</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.countMin = el}
@@ -1148,7 +680,7 @@ const MicroStructure = () => {
           </div>
         </div>
         <div className="microstructure-field">
-          <label>Size</label>
+          <label>Size{mark('sizeMin')}</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.sizeMin = el}
@@ -1180,7 +712,7 @@ const MicroStructure = () => {
           </div>
         </div>
         <div className="microstructure-field">
-          <label>Ferrite %</label>
+          <label>Ferrite %{mark('ferriteMin')}</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.ferriteMin = el}
@@ -1214,7 +746,7 @@ const MicroStructure = () => {
           </div>
         </div>
         <div className="microstructure-field">
-          <label>Pearlite %</label>
+          <label>Pearlite %{mark('pearliteMin')}</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.pearliteMin = el}
@@ -1248,7 +780,7 @@ const MicroStructure = () => {
           </div>
         </div>
         <div className="microstructure-field">
-          <label>Carbide %</label>
+          <label>Carbide %{mark('carbideMin')}</label>
           <div className="microstructure-range-input">
             <input
               ref={el => inputRefs.current.carbideMin = el}
@@ -1286,7 +818,7 @@ const MicroStructure = () => {
       {/* Row 3 — remarks */}
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
         <div className="microstructure-field" style={{ flex: '0 0 50%', maxWidth: '50%' }}>
-          <label>Remarks *</label>
+          <label>Remarks{mark('remarks')}</label>
           <input
             ref={el => inputRefs.current.remarks = el}
             type="text"

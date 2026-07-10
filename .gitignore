@@ -11,11 +11,9 @@ dist/
 # Logs
 *.log
 
-#Claude
-CLAUDE.md
+#ClaudE
 .claude/
+CLAUDE.md
+Department.md
 DEPLOYMENT.md
-
-package-lock.json
-backend/package-lock.json
-frontend/package-lock.json
+SPOT-Q_Server_Requirements.md

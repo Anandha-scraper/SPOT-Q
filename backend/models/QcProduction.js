@@ -15,7 +15,6 @@ const QcProductionSchema = new mongoose.Schema({
 
     noOfMoulds: {
         type: Number,
-        required: true,
         min: 1
         },
 
@@ -117,16 +116,13 @@ const QcProductionSchema = new mongoose.Schema({
 
     ts: [{
         type: Number,
-        required: true
     }],
     ys: [{
         type: String,
-        required: true,
         trim: true
     }],
     el: [{
         type: String,
-        required: true,
         trim: true
     }],
 

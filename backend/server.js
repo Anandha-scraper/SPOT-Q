@@ -4,12 +4,26 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
+const { assertCookieConfig } = require('./utils/cookie');
 const app = express();
 const PORT = process.env.PORT;
 if (!PORT) {
   console.error(' PORT is not defined in .env — server cannot start.');
   process.exit(1);
 }
+
+// A misconfigured auth cookie fails silently in the browser, so refuse to boot.
+let cookieConfig;
+try {
+  cookieConfig = assertCookieConfig();
+} catch (err) {
+  console.error(`Auth cookie misconfigured: ${err.message}`);
+  process.exit(1);
+}
+
+// Nginx terminates connections on the same host; without this req.ip is the
+// proxy's address and every login audit record reads 127.0.0.1.
+app.set('trust proxy', 'loopback');
 
 
 // 1. Global Middlewa
@@ -147,6 +161,7 @@ app.use('*', (req, res) => res.status(404).json({ success: false, message: 'API 
 // 8. Start
 const server = app.listen(PORT, async () => {
   console.log(`Server active on port ${PORT}`);
+  console.log(`Auth cookie: secure=${cookieConfig.secure}, sameSite=${cookieConfig.sameSite}`);
 });
 
 // Graceful Error Management

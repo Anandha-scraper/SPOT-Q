@@ -7,6 +7,7 @@ const {
 } = require("../utils/cleanupLoginActivity");
 const { hashPassword, comparePassword } = require("../utils/password");
 const { parseDurationMs, getEditWindowMs } = require("../utils/duration");
+const { getAuthCookieOptions } = require("../utils/cookie");
 // Centralized Department List
 const DEPARTMENTS = [
   "Melting",
@@ -63,9 +64,7 @@ exports.login = async (req, res) => {
     const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
     // Set JWT token in httpOnly cookie
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      ...getAuthCookieOptions(),
       maxAge: expiresInMs,
     });
 
@@ -118,11 +117,7 @@ exports.verify = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     // Clear the token cookie
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    });
+    res.clearCookie("token", getAuthCookieOptions());
 
     res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {

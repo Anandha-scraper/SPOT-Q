@@ -7,6 +7,7 @@ import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/Impact.css';
 
@@ -31,6 +32,7 @@ const Impact = () => {
       field: 'Date Code',
       required: true,
       type: 'Text',
+      format: 'dateCode',
       pattern: 'e.g., 6F25'
     },
     {
@@ -40,11 +42,9 @@ const Impact = () => {
     },
     {
       field: 'Observed Value',
-      required: true,
       type: 'NumberArray',
       pattern: 'Individual number inputs (e.g., 12.5 each)',
       min: 0,
-      max: 100
     },
     {
       field: 'Remarks',
@@ -145,159 +145,9 @@ const Impact = () => {
     'remarks': (val) => setValidation('remarks', val)
   };
 
-  const validateField = (rule, mappedFields, formData) => {
-    if (Array.isArray(mappedFields)) {
-      const [minField, maxField] = mappedFields;
-      const minValue = formData[minField];
-      const maxValue = formData[maxField];
-      const minInput = inputRefs?.current?.[minField];
-      const maxInput = inputRefs?.current?.[maxField];
 
-      if ((minInput && minInput.validity && minInput.validity.badInput) ||
-          (maxInput && maxInput.validity && maxInput.validity.badInput)) {
-        return { isValid: false, message: `${rule.field} must contain valid numbers` };
-      }
-
-      if (rule.required) {
-        if (!minValue || !maxValue) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
-      }
-
-      if (minValue && maxValue) {
-        const min = parseFloat(minValue);
-        const max = parseFloat(maxValue);
-
-        if (isNaN(min) || isNaN(max)) {
-          return { isValid: false, message: `${rule.field} must contain valid numbers` };
-        }
-
-        if (min >= max) {
-          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
-        }
-      }
-
-      return { isValid: true };
-    }
-
-    const fieldName = mappedFields;
-    const value = formData[fieldName];
-    const inputElement = inputRefs?.current?.[fieldName];
-
-    if (inputElement && inputElement.validity && inputElement.validity.badInput) {
-      return { isValid: false, message: `${rule.field} must be a valid ${rule.type.toLowerCase()}` };
-    }
-
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
-    }
-
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return { isValid: true };
-    }
-
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        const stringValue = String(value).trim();
-
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'NumberArray':
-        const arrayValue = formData[fieldName];
-
-        if (!Array.isArray(arrayValue)) {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-
-        const nonEmptyValues = arrayValue.filter(val => val !== null && val !== undefined && String(val).trim() !== '');
-
-        if (rule.required && nonEmptyValues.length === 0) {
-          return { isValid: false, message: `${rule.field} must have at least one value` };
-        }
-
-        for (let i = 0; i < nonEmptyValues.length; i++) {
-          const val = nonEmptyValues[i];
-          const num = parseFloat(val);
-
-          if (isNaN(num) || !isFinite(num)) {
-            return { isValid: false, message: `${rule.field} must contain only valid numbers` };
-          }
-
-          if (rule.min !== undefined && num < rule.min) {
-            return { isValid: false, message: `${rule.field} values must be at least ${rule.min}` };
-          }
-          if (rule.max !== undefined && num > rule.max) {
-            return { isValid: false, message: `${rule.field} values must be no more than ${rule.max}` };
-          }
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-
-        if (rule.field === 'Date Code') {
-          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
-          if (!dateCodePattern.test(textValue)) {
-            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
-          }
-        }
-
-        if (rule.maxLength && textValue.length > rule.maxLength) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.maxLength} characters` };
-        }
-        break;
-
-      case 'Select':
-        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
-          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
-        }
-        break;
-
-      case 'Date':
-        if (value && typeof value === 'string' && value.trim() !== '') {
-          const dateValue = new Date(value);
-          if (isNaN(dateValue.getTime())) {
-            return { isValid: false, message: `${rule.field} must be a valid date` };
-          }
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return { isValid: true };
-  };
+  const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+  const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
   const getInputClassName = (validationState) => {
     if (validationState === false) return 'invalid-input';
@@ -369,45 +219,25 @@ const Impact = () => {
   };
 
   const handleSubmit = async () => {
-    let hasErrors = false;
-    let firstErrorField = null;
-    const errorMessages = [];
+    const { ok, message, firstErrorField, fieldStates } = runValidation({
+      validationRanges,
+      fieldMapping,
+      formData,
+      inputRefs
+    });
 
-    for (const rule of validationRanges) {
-      const mappedField = fieldMapping[rule.field];
-      const validationSetter = validationSetters[mappedField];
+    Object.entries(fieldStates).forEach(([key, state]) => validationSetters[key]?.(state));
 
-      if (!mappedField || !validationSetter) {
-        continue;
-      }
+    if (!ok) {
+      setSubmitErrorMessage(message);
+      toast.error(message);
 
-      const result = validateField(rule, mappedField, formData);
-
-      if (!result.isValid) {
-        validationSetter(false);
-        hasErrors = true;
-        errorMessages.push(result.message);
-
-        if (!firstErrorField) {
-          firstErrorField = mappedField;
-        }
+      // The observed-value inputs are keyed by row id, not by the field name.
+      if (firstErrorField === 'observedValues' && observedValues.length > 0) {
+        inputRefs.current[`observedValue_${observedValues[0].id}`]?.focus();
       } else {
-        validationSetter(null);
+        inputRefs.current[firstErrorField]?.focus();
       }
-    }
-
-    if (hasErrors) {
-      setSubmitErrorMessage('Enter data in correct Format');
-      toast.error('Enter data in correct Format');
-
-      if (firstErrorField) {
-        if (firstErrorField === 'observedValues' && observedValues.length > 0) {
-          inputRefs.current[`observedValue_${observedValues[0].id}`]?.focus();
-        } else {
-          inputRefs.current[firstErrorField]?.focus();
-        }
-      }
-
       return;
     }
 
@@ -492,7 +322,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group">
-          <label>Date</label>
+          <label>Date{mark('date')}</label>
 
           <CustomDatePicker
             ref={(el) => inputRefs.current.date = el}
@@ -514,7 +344,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group">
-          <label>Part Name</label>
+          <label>Part Name{mark('partName')}</label>
           <input
             ref={(el) => inputRefs.current.partName = el}
             type="text"
@@ -530,7 +360,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group">
-          <label>Date Code</label>
+          <label>Date Code{mark('dateCode')}</label>
           <input
             ref={(el) => inputRefs.current.dateCode = el}
             type="text"
@@ -546,7 +376,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group">
-          <label>Specification</label>
+          <label>Specification{mark('specification')}</label>
           <input
             ref={(el) => inputRefs.current.specification = el}
             type="text"
@@ -562,7 +392,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group" style={{ gridColumn: 'span 2' }}>
-          <label>Observed Values</label>
+          <label>Observed Values{mark('observedValues')}</label>
           <div style={{
             display: 'flex',
             flexFlow: 'row wrap',
@@ -627,7 +457,7 @@ const Impact = () => {
 
         {}
         <div className="impact-form-group" style={{ gridColumn: '1 / -1' }}>
-          <label>Remarks</label>
+          <label>Remarks{mark('remarks')}</label>
           <input
             ref={(el) => inputRefs.current.remarks = el}
             type="text"

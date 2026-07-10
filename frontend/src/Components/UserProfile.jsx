@@ -584,7 +584,7 @@ const UserProfile = () => {
         </div>
 
         {/* Download Logs */}
-        <div className="up-card">
+        <div className="up-card up-card-download">
           <div className="up-card-head">
             <Download size={16} />
             <span>Download Logs</span>
@@ -686,15 +686,13 @@ const UserProfile = () => {
                   ? `${chart.title} · DMM settings entries per day`
                   : `${chart.title} · entries per day`}
             </span>
-            {(
-              <button
-                className="up-refresh-btn"
-                onClick={fetchEntryStats}
-                title="Refresh"
-              >
-                <RefreshCw size={13} />
-              </button>
-            )}
+            <button
+              className="up-refresh-btn"
+              onClick={isAdmin ? fetchAdminStats : fetchEntryStats}
+              title="Refresh"
+            >
+              <RefreshCw size={13} />
+            </button>
           </div>
           {/* Admin dept checkboxes — hidden for non-admin */}
           {isAdmin && (

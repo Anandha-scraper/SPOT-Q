@@ -9,6 +9,7 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -30,13 +31,12 @@ const Tensile = () => {
     },
     {
       field: 'Date Code',
-      required: true,
       type: 'Text',
+      format: 'dateCode',
       pattern: '5E04 (1 digit, 1 letter, 2 digits)'
     },
     {
       field: 'Heat Code',
-      required: true,
       type: 'Number',
       pattern: 'e.g., 12345'
     },
@@ -125,6 +125,9 @@ const Tensile = () => {
     'Remarks': 'remarks'
   };
 
+  const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+  const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+
   const getCurrentDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -182,113 +185,6 @@ const Tensile = () => {
     return '';
   };
 
-  const validateField = (rule, mappedFields, formData) => {
-    if (Array.isArray(mappedFields)) {
-      const [minField, maxField] = mappedFields;
-      const minValue = formData[minField];
-      const maxValue = formData[maxField];
-
-      if (rule.required) {
-        if (!minValue || !maxValue) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
-      }
-
-      if (minValue && maxValue) {
-        const min = parseFloat(minValue);
-        const max = parseFloat(maxValue);
-
-        if (isNaN(min) || isNaN(max)) {
-          return { isValid: false, message: `${rule.field} must contain valid numbers` };
-        }
-
-        if (min >= max) {
-          return { isValid: false, message: `${rule.field} minimum must be less than maximum` };
-        }
-      }
-
-      return { isValid: true };
-    }
-
-    const fieldName = mappedFields;
-    const value = formData[fieldName];
-
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
-    }
-
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return { isValid: true };
-    }
-
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        const stringValue = String(value).trim();
-
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-
-        if (rule.field === 'Date Code') {
-          const dateCodePattern = /^[0-9][A-Z][0-9]{2}$/;
-          if (!dateCodePattern.test(textValue)) {
-            return { isValid: false, message: `${rule.field} must be in format: 1 digit, 1 letter, 2 digits (e.g., 6F25)` };
-          }
-        }
-        break;
-
-      case 'Select':
-        if (rule.allowedValues && !rule.allowedValues.includes(value)) {
-          return { isValid: false, message: `${rule.field} must be one of: ${rule.allowedValues.join(', ')}` };
-        }
-        break;
-
-      case 'Date':
-        if (value && typeof value === 'string' && value.trim() !== '') {
-          const dateValue = new Date(value);
-          if (isNaN(dateValue.getTime())) {
-            return { isValid: false, message: `${rule.field} must be a valid date` };
-          }
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return { isValid: true };
-  };
 
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
@@ -346,43 +242,23 @@ const Tensile = () => {
   };
 
   const handleSubmit = async () => {
-    let hasErrors = false;
-    let firstErrorField = null;
-
     setSubmitErrorMessage('');
 
-    for (const rule of validationRanges) {
-      const mappedFields = fieldMapping[rule.field];
+    const { ok, message, firstErrorField, fieldStates } = runValidation({
+      validationRanges,
+      fieldMapping,
+      formData,
+      inputRefs
+    });
 
-      if (!mappedFields) continue;
+    Object.entries(fieldStates).forEach(([key, state]) => validationSetters[key]?.(state));
 
-      const result = validateField(rule, mappedFields, formData);
-
-      const setter = validationSetters[mappedFields];
-
-      if (setter) {
-        if (!result.isValid) {
-          setter(false);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = mappedFields;
-        } else {
-          setter(null);
-        }
-      }
-    }
-
-    if (hasErrors) {
-      setSubmitErrorMessage('Fill required Field in Correct format');
-      toast.error('Fill required Field in Correct format');
-
-      if (firstErrorField) {
-        inputRefs.current[firstErrorField]?.focus();
-      }
-
+    if (!ok) {
+      setSubmitErrorMessage(message);
+      toast.error(message);
+      inputRefs.current[firstErrorField]?.focus();
       return;
     }
-
-    setSubmitErrorMessage('');
 
     try {
       setSubmitLoading(true);
@@ -513,7 +389,7 @@ const Tensile = () => {
       <form className="tensile-form-grid" ref={gridRef} onKeyDown={handleArrowKeyDown}>
         { }
         <div className="tensile-form-group">
-          <label>Date Of Inspection</label>
+          <label>Date Of Inspection{mark('dateOfInspection')}</label>
           <CustomDatePicker
             ref={(el) => inputRefs.current.dateOfInspection = el}
             name="dateOfInspection"
@@ -533,7 +409,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Item</label>
+          <label>Item{mark('item')}</label>
           <input
             ref={(el) => inputRefs.current.item = el}
             type="text"
@@ -549,7 +425,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Date Code</label>
+          <label>Date Code{mark('dateCode')}</label>
           <input
             ref={(el) => inputRefs.current.dateCode = el}
             type="text"
@@ -565,7 +441,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Heat Code</label>
+          <label>Heat Code{mark('heatCode')}</label>
           <input
             ref={(el) => inputRefs.current.heatCode = el}
             type="number"
@@ -581,7 +457,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Dia (mm)</label>
+          <label>Dia (mm){mark('dia')}</label>
           <input
             ref={(el) => inputRefs.current.dia = el}
             type="number"
@@ -597,7 +473,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Lo (mm)</label>
+          <label>Lo (mm){mark('lo')}</label>
           <input
             ref={(el) => inputRefs.current.lo = el}
             type="number"
@@ -613,7 +489,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Li (mm)</label>
+          <label>Li (mm){mark('li')}</label>
           <input
             ref={(el) => inputRefs.current.li = el}
             type="number"
@@ -629,7 +505,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Breaking Load (kN)</label>
+          <label>Breaking Load (kN){mark('breakingLoad')}</label>
           <input
             ref={(el) => inputRefs.current.breakingLoad = el}
             type="number"
@@ -645,7 +521,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Yield Load</label>
+          <label>Yield Load{mark('yieldLoad')}</label>
           <input
             ref={(el) => inputRefs.current.yieldLoad = el}
             type="number"
@@ -661,7 +537,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>UTS (N/mm²)</label>
+          <label>UTS (N/mm²){mark('uts')}</label>
           <input
             ref={(el) => inputRefs.current.uts = el}
             type="number"
@@ -677,7 +553,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>YS (N/mm²)</label>
+          <label>YS (N/mm²){mark('ys')}</label>
           <input
             ref={(el) => inputRefs.current.ys = el}
             type="number"
@@ -695,7 +571,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Elongation (%)</label>
+          <label>Elongation (%){mark('elongation')}</label>
           <input
             ref={(el) => inputRefs.current.elongation = el}
             type="number"
@@ -713,7 +589,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Tested By</label>
+          <label>Tested By{mark('testedBy')}</label>
           <input
             ref={(el) => inputRefs.current.testedBy = el}
             type="text"
@@ -721,7 +597,7 @@ const Tensile = () => {
             value={formData.testedBy}
             onChange={handleChange}
             onKeyDown={e => handleKeyDown(e, 'testedBy')}
-            placeholder="e.g: John Doe"
+            placeholder="e.g: Kumaran"
             autoComplete="off"
             disabled={!isDateSelected}
             className={getInputClassName('testedBy', testedByValid)}
@@ -729,7 +605,7 @@ const Tensile = () => {
         </div>
 
         <div className="tensile-form-group">
-          <label>Remarks</label>
+          <label>Remarks{mark('remarks')}</label>
           <input
             ref={(el) => inputRefs.current.remarks = el}
             type="text"

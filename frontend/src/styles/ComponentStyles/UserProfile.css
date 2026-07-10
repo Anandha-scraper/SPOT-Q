@@ -9,17 +9,17 @@
 ================================================================ */
 
 /* ── Page shell ── */
+/* Fills the dashboard content box so the last card (chart) can stretch flush to
+   the bottom. 4rem = the container's 2rem top + 2rem bottom padding (laptops). */
 .up-page {
     width: 100%;
     margin: 0 auto;
-    padding: 0.75rem;
+    padding: clamp(0.5rem, 0.9vw, 0.875rem);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 0.875rem;
-    min-height: calc(
-        100vh - 12rem
-    ); /* fills viewport minus dashboard padding + gaps */
+    gap: clamp(0.6rem, 0.9vw, 0.875rem);
+    min-height: calc(100vh - 4rem);
 }
 
 /* ── Identity Strip ── */
@@ -262,18 +262,15 @@
     min-width: 33vw; /* ≈ 480px @ 1440px */
 }
 
-.up-tbl.admin {
-    min-width: 40vw; /* ≈ 576px @ 1440px — 5-col admin view (# | Report | Date | Range | Time) */
-}
-
-/* Report column in admin download log — slightly muted, truncates gracefully */
-.up-tbl-report-cell {
+/* Report column in admin download log — slightly muted, truncates gracefully.
+   Scoped through tbody td so it wins on specificity without !important. */
+.up-tbl tbody td.up-tbl-report-cell {
     max-width: 16vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #4a8896;
-    font-weight: 600 !important;
+    font-weight: 600;
 }
 
 .up-tbl thead th {
@@ -351,13 +348,22 @@
 }
 
 /* ── Activity chart ── */
+/* Chart card grows to absorb the leftover page height so the layout sits flush
+   with the bottom of the viewport (fitted), same as the admin view. */
+.up-card-chart {
+    flex: 1;
+    min-height: 0;
+}
+
+/* The canvas fills the grown card; clamp is only the floor so it never collapses
+   too small on short laptop screens. */
 .up-chart {
     flex: 1;
-    min-height: 22vh; /* ≈ 198px @ 900px tall */
+    min-height: clamp(170px, 23vh, 250px);
     position: relative;
 }
 .up-chart.is-admin {
-    min-height: 30vh; /* ≈ 270px @ 900px tall */
+    min-height: clamp(220px, 32vh, 330px);
 }
 
 /* ── Admin dept trend checkboxes ── */
@@ -444,12 +450,6 @@
     );
     min-height: 10vh;
     opacity: 0.55;
-}
-
-/* Chart card stretches to fill leftover page height */
-.up-card-chart {
-    flex: 1;
-    min-height: 0;
 }
 
 .up-chart-msg {

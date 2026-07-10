@@ -7,6 +7,8 @@ import { useToast } from '../../Components/alert';
 import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
@@ -28,64 +30,63 @@ const QcProductionDetails = () => {
     },
     {
       field: 'No. of Moulds',
-      required: true,
       type: 'Number',
       min: 1
     },
     {
       field: 'C % (Carbon)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Si % (Silicon)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Mn % (Manganese)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'P % (Phosphorus)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'S % (Sulfur)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Mg % (Magnesium)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Cu % (Copper)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
       field: 'Cr % (Chromium)',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
-      max: 100,
       unit: '%'
     },
     {
@@ -101,6 +102,7 @@ const QcProductionDetails = () => {
     {
       field: 'Graphite Type',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0
     },
     {
@@ -116,6 +118,7 @@ const QcProductionDetails = () => {
     {
       field: 'Hardness BHN',
       type: 'Number Range',
+      requireMinForMax: true,
       min: 0,
       unit: 'BHN'
     },
@@ -123,15 +126,14 @@ const QcProductionDetails = () => {
       field: 'TS (Tensile Strength)',
       type: 'Dynamic Array',
       min: 0,
+      required:false,
       unit: 'MPa',
-      required: false
     },
     {
       field: 'YS (Yield Strength)',
       type: 'Dynamic Range Array',
       min: 0, 
       unit: 'MPa',
-      required: false
     },
     {
       field: 'EL (Elongation)',
@@ -344,6 +346,10 @@ const QcProductionDetails = () => {
 
   const submitButtonRef = useRef(null);
   const inputRefs = useRef({});
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
+
+  const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+  const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
   const getInputClassName = (validationState) => {
     if (validationState === false) return 'invalid-input';
@@ -355,188 +361,6 @@ const QcProductionDetails = () => {
     return !isNaN(parseFloat(value)) && isFinite(value);
   };
 
-  const validateField = (rule, mappedFields, formData) => {
-    if (Array.isArray(mappedFields)) {
-      const [minField, maxField] = mappedFields;
-      const minStr = (formData[minField] ?? '').toString().trim();
-      const maxStr = (formData[maxField] ?? '').toString().trim();
-      const hasMin = minStr !== '';
-      const hasMax = maxStr !== '';
-
-      // Both empty → omit the field (unless explicitly required).
-      if (!hasMin && !hasMax) {
-        if (rule.required) {
-          return { isValid: false, message: `${rule.field} is required`, fields: [minField, maxField] };
-        }
-        return { isValid: true };
-      }
-
-      // A single value must be entered in the Min box.
-      if (!hasMin && hasMax) {
-        return { isValid: false, message: `${rule.field}: enter the minimum value`, fields: [minField] };
-      }
-
-      const min = parseFloat(minStr);
-      if (isNaN(min) || !isFinite(min)) {
-        return { isValid: false, message: `${rule.field} must contain valid numbers`, fields: [minField] };
-      }
-      if (rule.min !== undefined && min < rule.min) {
-        return { isValid: false, message: `${rule.field} must be at least ${rule.min}`, fields: [minField] };
-      }
-      if (rule.max !== undefined && min > rule.max) {
-        return { isValid: false, message: `${rule.field} must be no more than ${rule.max}`, fields: [minField] };
-      }
-
-      // Min only → store as a single value.
-      if (!hasMax) {
-        return { isValid: true };
-      }
-
-      // Both entered → validate max bounds and min < max.
-      const max = parseFloat(maxStr);
-      if (isNaN(max) || !isFinite(max)) {
-        return { isValid: false, message: `${rule.field} must contain valid numbers`, fields: [maxField] };
-      }
-      if (rule.min !== undefined && max < rule.min) {
-        return { isValid: false, message: `${rule.field} must be at least ${rule.min}`, fields: [maxField] };
-      }
-      if (rule.max !== undefined && max > rule.max) {
-        return { isValid: false, message: `${rule.field} must be no more than ${rule.max}`, fields: [maxField] };
-      }
-      if (min >= max) {
-        return { isValid: false, message: `${rule.field} minimum must be less than maximum`, fields: [minField, maxField] };
-      }
-
-      return { isValid: true };
-    }
-
-    const fieldName = mappedFields;
-    const value = formData[fieldName];
-
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
-    }
-
-    if (!value || (typeof value === 'string' && value.trim() === '')) {
-      return { isValid: true };
-    }
-
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        const stringValue = String(value).trim();
-
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-        break;
-
-      case 'Date':
-        if (value && typeof value === 'string' && value.trim() !== '') {
-          const dateValue = new Date(value);
-          if (isNaN(dateValue.getTime())) {
-            return { isValid: false, message: `${rule.field} must be a valid date` };
-          }
-        }
-        break;
-
-      case 'Dynamic Array':
-        if (rule.required === false) {
-          const hasAnyValue = Array.isArray(value) && value.some(item => item.value && item.value.trim() !== '');
-          if (!hasAnyValue) {
-            break;
-          }
-        }
-        if (!Array.isArray(value) || value.length === 0) {
-          return { isValid: false, message: `${rule.field} requires at least one value` };
-        }
-        for (let i = 0; i < value.length; i++) {
-          if (rule.required === false && (!value[i].value || value[i].value.trim() === '')) {
-            continue;
-          }
-          if (!value[i].value || value[i].value.trim() === '') {
-            return { isValid: false, message: `${rule.field} value ${i + 1} is required` };
-          }
-          const numVal = parseFloat(value[i].value);
-          if (isNaN(numVal) || !isFinite(numVal)) {
-            return { isValid: false, message: `${rule.field} value ${i + 1} must be a valid number` };
-          }
-          if (rule.min !== undefined && numVal < rule.min) {
-            return { isValid: false, message: `${rule.field} value ${i + 1} must be at least ${rule.min}` };
-          }
-        }
-        break;
-
-      case 'Dynamic Range Array':
-        if (rule.required === false) {
-          const hasAnyValue = Array.isArray(value) && value.some(item =>
-            (item.min && item.min.trim() !== '') || (item.max && item.max.trim() !== '')
-          );
-          if (!hasAnyValue) {
-            break;
-          }
-        }
-        if (!Array.isArray(value) || value.length === 0) {
-          return { isValid: false, message: `${rule.field} requires at least one value` };
-        }
-        for (let i = 0; i < value.length; i++) {
-          const item = value[i];
-          if (rule.required === false && (!item.min || item.min.trim() === '') && (!item.max || item.max.trim() === '')) {
-            continue;
-          }
-          if (!item.min || item.min.trim() === '' || !item.max || item.max.trim() === '') {
-            return { isValid: false, message: `${rule.field} value ${i + 1} min and max are required` };
-          }
-          const minVal = parseFloat(item.min);
-          const maxVal = parseFloat(item.max);
-          if (isNaN(minVal) || isNaN(maxVal) || !isFinite(minVal) || !isFinite(maxVal)) {
-            return { isValid: false, message: `${rule.field} value ${i + 1} must contain valid numbers` };
-          }
-          if (maxVal !== 0 && minVal >= maxVal) {
-            return { isValid: false, message: `${rule.field} value ${i + 1} min must be less than max` };
-          }
-          if (rule.min !== undefined && (minVal < rule.min || maxVal < rule.min)) {
-            return { isValid: false, message: `${rule.field} value ${i + 1} must be at least ${rule.min}` };
-          }
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return { isValid: true };
-  };
 
   useEffect(() => {
     const fetchPartNames = async () => {
@@ -677,105 +501,35 @@ const QcProductionDetails = () => {
     }
   };
 
-  const findNearestInput = (currentInput, inputs, direction) => {
-    const currentRect = currentInput.getBoundingClientRect();
-    const currentCenterX = currentRect.left + currentRect.width / 2;
-    const currentCenterY = currentRect.top + currentRect.height / 2;
-
-    let bestMatch = null;
-    let bestScore = Infinity;
-
-    inputs.forEach((input) => {
-      if (input === currentInput) return;
-
-      const rect = input.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      const deltaX = centerX - currentCenterX;
-      const deltaY = centerY - currentCenterY;
-
-      let isValidDirection = false;
-      let score = Infinity;
-
-      switch (direction) {
-        case 'ArrowUp':
-          if (deltaY < -10) {
-            isValidDirection = true;
-            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
-          }
-          break;
-        case 'ArrowDown':
-          if (deltaY > 10) {
-            isValidDirection = true;
-            score = Math.abs(deltaY) + Math.abs(deltaX) * 0.5;
-          }
-          break;
-        case 'ArrowLeft':
-          if (deltaX < -5) {
-            isValidDirection = true;
-            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
-            score = Math.abs(deltaX) + rowPenalty;
-          }
-          break;
-        case 'ArrowRight':
-          if (deltaX > 5) {
-            isValidDirection = true;
-            const rowPenalty = Math.abs(deltaY) > 30 ? Math.abs(deltaY) * 10 : 0;
-            score = Math.abs(deltaX) + rowPenalty;
-          }
-          break;
-      }
-
-      if (isValidDirection && score < bestScore) {
-        bestScore = score;
-        bestMatch = input;
-      }
-    });
-
-    return bestMatch;
-  };
-
+  // Enter advances in DOM order; arrows are delegated to the shared spatial hook.
   const handleKeyDown = (e) => {
-    const form = e.target.form;
-    const inputs = Array.from(form.querySelectorAll('input, textarea'));
-    const currentIndex = inputs.indexOf(e.target);
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
 
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const nextInput = inputs[currentIndex + 1];
+    const inputs = Array.from(e.target.form.querySelectorAll('input, textarea'));
+    const next = inputs[inputs.indexOf(e.target) + 1];
+    if (next) next.focus();
+    else submitButtonRef.current?.focus();
+  };
 
-      if (nextInput) {
-        nextInput.focus();
-      } else {
-        if (submitButtonRef.current) {
-          submitButtonRef.current.focus();
-        }
-      }
-      return;
-    }
+  // Wraps useArrowNavigation to keep this form's date-picker open/close behaviour
+  // and its "ArrowDown at the last field focuses Submit" fallback.
+  const handleFormArrowKeyDown = (e) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      e.preventDefault();
+    if (e.target.classList.contains('date-input')) inputRefs.current.date?.close();
 
-      if (e.target.classList.contains('date-input') && inputRefs.current.date) {
-        inputRefs.current.date.close();
-      }
+    const before = document.activeElement;
+    handleArrowKeyDown(e);
+    const after = document.activeElement;
 
-      const targetInput = findNearestInput(e.target, inputs, e.key);
-
-      if (targetInput) {
-        targetInput.focus();
-        if (targetInput.classList.contains('date-input') && inputRefs.current.date) {
-          inputRefs.current.date.open();
-        }
-      } else if (e.key === 'ArrowDown') {
-        if (submitButtonRef.current) {
-          submitButtonRef.current.focus();
-        }
-      }
+    if (after !== before) {
+      if (after?.classList.contains('date-input')) inputRefs.current.date?.open();
+    } else if (e.key === 'ArrowDown') {
+      submitButtonRef.current?.focus();
     }
   };
+
 
   const handleSubmitButtonKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -797,44 +551,24 @@ const QcProductionDetails = () => {
   };
 
   const handleSubmit = async () => {
-    let hasErrors = false;
-    let firstErrorField = null;
+    setSubmitErrorMessage('');
 
-    for (const rule of validationRanges) {
-      const mappedFields = fieldMapping[rule.field];
+    // The three Dynamic Array rules (TS/YS/EL) are row-indexed and validated by
+    // the bespoke loops below, so they are skipped here.
+    const { ok, message, firstErrorField: firstMappedError, fieldStates } = runValidation({
+      validationRanges,
+      fieldMapping,
+      formData,
+      inputRefs,
+      skip: ['TS (Tensile Strength)', 'YS (Yield Strength)', 'EL (Elongation)']
+    });
 
-      if (!mappedFields) continue;
+    Object.entries(fieldStates).forEach(([key, state]) => validationSetters[key]?.(state));
 
-      const result = validateField(rule, mappedFields, formData);
+    let hasErrors = !ok;
+    let firstErrorField = firstMappedError;
+    let missingRequired = !ok && message === MESSAGE_REQUIRED;
 
-      if (Array.isArray(mappedFields)) {
-        const [minField, maxField] = mappedFields;
-        const minSetter = validationSetters[minField];
-        const maxSetter = validationSetters[maxField];
-
-        if (!result.isValid) {
-          const badFields = result.fields || [minField, maxField];
-          if (minSetter) minSetter(badFields.includes(minField) ? false : null);
-          if (maxSetter) maxSetter(badFields.includes(maxField) ? false : null);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = badFields[0];
-        } else {
-          if (minSetter) minSetter(null);
-          if (maxSetter) maxSetter(null);
-        }
-      } else {
-        const setter = validationSetters[mappedFields];
-        if (setter) {
-          if (!result.isValid) {
-            setter(false);
-            hasErrors = true;
-            if (!firstErrorField) firstErrorField = mappedFields;
-          } else {
-            setter(null);
-          }
-        }
-      }
-    }
 
     const tsRule = validationRanges.find(r => r.field === 'TS (Tensile Strength)');
     if (tsRule && formData.tsValues && Array.isArray(formData.tsValues)) {
@@ -1007,10 +741,10 @@ const QcProductionDetails = () => {
     }
 
     if (hasErrors) {
-      if (!submitErrorMessage) {
-        setSubmitErrorMessage('Enter data in correct Format');
-      }
-      toast.error(submitErrorMessage || 'Enter data in correct Format');
+      // Required-wins: an empty required field is reported before any bad format.
+      const finalMessage = missingRequired ? MESSAGE_REQUIRED : MESSAGE_FORMAT;
+      setSubmitErrorMessage(finalMessage);
+      toast.error(finalMessage);
 
       if (firstErrorField) {
         inputRefs.current[firstErrorField]?.focus();
@@ -1117,10 +851,10 @@ const QcProductionDetails = () => {
         </div>
       </div>
 
-      <form className="qcproduction-form-grid">
+      <form className="qcproduction-form-grid" ref={gridRef} onKeyDown={handleFormArrowKeyDown}>
 
             <div className="qcproduction-form-group">
-              <label>Date</label>
+              <label>Date{mark('date')}</label>
               <CustomDatePicker
                 ref={(el) => inputRefs.current.date = el}
                 name="date"
@@ -1140,7 +874,7 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group part-name-autocomplete" style={{ position: 'relative' }}>
-              <label>Part Name</label>
+              <label>Part Name{mark('partName')}</label>
               <input
                 ref={(el) => inputRefs.current.partName = el}
                 type="text"
@@ -1191,7 +925,7 @@ const QcProductionDetails = () => {
             </div>
 
             <div className="qcproduction-form-group">
-              <label>No. of Moulds</label>
+              <label>No. of Moulds{mark('noOfMoulds')}</label>
               <input
                 ref={(el) => inputRefs.current.noOfMoulds = el}
                 type="text"

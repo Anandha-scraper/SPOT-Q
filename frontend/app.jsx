@@ -87,7 +87,11 @@ const App = () => {
   // Block rendering until the backend session has been verified on startup,
   // so protected pages never flash from stale localStorage.
   if (loading || initializing) {
-    return <Loader />;
+    return (
+      <div className="logout-loader-overlay">
+        <Loader />
+      </div>
+    );
   }
 
   if (logoutLoading) {
@@ -97,7 +101,6 @@ const App = () => {
       </div>
     );
   }
-
   return (
     <BrowserRouter
       future={{

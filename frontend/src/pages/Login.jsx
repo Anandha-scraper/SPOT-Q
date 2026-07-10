@@ -6,7 +6,7 @@ import { API_ENDPOINTS } from "../config/api";
 import "../styles/PageStyles/Login.css";
 
 const Login = () => {
-  const { setUser, setExpiresAt } = useContext(AuthContext);
+  const { setUser, setExpiresAt,setEditWindowMs } = useContext(AuthContext);
 
   // Login state
   const [employeeId, setEmployeeId] = useState("");
@@ -103,10 +103,12 @@ const Login = () => {
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('expiresAt', data.expiresAt);
         localStorage.setItem('expiresAtReadable', readableExpiry);
+        localStorage.setItem('editWindowMs', String(data.editWindowMs ?? 0));
         
         // Update AuthContext state directly - triggers React Router navigation
         setUser(data.user);
         setExpiresAt(data.expiresAt);
+        setEditWindowMs(data.editWindowMs ?? 0);
       } else {
         setIsLoading(false);
         setError(data.message || 'Login failed. Please check your credentials.');

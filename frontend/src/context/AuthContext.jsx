@@ -194,6 +194,7 @@ export const AuthProvider = ({ children }) => {
         logoutLoading,
         initializing,
         editWindowMs,
+        setEditWindowMs,
         login,
         logout,
         clearSession,

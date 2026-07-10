@@ -364,7 +364,10 @@
 }
 .up-chart.is-admin {
     min-height: clamp(220px, 32vh, 330px);
-}
+    max-height: clamp(220px, 32vh, 330px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
 
 /* ── Admin dept trend checkboxes ── */
 .up-dept-checks {

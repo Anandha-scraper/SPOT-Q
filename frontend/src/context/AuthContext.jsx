@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
         return (storedUser && storedUser !== 'undefined') ? JSON.parse(storedUser) : null;
     });
-    
+
     const [expiresAt, setExpiresAt] = useState(localStorage.getItem('expiresAt') || null);
     const [editWindowMs, setEditWindowMs] = useState(() => {
         const stored = localStorage.getItem('editWindowMs');
@@ -36,15 +36,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('editWindowMs');
         localStorage.removeItem('token');
         // Best-effort cookie clear on the backend (don't block on it).
-        fetch(API_ENDPOINTS.logout, { method: 'POST', credentials: 'include' }).catch(() => {});
+        fetch(API_ENDPOINTS.logout, { method: 'POST', credentials: 'include' }).catch(() => { });
     }, []);
 
     // Logout function: Clears all memory and calls backend to clear cookie
     const logout = useCallback(async () => {
         console.warn("Session ended. Clearing data and logging out...");
-        
+
         setLogoutLoading(true);
-        
+
         // Call backend to clear cookie
         try {
             await fetch(API_ENDPOINTS.logout, {
@@ -54,10 +54,10 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Logout error:', error);
         }
-        
+
         // Wait for minimum 2 seconds to show loader
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         setUser(null);
         setExpiresAt(null);
         setEditWindowMs(0);
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('expiresAtReadable');
         localStorage.removeItem('editWindowMs');
         localStorage.removeItem('token'); // Clean up old token if exists
-        
+
         setLogoutLoading(false);
         // Navigation happens automatically via React Router when user becomes null
     }, []);
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
     // Protected routes are gated on `initializing`, so nothing renders until this
     // resolves — closing the "stale localStorage renders as logged-in" hole.
     useEffect(() => {
-        const verifySession = async () => {
+        const verifySession = async ({ silent = false } = {}) => {
             // Nothing restored from localStorage => nothing to verify.
             if (!user) {
                 setInitializing(false);
@@ -126,6 +126,15 @@ export const AuthProvider = ({ children }) => {
         };
 
         verifySession();
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') verifySession({ silent: true });
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        window.addEventListener('focus', onVisible);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible);
+            window.removeEventListener('focus', onVisible);
+        };
     }, []); // Only run on mount
 
     // Login function: Calls backend and saves the dynamic expiry time
@@ -151,7 +160,7 @@ export const AuthProvider = ({ children }) => {
                     second: '2-digit',
                     hour12: true
                 });
- 
+
                 // Save to State
                 setUser(data.user);
                 setExpiresAt(data.expiresAt);

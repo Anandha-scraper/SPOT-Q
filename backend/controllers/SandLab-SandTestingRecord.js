@@ -1,4 +1,5 @@
 const SandTestingRecord = require('../models/SandLab-SandTestingRecord');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. DATA RETRIEVAL **/
@@ -29,7 +30,7 @@ exports.getAllEntries = async (req, res) => {
             data: entries
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -156,7 +157,7 @@ exports.createTableEntry = async (req, res) => {
             message: `Table ${tableNum} recorded for ${targetDate}` 
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 

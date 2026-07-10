@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
 const { assertCookieConfig } = require('./utils/cookie');
+const { describeMongooseError } = require('./utils/mongooseError');
 const app = express();
 const PORT = process.env.PORT;
 if (!PORT) {
@@ -153,7 +154,17 @@ app.get('/api/health', (req, res) => {
 // Global Error Handlers
 app.use((err, req, res, next) => {
   console.error(`Error in ${req.method} ${req.url}:`, err.stack);
-  res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' });
+  if (res.headersSent) return next(err);
+
+  // Only errors thrown deliberately with a status carry a message safe to show.
+  // Everything else goes through describeMongooseError, which never echoes
+  // err.message — raw Mongoose text must not reach the user.
+  if (err.status) {
+    return res.status(err.status).json({ success: false, message: err.message });
+  }
+
+  const { status, message, fields } = describeMongooseError(err);
+  res.status(status).json({ success: false, message, fields });
 });
 
 app.use('*', (req, res) => res.status(404).json({ success: false, message: 'API Route not found' }));

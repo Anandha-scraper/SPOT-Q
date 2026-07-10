@@ -1,4 +1,5 @@
 const Impact = require('../models/Impact');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 // 1. SYSTEM INITIALIZATION & METADATA
@@ -98,7 +99,7 @@ exports.createEntry = async (req, res) => {
 
         res.status(201).json({ success: true, data: document.entries[document.entries.length - 1] });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -148,7 +149,7 @@ exports.updateEntry = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating impact entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -160,6 +161,6 @@ exports.deleteEntry = async (req, res) => {
         res.status(200).json({ success: true, message: 'Impact entry deleted successfully.' });
     } catch (error) {
         console.error('Error deleting impact entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

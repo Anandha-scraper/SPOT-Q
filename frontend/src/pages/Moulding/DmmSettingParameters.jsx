@@ -5,6 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
+import { buildSubmitError } from '../../utils/submitError';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
 const initialRow = {
@@ -641,7 +642,7 @@ const DmmSettingParameters = () => {
     } catch (err) {
       console.error('Save All error:', err);
       showSubmitMessage(
-        'Failed to Save: ' + (err.response?.data?.message || err.message || 'Unknown error'),
+        buildSubmitError(err.response?.data),
         'danger',
         5000
       );

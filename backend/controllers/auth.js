@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const { sendError } = require("../utils/mongooseError");
 const LoginActivity = require("../models/LoginActivity");
 const { generateToken } = require("../utils/jwt");
 const {
@@ -191,9 +192,7 @@ exports.createEmployee = async (req, res) => {
         .status(400)
         .json({ success: false, message: errors.join(", ") });
     }
-    res
-      .status(500)
-      .json({ success: false, message: error.message || "Creation failed." });
+    sendError(res, error);
   }
 };
 

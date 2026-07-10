@@ -9,6 +9,7 @@ import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
 const QcProductionDetails = () => {
@@ -818,13 +819,14 @@ const QcProductionDetails = () => {
           inputRefs.current.date?.focus();
         }, 1600);
       } else {
-        setSubmitErrorMessage('Technical error. Please try again.');
-        toast.error('Technical error. Please try again.');
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitErrorMessage(message);
+        toast.error(message);
       }
     } catch (error) {
       setSubmitLoading(false);
-      setSubmitErrorMessage('Technical error. Please try again.');
-      toast.error('Technical error. Please try again.');
+      setSubmitErrorMessage(FALLBACK_SUBMIT_ERROR);
+      toast.error(FALLBACK_SUBMIT_ERROR);
     }
   };
 

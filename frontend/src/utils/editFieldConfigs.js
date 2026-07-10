@@ -1,11 +1,15 @@
 // Field configs that drive the generic EditEntryModal for each report page.
-// Each field: { name, label, type: 'text'|'number'|'select'|'textarea', options?, step? }
+// Each field: { name, label, type, options?, step? }
+//   type: 'text' | 'number' | 'select' | 'textarea'
+//       | 'numberList'  — addable rows of one number; { max?, serialize?: 'csv' }
+//       | 'rangeList'   — addable rows of a min/max pair, stored as 'min - max'; { max? }
 // Dotted names (e.g. 'item.it1') are read/written as nested objects in the payload.
 // Only listed fields are editable; anything omitted is left untouched by the backend.
 
 import { API_ENDPOINTS } from '../config/api';
 
 const DISA_OPTIONS = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
+const FC_NO_OPTIONS = ['1', '2', '3', '4', 'H1', 'H2'];
 
 export const processEditConfig = {
     endpoint: API_ENDPOINTS.process,
@@ -29,7 +33,7 @@ export const processEditConfig = {
         { name: 'timeOfPouring', label: 'Time of Pouring', type: 'text' },
         { name: 'ppCode', label: 'PP Code', type: 'text' },
         { name: 'treatmentNo', label: 'Treatment No', type: 'text' },
-        { name: 'fcNo', label: 'F/C No', type: 'text' },
+        { name: 'fcNo', label: 'F/C No', type: 'select', options: FC_NO_OPTIONS },
         { name: 'heatNo', label: 'Heat No', type: 'text' },
         { name: 'conNo', label: 'Con No', type: 'text' },
         { name: 'tappingTime', label: 'Tapping Time', type: 'text' },
@@ -113,8 +117,8 @@ export const impactEditConfig = {
         { name: 'partName', label: 'Part Name', type: 'text' },
         { name: 'dateCode', label: 'Date Code', type: 'text' },
         { name: 'specification', label: 'Specification', type: 'text' },
-        // Stored as a comma-separated list ("12.5, 34.6"), not a single number.
-        { name: 'observedValue', label: 'Observed Value', type: 'text' },
+        // Stored as a comma-separated list ("12.5, 34.6"); edited as one row per value.
+        { name: 'observedValue', label: 'Observed Value', type: 'numberList', serialize: 'csv' },
         { name: 'remarks', label: 'Remarks', type: 'textarea' }
     ]
 };
@@ -143,7 +147,7 @@ export const microTensileEditConfig = {
     endpoint: API_ENDPOINTS.microTensile,
     title: 'Edit Micro Tensile Entry',
     fields: [
-        { name: 'disa', label: 'DISA', type: 'text' },
+        { name: 'disa', label: 'DISA', type: 'select', options: DISA_OPTIONS },
         { name: 'item.it1', label: 'Item (it1)', type: 'text' },
         { name: 'item.it2', label: 'Item (it2)', type: 'text' },
         { name: 'dateCode', label: 'Date Code', type: 'text' },
@@ -164,7 +168,7 @@ export const microStructureEditConfig = {
     endpoint: API_ENDPOINTS.microStructure,
     title: 'Edit Micro Structure Entry',
     fields: [
-        { name: 'disa', label: 'DISA', type: 'text' },
+        { name: 'disa', label: 'DISA', type: 'select', options: DISA_OPTIONS },
         { name: 'partName', label: 'Part Name', type: 'text' },
         { name: 'dateCode', label: 'Date Code', type: 'text' },
         { name: 'heatCode', label: 'Heat Code', type: 'text' },
@@ -185,8 +189,8 @@ export const microStructureEditConfig = {
 };
 
 // QcProduction is a flat model; the report holds from/to fields directly, and the
-// update endpoint accepts them as-is. ts/ys/el arrays are intentionally not edited
-// here (preserved by the backend when omitted).
+// update endpoint accepts them as-is. ts/ys/el are variable-length arrays capped at
+// 4 rows, matching the entry form — ts holds numbers, ys/el hold 'min - max' strings.
 export const qcProductionEditConfig = {
     endpoint: API_ENDPOINTS.qcReports,
     title: 'Edit QC Production Entry',
@@ -216,6 +220,9 @@ export const qcProductionEditConfig = {
         { name: 'pearlite', label: 'Pearlite', type: 'number' },
         { name: 'ferrite', label: 'Ferrite', type: 'number' },
         { name: 'hardnessBHNFrom', label: 'Hardness BHN From', type: 'number' },
-        { name: 'hardnessBHNTo', label: 'Hardness BHN To', type: 'number' }
+        { name: 'hardnessBHNTo', label: 'Hardness BHN To', type: 'number' },
+        { name: 'ts', label: 'TS', type: 'numberList', max: 4 },
+        { name: 'ys', label: 'YS', type: 'rangeList', max: 4 },
+        { name: 'el', label: 'EL', type: 'rangeList', max: 4 }
     ]
 };

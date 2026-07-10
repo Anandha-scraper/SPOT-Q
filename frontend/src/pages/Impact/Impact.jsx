@@ -8,6 +8,7 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
+import { buildSubmitError } from '../../utils/submitError';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/Impact/Impact.css';
 
@@ -275,7 +276,14 @@ const Impact = () => {
         },
         body: JSON.stringify(payload)
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitErrorMessage(message);
+        toast.error(message);
+        return;
+      }
 
       if (data.success) {
         toast.success('Entry saved successfully.');

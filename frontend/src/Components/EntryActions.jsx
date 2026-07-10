@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EditEntryModal from './EditEntryModal';
+import { formatRemaining } from '../utils/formatDateTime';
+import '../styles/ComponentStyles/EntryActions.css';
+
+// Below this much time left, tick every second so the countdown reads accurately.
+const FINE_TICK_THRESHOLD_MS = 2 * 60 * 1000;
 
 // Per-row edit/delete actions for report pages.
 //
@@ -19,17 +25,47 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
     const [showEdit, setShowEdit] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [now, setNow] = useState(() => Date.now());
+    // Anchor rect of the pencil, captured on hover. The tooltip is portaled to
+    // <body> because the report table clips it: `.reusable-table td` sets
+    // `overflow: hidden` and the container `overflow-x: auto`, so an absolutely
+    // positioned bubble inside the cell is never visible.
+    const [tooltipAnchor, setTooltipAnchor] = useState(null);
+    const pencilRef = useRef(null);
 
-    const isOwnerWithinWindow =
-        entry?.createdBy && user?.id &&
-        String(entry.createdBy) === String(user.id) &&
-        entry?.createdAt &&
-        (Date.now() - new Date(entry.createdAt).getTime() <= editWindowMs);
+    const createdAtMs = entry?.createdAt ? new Date(entry.createdAt).getTime() : null;
+    const isOwner =
+        entry?.createdBy && user?.id && String(entry.createdBy) === String(user.id);
 
+    // null for admins (no limit) and for rows the user doesn't own.
+    const remainingMs =
+        !isAdmin && isOwner && createdAtMs ? editWindowMs - (now - createdAtMs) : null;
+
+    const isOwnerWithinWindow = remainingMs !== null && remainingMs > 0;
     const canEdit = isAdmin || isOwnerWithinWindow;
     const canDelete = isAdmin;
+
+    // Re-render while the window is open so the countdown advances and the pencil
+    // disappears the moment it lapses, without waiting for a page refresh.
+    const tickMs = remainingMs !== null && remainingMs <= FINE_TICK_THRESHOLD_MS ? 1000 : 30000;
+    useEffect(() => {
+        if (!isOwnerWithinWindow) return undefined;
+        const id = setInterval(() => setNow(Date.now()), tickMs);
+        return () => clearInterval(id);
+    }, [isOwnerWithinWindow, tickMs]);
+
     // Rows without a real backend _id (e.g. unsynced localStorage drafts) can't be edited/deleted.
     if ((!canEdit && !canDelete) || !entry?._id) return null;
+
+    const editTooltip = isAdmin
+        ? 'Admin — no time limit'
+        : `Editable for ${formatRemaining(remainingMs)}`;
+
+    const showTooltip = () => {
+        const rect = pencilRef.current?.getBoundingClientRect();
+        if (rect) setTooltipAnchor({ x: rect.left + rect.width / 2, y: rect.top });
+    };
+    const hideTooltip = () => setTooltipAnchor(null);
 
     const handleDelete = async () => {
         setDeleting(true);
@@ -57,12 +93,32 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
     return (
         <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
             {canEdit && (
-                <Pencil
-                    size={18}
-                    style={{ cursor: 'pointer', color: '#3498db' }}
-                    onClick={() => setShowEdit(true)}
-                    aria-label="Edit entry"
-                />
+                <span
+                    ref={pencilRef}
+                    className="entry-action-tooltip-wrapper"
+                    onMouseEnter={showTooltip}
+                    onMouseLeave={hideTooltip}
+                    onFocus={showTooltip}
+                    onBlur={hideTooltip}
+                >
+                    <Pencil
+                        size={18}
+                        style={{ cursor: 'pointer', color: '#3498db' }}
+                        onClick={() => setShowEdit(true)}
+                        aria-label={`Edit entry — ${editTooltip}`}
+                        tabIndex={0}
+                    />
+                    {tooltipAnchor && createPortal(
+                        <span
+                            className="entry-action-tooltip"
+                            role="tooltip"
+                            style={{ left: `${tooltipAnchor.x}px`, top: `${tooltipAnchor.y}px` }}
+                        >
+                            {editTooltip}
+                        </span>,
+                        document.body
+                    )}
+                </span>
             )}
             {canDelete && (
                 <Trash2

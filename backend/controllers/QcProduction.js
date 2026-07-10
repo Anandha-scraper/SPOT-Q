@@ -1,4 +1,5 @@
 const QcProduction = require('../models/QcProduction');
+const { sendError } = require('../utils/mongooseError');
 const { getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM INITIALIZATION **/
@@ -127,7 +128,7 @@ exports.createEntry = async (req, res) => {
             message: 'Entry added to production log.'
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -153,7 +154,7 @@ exports.updateEntry = async (req, res) => {
             message: 'QC production entry updated successfully.'
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -163,6 +164,6 @@ exports.deleteEntry = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'QC production entry deleted successfully.' });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

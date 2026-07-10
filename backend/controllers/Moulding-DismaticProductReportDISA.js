@@ -1,4 +1,5 @@
 const DISA = require('../models/Moulding-DismaticProductReportDISA');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM INITIALIZATION **/
@@ -17,7 +18,7 @@ exports.getDismaticReportByDate = async (req, res) => {
         const report = await ensureDateDocument(DISA, date);
         res.status(200).json({ success: true, data: report ? [report] : [], count: report ? 1 : 0 });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -34,7 +35,7 @@ exports.getDismaticReportsByDateRange = async (req, res) => {
         const reports = await DISA.find({ date: { $gte: start, $lte: end } }).sort({ date: -1 });
         res.status(200).json({ success: true, count: reports.length, data: reports });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -120,7 +121,7 @@ exports.createDismaticReport = async (req, res) => {
         res.status(200).json({ success: true, data: document, message: `${section} updated.` });
 
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -179,10 +180,7 @@ exports.getPrimaryDataByDateShift = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            message: error.message 
-        });
+        sendError(res, error);
     }
 };
 
@@ -256,9 +254,6 @@ exports.savePrimaryData = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(400).json({ 
-            success: false, 
-            message: error.message 
-        });
+        sendError(res, error);
     }
 };

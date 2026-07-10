@@ -1,4 +1,5 @@
 const MeltingLogsheet = require('../models/Melting-MeltingLogsheet');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** Helper: normalize date to UTC start of day **/
@@ -78,7 +79,7 @@ exports.getPrimaryByDate = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -193,7 +194,7 @@ exports.filterByDateRange = async (req, res) => {
 
         res.status(200).json({ success: true, data: flattened });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -274,7 +275,7 @@ exports.createTableEntry = async (req, res) => {
             message: 'Entry saved successfully.'
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -341,7 +342,7 @@ exports.updateEntry = async (req, res) => {
         await req.targetDoc.save();
         res.status(200).json({ success: true, message: 'Melting entry updated successfully.' });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -351,7 +352,7 @@ exports.deleteEntry = async (req, res) => {
         await req.targetDoc.save();
         res.status(200).json({ success: true, message: 'Melting entry deleted successfully.' });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -404,6 +405,6 @@ exports.createOrUpdatePrimary = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

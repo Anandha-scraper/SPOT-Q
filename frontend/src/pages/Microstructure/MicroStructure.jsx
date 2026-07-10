@@ -9,6 +9,7 @@ import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import { API_ENDPOINTS } from '../../config/api';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
@@ -460,13 +461,14 @@ const MicroStructure = () => {
           inputRefs.current.partName?.focus();
         }, 100);
       } else {
-        setSubmitErrorMessage('Technical error');
-        toast.error('Technical error');
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitErrorMessage(message);
+        toast.error(message);
       }
     } catch (error) {
       console.error('Error saving entry:', error);
-      setSubmitErrorMessage('Technical error');
-      toast.error('Technical error');
+      setSubmitErrorMessage(FALLBACK_SUBMIT_ERROR);
+      toast.error(FALLBACK_SUBMIT_ERROR);
     } finally {
       setSubmitLoading(false);
     }

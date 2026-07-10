@@ -1,4 +1,5 @@
 const MicroTensile = require('../models/MicroTensile');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM INITIALIZATION **/
@@ -199,7 +200,7 @@ exports.createEntry = async (req, res) => {
         if (error.errors) {
             console.error('Validation errors:', error.errors);
         }
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -288,7 +289,7 @@ exports.updateEntry = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating micro tensile entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -300,6 +301,6 @@ exports.deleteEntry = async (req, res) => {
         res.status(200).json({ success: true, message: 'MicroTensile entry deleted successfully.' });
     } catch (error) {
         console.error('Error deleting micro tensile entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

@@ -10,6 +10,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
 const Tensile = () => {
@@ -314,20 +315,17 @@ const Tensile = () => {
         try {
           data = JSON.parse(rawResponse);
         } catch (parseError) {
-          throw new Error('Invalid server response');
+          throw new Error(FALLBACK_SUBMIT_ERROR);
         }
       } else {
-        data = { success: false, message: 'Empty response from server' };
+        data = { success: false };
       }
 
-      if (!response.ok) {
-
-        if (response.status === 400) {
-          const errorMessage = data?.message || `Bad Request (${response.status}): Please check your input data format`;
-          throw new Error(errorMessage);
-        } else {
-          throw new Error(data?.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
+      if (!response.ok || !data?.success) {
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitErrorMessage(message);
+        toast.error(message);
+        return;
       }
 
       if (data.success) {

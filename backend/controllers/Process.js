@@ -1,4 +1,5 @@
 const Process = require('../models/Process');
+const { sendError } = require('../utils/mongooseError');
 
 /** 1. SYSTEM INITIALIZATION **/
 
@@ -90,7 +91,7 @@ exports.createEntry = async (req, res) => {
 
     } catch (error) {
         console.error('Error creating/updating process record:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -139,7 +140,7 @@ exports.checkDateDisaEntries = async (req, res) => {
 
     } catch (error) {
         console.error('Error checking date+disa entries:', error);
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -219,7 +220,7 @@ exports.savePrimary = async (req, res) => {
 
     } catch (error) {
         console.error('Error saving primary:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -243,7 +244,7 @@ exports.updateEntry = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating process entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -255,6 +256,6 @@ exports.deleteEntry = async (req, res) => {
         res.status(200).json({ success: true, message: 'Process entry deleted successfully.' });
     } catch (error) {
         console.error('Error deleting process entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

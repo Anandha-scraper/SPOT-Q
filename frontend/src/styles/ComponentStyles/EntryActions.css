@@ -1,0 +1,36 @@
+/* Hover tooltip for the per-row edit icon (remaining edit-window time).
+   Portaled to <body> and positioned `fixed`: the report table clips its cells
+   (`.reusable-table td { overflow: hidden }`), so an in-cell tooltip is invisible.
+   `left`/`top` are set inline from the icon's bounding rect. */
+
+.entry-action-tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.entry-action-tooltip {
+  position: fixed;
+  /* Sit above the icon and centre on it. */
+  transform: translate(-50%, calc(-100% - 10px));
+  padding: 6px 12px;
+  background-color: #1e293b;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 10002;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.entry-action-tooltip::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e293b;
+}

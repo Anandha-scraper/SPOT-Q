@@ -10,8 +10,13 @@ import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import '../../styles/PageStyles/Process/Process.css';
+
+// Number in backend/models/Process.js — a '-' placeholder fails the cast.
+// Every other optional Process field is String or Mixed and accepts '-'.
+const NUMERIC_MODEL_FIELDS = new Set(['quantityOfMoulds']);
 
 export default function ProcessControl() {
   const { isOpen, openModal, closeModal } = useInfoModal();
@@ -798,7 +803,11 @@ export default function ProcessControl() {
 
         const isRequired = rule.required === true;
         if (!isRequired && (!payload[mappedField] || payload[mappedField].toString().trim() === '')) {
-          payload[mappedField] = '-';
+          if (NUMERIC_MODEL_FIELDS.has(mappedField)) {
+            delete payload[mappedField];
+          } else {
+            payload[mappedField] = '-';
+          }
         }
       }
 
@@ -824,20 +833,18 @@ export default function ProcessControl() {
         try {
           data = JSON.parse(rawResponse);
         } catch (parseError) {
-          throw new Error('Invalid server response');
+          throw new Error(FALLBACK_SUBMIT_ERROR);
         }
       } else {
-        data = { success: false, message: 'Empty response from server' };
+        data = { success: false };
       }
 
-      if (!response.ok) {
-
-        if (response.status === 400) {
-          const errorMessage = data?.message || `Bad Request (${response.status}): Please check your input data format`;
-          throw new Error(errorMessage);
-        } else {
-          throw new Error(data?.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
+      if (!response.ok || !data?.success) {
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitErrorMessage(message);
+        toast.error(message);
+        inputRefs.current.partName?.focus();
+        return;
       }
 
       if (data.success) {

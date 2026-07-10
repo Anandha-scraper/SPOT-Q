@@ -8,6 +8,7 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { buildSubmitError } from '../../utils/submitError';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -579,7 +580,7 @@ export default function FoundrySandTestingNote() {
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
-      alert('Failed to save: ' + (error.response?.data?.message || error.message));
+      alert(buildSubmitError(error.response?.data));
     } finally {
       setLoadingStates(prev => ({ ...prev, primary: false }));
     }
@@ -751,7 +752,7 @@ export default function FoundrySandTestingNote() {
       }
     } catch (error) {
       console.error(`Error saving ${sectionName}:`, error);
-      alert('Failed to save: ' + (error.response?.data?.message || error.message));
+      alert(buildSubmitError(error.response?.data));
     } finally {
       setLoadingStates(prev => ({ ...prev, [sectionName]: false }));
     }

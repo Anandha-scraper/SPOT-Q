@@ -24,8 +24,7 @@ const ProcessEntrySchema = new mongoose.Schema({
         default: '' 
     },
     quantityOfMoulds: { 
-        type: Number, 
-        default: 0
+        type: Number
     },
     metalCompositionC: { type: mongoose.Schema.Types.Mixed, default: '-' },
     metalCompositionSi: { type: mongoose.Schema.Types.Mixed, default: '-' },

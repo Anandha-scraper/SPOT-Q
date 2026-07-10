@@ -1,4 +1,5 @@
 const MicroStructure = require('../models/MicroStructure');
+const { sendError } = require('../utils/mongooseError');
 
 /** 1. SYSTEM INITIALIZATION & METADATA **/
 
@@ -180,7 +181,7 @@ exports.createEntry = async (req, res) => {
             message: 'MicroStructure record added successfully.'
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -232,7 +233,7 @@ exports.updateEntry = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating micro structure entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -244,6 +245,6 @@ exports.deleteEntry = async (req, res) => {
         res.status(200).json({ success: true, message: 'MicroStructure entry deleted successfully.' });
     } catch (error) {
         console.error('Error deleting micro structure entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

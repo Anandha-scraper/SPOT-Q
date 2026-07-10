@@ -1,22 +1,6 @@
 const Tensile = require('../models/Tensile');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
-
-// Turn raw Mongoose validation/cast errors (e.g.
-// 'entries.0.uts: Cast to Number failed for value "-"') into a short,
-// user-friendly message naming the offending fields.
-const cleanMongooseError = (error) => {
-    if (error.name === 'ValidationError' && error.errors) {
-        const fields = [...new Set(
-            Object.values(error.errors).map(e => e.path.replace(/^entries\.\d+\./, ''))
-        )];
-        return `Invalid input for: ${fields.join(', ')}. Please enter valid values.`;
-    }
-    if (error.name === 'CastError') {
-        const field = String(error.path || '').replace(/^entries\.\d+\./, '');
-        return `Invalid input${field ? ` for: ${field}` : ''}. Please enter a valid value.`;
-    }
-    return error.message;
-};
 
 // 1. SYSTEM INITIALIZATION & METADATA
 
@@ -132,7 +116,7 @@ exports.createEntry = async (req, res) => {
             message: 'Tensile entry created successfully.'
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: cleanMongooseError(error) });
+        sendError(res, error);
     }
 };
 
@@ -186,7 +170,7 @@ exports.updateEntry = async (req, res) => {
         });
     } catch (error) {
         console.error('Error updating tensile entry:', error);
-        res.status(400).json({ success: false, message: cleanMongooseError(error) });
+        sendError(res, error);
     }
 };
 
@@ -198,6 +182,6 @@ exports.deleteEntry = async (req, res) => {
         res.status(200).json({ success: true, message: 'Tensile entry deleted successfully.' });
     } catch (error) {
         console.error('Error deleting tensile entry:', error);
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

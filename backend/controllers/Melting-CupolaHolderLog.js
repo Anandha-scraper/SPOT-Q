@@ -1,4 +1,5 @@
 const CupolaHolderLog = require('../models/Melting-CupolaHolderLog');
+const { sendError } = require('../utils/mongooseError');
 
 /** Helper: normalize date to UTC start of day **/
 const toStartOfDay = (dateStr) => {
@@ -59,7 +60,7 @@ exports.getPrimaryByDate = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -127,7 +128,7 @@ exports.filterByDateRange = async (req, res) => {
         res.status(200).json({ success: true, count: flattened.length, data: flattened });
     } catch (error) {
         console.error('Filter error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -190,7 +191,7 @@ exports.createTableEntry = async (req, res) => {
             message: `${entriesArray.length} ${entriesArray.length === 1 ? 'entry' : 'entries'} saved successfully.`
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -227,6 +228,6 @@ exports.createOrUpdatePrimary = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

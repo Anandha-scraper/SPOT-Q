@@ -1,4 +1,5 @@
 const DMM = require('../models/Moulding-DmmSettingParameters');
+const { sendError } = require('../utils/mongooseError');
 const { ensureDateDocument, getCurrentDate } = require('../utils/dateUtils');
 
 /** 1. SYSTEM INITIALIZATION **/
@@ -44,7 +45,7 @@ exports.getDMMSettingsByDate = async (req, res) => {
         // Return all entries for the date
         res.status(200).json({ success: true, data: [document] });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -127,7 +128,7 @@ exports.createDMMSettings = async (req, res) => {
         res.status(200).json({ success: true, data: document, message: `${section} recorded successfully.` });
 
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -177,7 +178,7 @@ exports.getAllDMMSettings = async (req, res) => {
         
         res.status(200).json({ success: true, count: transformedData.length, data: transformedData });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -191,6 +192,6 @@ exports.getDMMSettingsByCustomer = async (req, res) => {
 
         res.status(200).json({ success: true, count: results.length, data: results });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

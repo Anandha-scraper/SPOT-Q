@@ -1,4 +1,5 @@
 const FoundrySandTestingNote = require('../models/SandLab-FoundrySandTestingNote');
+const { sendError } = require('../utils/mongooseError');
 
 // ─── Helper: parse "YYYY-MM-DD" → UTC Date ───
 const parseDate = (dateStr) => {
@@ -57,7 +58,7 @@ exports.getAllEntries = async (req, res) => {
 
         res.status(200).json({ success: true, count: flat.length, data: flat });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -148,6 +149,6 @@ exports.createEntry = async (req, res) => {
         });
 
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        sendError(res, error);
     }
 };

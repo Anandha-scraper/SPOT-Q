@@ -10,6 +10,7 @@ import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
 const EMPTY_ENTRY = {
@@ -258,10 +259,12 @@ const MicroTensile = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => null);
 
-      if (!data.success) {
-        toast.error(data.message || 'Failed to create entry.');
+      if (!resp.ok || !data?.success) {
+        const message = buildSubmitError(data, fieldMapping);
+        setSubmitError(message);
+        toast.error(message);
         return;
       }
 
@@ -271,7 +274,8 @@ const MicroTensile = () => {
       setEntryCount(prev => prev + 1);
       setTimeout(() => inputRefs.current.item?.focus(), 100);
     } catch (error) {
-      toast.error('Failed to create entry: ' + error.message);
+      setSubmitError(FALLBACK_SUBMIT_ERROR);
+      toast.error(FALLBACK_SUBMIT_ERROR);
     } finally {
       setSubmitLoading(false);
     }

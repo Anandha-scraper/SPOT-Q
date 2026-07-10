@@ -63,7 +63,7 @@ exports.login = async (req, res) => {
 
     const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
     // Set JWT token in httpOnly cookie
-    res.cookie("token", token, {
+    res.cookie("__session", token, {
       ...getAuthCookieOptions(),
       maxAge: expiresInMs,
     });
@@ -117,7 +117,7 @@ exports.verify = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     // Clear the token cookie
-    res.clearCookie("token", getAuthCookieOptions());
+    res.clearCookie("__session", getAuthCookieOptions());
 
     res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {

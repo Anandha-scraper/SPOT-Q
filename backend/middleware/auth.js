@@ -2,7 +2,7 @@ const { verifyToken } = require('../utils/jwt');
 const User = require('../models/user');
 exports.protect = async (req, res, next) => {
     try {
-        let token = req.cookies?.token || 
+        let token = req.cookies?.['__session'] || 
                    (req.headers.authorization?.startsWith('Bearer ') ? 
                     req.headers.authorization.split(' ')[1] : null);
 

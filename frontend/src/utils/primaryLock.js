@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Primary-data lock shared by the entry forms that key their document on
-// Date + DISA (Process, MicroTensile, MicroStructure).
-//
-// Until that pair is saved, every downstream input is disabled. Clicking a
-// disabled input nudges the user back to the primary section.
-//
-// All user-facing feedback funnels through a single `status` value, so exactly
-// one message is ever on screen — the states are mutually exclusive rather than
-// four independent booleans that can overlap.
+// Primary-data lock shared by Process/MicroTensile/MicroStructure — see frontend.md for the full state machine.
 
 export const PRIMARY_STATUS = {
   idle: null,
@@ -27,20 +19,6 @@ const WARNING_MS = 3000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * @param {object}   opts
- * @param {string}   opts.endpoint          department base URL (API_ENDPOINTS.process, …)
- * @param {string}   opts.date              current formData.date
- * @param {string}   opts.disa              current formData.disa
- * @param {boolean}  opts.isPrimarySaved    persisted lock flag from DepartmentContext
- * @param {Function} opts.setIsPrimarySaved
- * @param {Function} opts.setEntryCount
- * @param {object}   opts.primarySectionRef ref scrolled into view on a locked-input click
- * @param {string}   opts.formGroupClass    CSS class of a field wrapper, e.g. 'process-form-group'
- * @param {Function} [opts.onSaved]         called after the primary locks (focus the first field)
- *
- * @returns {{ status: string, highlightPrimaryFields: boolean, savePrimary: Function }}
- */
 export function usePrimaryLock({
   endpoint,
   date,
@@ -55,9 +33,7 @@ export function usePrimaryLock({
   const [status, setStatus] = useState('idle');
   const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
 
-  // Monotonic id: only the newest date/disa request may write state. Without it
-  // the 1s dwell and the 1.5s reveal can land after the user has already moved
-  // on to another combination (or after unmount).
+  // Monotonic id: only the newest date/disa request may write state, so the dwell/reveal timers can't land after the user switched combos or unmounted.
   const requestId = useRef(0);
   const timers = useRef([]);
 
@@ -69,11 +45,9 @@ export function usePrimaryLock({
 
   useEffect(() => () => clearTimers(), []);
 
-  // Latest values, read by the callbacks below without re-subscribing.
   const latest = useRef({ onSaved, setIsPrimarySaved, setEntryCount });
   latest.current = { onSaved, setIsPrimarySaved, setEntryCount };
 
-  // Does a document already exist for this Date + DISA?
   useEffect(() => {
     const id = ++requestId.current;
     clearTimers();
@@ -108,7 +82,6 @@ export function usePrimaryLock({
             latest.current.setEntryCount(data.count || 0);
           }, REVEAL_MS);
         } else {
-          // Nothing saved yet — prompt for it instead of showing nothing.
           setIsPrimarySaved(false);
           setEntryCount(0);
           setStatus('unsaved');
@@ -164,8 +137,7 @@ export function usePrimaryLock({
     }
   }, [endpoint, date, disa, status]);
 
-  // Clicking any disabled input (or its label/wrapper) while the primary is
-  // unlocked scrolls back to the primary section and flags it.
+  // Clicking a disabled input while unlocked scrolls to the primary section and flags it.
   useEffect(() => {
     if (isPrimarySaved) return undefined;
 

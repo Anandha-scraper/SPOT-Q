@@ -15,10 +15,7 @@ exports.getDismaticReportsByDateRange = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, count: data.length, data });
 });
 
-// The old "smart updater" dispatched on req.body.section via a switch; each
-// section is now its own service function. 'basicInfo', 'all' and
-// 'eventSection' were dead code (no frontend caller ever sent them) and are
-// not reproduced here.
+// Each section is its own function now, not a switch on req.body.section — 'basicInfo'/'all'/'eventSection' were dead branches (no frontend caller) and aren't reproduced.
 exports.createDismaticReport = asyncHandler(async (req, res) => {
     const { date, shift, section, ...payload } = req.body ?? {};
 

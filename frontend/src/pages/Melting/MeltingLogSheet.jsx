@@ -2053,33 +2053,7 @@ const MeltingLogSheet = () => {
           </div>
         </div>
 
-        {/* ============================================================================
-         * SUBMIT BUTTON — SHOW / HIDE LOGIC WITH ALERT MESSAGES
-         * ============================================================================
-         * 
-         * BUTTON 1: "Save Primary" (first-time save)
-         * ─────────────────────────────────────────────
-         * VISIBLE WHEN (ALL must be true):
-         *   1. All 4 key fields are filled (date, shift, furnaceNo, panel)
-         *   2. AND one of these is true:
-         *      - fetchingPrimary = true  → shows "Fetching Primary..." loader instead of button
-         *      - showCombinationFound    → shows "Combination found" message instead of button
-         *      - showCombinationSaved    → shows "Combination saved" message instead of button
-         *      - !isPrimaryDataSaved     → shows the actual "Save Primary" button
-         * 
-         * HIDDEN WHEN:
-         *   - Any key field is empty (date/shift/furnaceNo/panel)
-         *   - OR primary data is already saved AND none of the loader/message states are active
-         *
-         * CSS: .melting-primary-btn-wrapper.show → max-height: 100px, opacity: 1 (smooth slide-in)
-         *      .melting-primary-btn-wrapper.hide → max-height: 0, opacity: 0 (smooth slide-out)
-         *
-         * ALERT FLOW INSIDE BUTTON 1:
-         *   fetchingPrimary → InlineLoader "Fetching Primary..." (while API runs)
-         *   showCombinationFound → InlineLoader "Combination found" (3s, then fades with closing class)
-         *   showCombinationSaved → InlineLoader "Combination saved" (3s, then fades)
-         *   else → actual <button> "Save Primary" / "Saving..." with spinner
-         * ============================================================================ */}
+        {/* Button 1 "Save Primary" — visible when all 4 key fields are filled and one of fetchingPrimary/showCombinationFound/showCombinationSaved/!isPrimaryDataSaved holds; see frontend.md. */}
         {primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel && (fetchingPrimary || showCombinationFound || showCombinationSaved || !isPrimaryDataSaved) && (
           <div className="melting-primary-btn-wrapper show">
             <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
@@ -2112,19 +2086,7 @@ const MeltingLogSheet = () => {
           </div>
         )}
 
-        {/* ============================================================================
-         * BUTTON 2: "Update Primary Data" (re-save after editing)
-         * ─────────────────────────────────────────────
-         * VISIBLE WHEN (ALL must be true):
-         *   1. isPrimaryDataSaved = true  → data was already saved once
-         *   2. isPrimaryDirty() = true    → user changed a value field from its saved state
-         *   3. !hasInvalidNumericInput()  → no red-bordered invalid numbers
-         *
-         * HIDDEN WHEN:
-         *   - Data hasn't been saved yet (Button 1 handles that)
-         *   - OR no changes made (values match the saved snapshot)
-         *   - OR any numeric input is invalid (red border present)
-         * ============================================================================ */}
+        {/* Button 2 "Update Primary Data" — visible once saved, dirty, and no invalid numeric input; see frontend.md. */}
         {isPrimaryDataSaved && isPrimaryDirty() && !hasInvalidNumericInput() && (
           <div className="melting-primary-btn-wrapper show">
             <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
@@ -2144,11 +2106,7 @@ const MeltingLogSheet = () => {
             </div>
           </div>
         )}
-        {/* ── ALERT 1: "Save Primary Data first" ──
-         * SHOWN WHEN: User clicks on Table 1-5 sections WITHOUT saving primary data first.
-         * Triggered by onClickCapture on each table's wrapper div (see Table 1 below).
-         * Auto-dismisses after 3s via setTimeout(() => setShowPrimaryWarning(false), 3000)
-         */}
+        {/* Shown when a table section is clicked before the primary is saved; auto-dismisses after 3s. */}
         {showPrimaryWarning && (
           <div style={{ marginTop: '0.5rem' }}>
             <InlineLoader 
@@ -2158,13 +2116,7 @@ const MeltingLogSheet = () => {
             />
           </div>
         )}
-        {/* ── ALERT 2: Missing prerequisite field message ──
-         * SHOWN WHEN: User clicks a dependent field or value field without filling
-         *             a prerequisite (e.g., clicks Shift without selecting Date).
-         * Triggered by showFieldMessage() which sets primaryFieldMessage state.
-         * Auto-dismisses after 3s via fieldMessageTimer.
-         * Message examples: "Select Date first", "Select Shift first", etc.
-         */}
+        {/* Shown when a dependent field is clicked before its prerequisite (e.g. Shift before Date); auto-dismisses after 3s. */}
         {primaryFieldMessage && (
           <div style={{ marginTop: '0.5rem' }}>
             <InlineLoader 

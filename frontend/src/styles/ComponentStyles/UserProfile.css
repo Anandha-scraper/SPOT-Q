@@ -1,16 +1,3 @@
-/* === USER PROFILE PAGE — REDESIGNED ===
-   Unit strategy
-   · vw  — layout widths / horizontal sizes  (reference: 1440 px wide)
-   · vh  — layout heights                    (reference:  900 px tall)
-   · rem — spacing, padding, font-sizes      (relative to root font, already fluid)
-   · px  — hairline borders, letter-spacing, box-shadow offsets (intentionally fixed)
-   · %   — purely relative-to-parent values
-   No mobile breakpoints (desktop / laptop only).
-================================================================ */
-
-/* ── Page shell ── */
-/* Fills the dashboard content box so the last card (chart) can stretch flush to
-   the bottom. 4rem = the container's 2rem top + 2rem bottom padding (laptops). */
 .up-page {
     width: 100%;
     margin: 0 auto;

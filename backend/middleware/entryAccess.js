@@ -1,30 +1,6 @@
-// Per-entry edit/delete authorisation for Prisma-backed department modules.
-//
-// The Prisma replacement for the old Mongoose middleware/editWindow.js
-// (deleted once the last department using it, Melting Log Sheet, migrated).
-// Two things differed from it:
-//   - ownership is a plain string compare, not ObjectId `.equals()` (which
-//     throws TypeError on a uuid string);
-//   - there is no `req.targetDoc`. With real tables the controller updates the
-//     row directly instead of mutating a parent document and calling .save().
-//
-// Every response string below stayed byte-identical to editWindow.js's, so
-// each migration changed nothing operators could see.
-
 const { getEditWindowMs } = require('../utils/duration');
 
-/**
- * @param {object}   options
- * @param {Function} options.loadEntry  (id) => Promise<{id, createdBy, createdAt}|null>
- * @param {'edit'|'delete'} options.action
- *
- * Rules:
- *   'delete' — admins only, always. Ownership and the edit window are irrelevant.
- *   'edit'   — admins may edit anything; a non-admin may edit only an entry they
- *              created, and only within EDIT_TIME of its createdAt.
- *
- * On success attaches `req.targetEntry`.
- */
+// Prisma replacement for the old middleware/editWindow.js — same response strings, ownership is a plain string compare (not ObjectId.equals()).
 function authorizeEntry({ loadEntry, action = 'edit' } = {}) {
     return async (req, res, next) => {
         try {
@@ -44,9 +20,6 @@ function authorizeEntry({ loadEntry, action = 'edit' } = {}) {
                     });
                 }
             } else if (!isAdmin) {
-                // String compare, not ObjectId.equals(). req.user carries both
-                // `id` and `_id` (see middleware/auth.js), and createdBy is a
-                // scalar uuid column.
                 if (!entry.createdBy || String(entry.createdBy) !== String(req.user.id)) {
                     return res.status(403).json({
                         success: false,

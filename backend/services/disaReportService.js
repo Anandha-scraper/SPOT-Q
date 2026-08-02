@@ -8,15 +8,9 @@ const toInt = (value, fallback = 0) => {
     return Number.isFinite(n) ? Math.trunc(n) : fallback;
 };
 
-// Mirrors the old formatTable's row filter exactly: a row is kept unless
-// EVERY value is the literal empty string. Array-valued fields (delays'
-// durationMinutes/fromTime/toTime, mouldHardness's mpPP/mpSP/bsPP/bsSP) are
-// never === '', so rows in those two sections are effectively never dropped —
-// a pre-existing quirk, reproduced faithfully rather than "fixed".
+// A row is kept unless every value is the literal empty string — array-valued fields (delays'/mouldHardness's arrays) are never === '', a pre-existing quirk reproduced faithfully, not fixed.
 const hasData = (row) => Object.values(row ?? {}).some((v) => v !== '');
 
-// Mirrors `row[key] || schemaMap[key]` — falls back to the section default
-// when the incoming value is falsy.
 const withDefault = (value, fallback) => (value || value === 0 ? value : fallback);
 
 function zipParallelArrays(durationMinutes, fromTime, toTime) {

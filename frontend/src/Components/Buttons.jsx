@@ -1172,8 +1172,6 @@ export const CustomPagination = ({
 
   const pageNumbers = getPageNumbers();
   const showLeftEllipsis = pageNumbers[0] > 2;
-  const showRightEllipsis =
-    pageNumbers[pageNumbers.length - 1] < totalPages - 1;
 
   return (
     <div className={`custom-pagination-wrapper ${className}`}>

@@ -85,13 +85,7 @@ const findNearest = (current, container, key) => {
   return best;
 };
 
-/**
- * Spatial arrow-key navigation for grid-style entry forms.
- *
- * Attach the returned `containerRef` and `handleArrowKeyDown` to the form's
- * wrapper element. Bubbling delivers every field's arrow keypress to the single
- * handler, which moves focus to the control physically above/below/left/right.
- */
+// Attach containerRef/handleArrowKeyDown to a grid-style form's wrapper — see frontend.md for the scoring algorithm.
 export function useArrowNavigation() {
   const containerRef = useRef(null);
 
@@ -105,9 +99,7 @@ export function useArrowNavigation() {
     // Leave native date/time segment editing alone.
     if (el.tagName === 'INPUT' && NATIVE_ARROW_TYPES.includes((el.type || '').toLowerCase())) return;
 
-    // Suppress the native number-input spinner: ↑/↓ must never change the value,
-    // only move focus. Done up-front so it's killed even at grid boundaries where
-    // no neighbouring control exists to navigate to.
+    // Suppress the native number-input spinner up-front (↑/↓ must only move focus), even at grid boundaries with no neighbour to navigate to.
     const isNumber = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'number';
     if (isNumber && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();

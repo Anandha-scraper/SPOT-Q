@@ -1,21 +1,7 @@
 import { createElement } from 'react';
 
-// Shared submit-time validation for the department entry forms.
-//
-// Every form declares a `validationRanges` array of rule objects and a
-// `fieldMapping` from the rule's display `field` to the formData key(s):
-//
-//   { field: 'Elongation', required: true, type: 'Number', min: 0, max: 100 }
-//   { field: 'Count', required: true, type: 'NumberRange' }   // mapped to ['countMin','countMax']
-//
-// Supported `type`: Text, Number, Integer, Select, Date, NumberArray.
-// A rule whose mapped value is a [minKey, maxKey] pair is treated as a range.
-//
-// Optional rule keys: min, max, exclusiveMin, maxLength, allowedValues, format.
+// Every form declares validationRanges (rule objects) + fieldMapping (display field -> formData key(s)); see frontend.md for the full shape.
 
-// Named format checks, opted into per rule via `format: 'dateCode'`. This is
-// deliberately not inferred from the field label: Tensile/Impact/MicroTensile
-// enforce the pattern server-side, MicroStructure does not.
 const FORMATS = {
   dateCode: {
     re: /^[0-9][A-Z][0-9]{2}$/,
@@ -23,8 +9,7 @@ const FORMATS = {
   }
 };
 
-// Browsers let `e`, `+`, `--` and multiple dots through a type="number" input,
-// and surface the result as an empty value. Reject those explicitly.
+// Browsers let e/+/--/multiple dots through a type="number" input and surface the result as empty — reject those explicitly.
 const INVALID_NUMBER = /[eE+]|\..*\.|--|\+\+/;
 const TRAILING_JUNK = /[eE.+-]$/;
 
@@ -32,24 +17,17 @@ const isBlank = (v) => v === null || v === undefined || (typeof v === 'string' &
 
 const hasBadInput = (el) => Boolean(el && el.validity && el.validity.badInput);
 
-// `fields` narrows a range failure to the offending box(es); when omitted, every
-// key the rule governs is flagged.
 const invalid = (message, fields) => ({ isValid: false, isMissing: false, message, fields });
 const missing = (message, fields) => ({ isValid: false, isMissing: true, message, fields });
 const valid = () => ({ isValid: true, isMissing: false, message: '' });
 
-// Shared numeric checks for Number / Integer / the members of a range or array.
 const checkNumber = (rule, value, label) => {
   const s = String(value).trim();
   if (INVALID_NUMBER.test(s) || TRAILING_JUNK.test(s)) return invalid(`${label} must be a valid number`);
 
-  // Number() (not parseFloat) so partial-numeric junk like "12abc" is rejected
-  // rather than silently parsed to 12 — the `type: 'Number'` rule is authoritative.
-  const num = Number(s);
+  const num = Number(s); // not parseFloat, so "12abc" is rejected rather than silently parsed to 12
   if (isNaN(num) || !isFinite(num)) return invalid(`${label} must be a valid number`);
 
-  // exclusiveMin: the value must be strictly greater than min (MicroTensile's
-  // loads/strengths declare min: 0 but reject 0 itself).
   if (rule.min !== undefined && rule.exclusiveMin && num <= rule.min) {
     return invalid(`${label} must be greater than ${rule.min}`);
   }
@@ -62,9 +40,7 @@ const checkNumber = (rule, value, label) => {
   return valid();
 };
 
-// A [minKey, maxKey] pair. Leaving Max blank means "a single value", which is
-// why an empty Max is not an error. `requireMinForMax` additionally rejects a
-// Max typed without a Min (QC Production stores the lone value in the Min box).
+// Leaving Max blank means "a single value" (not an error); requireMinForMax additionally rejects a Max typed without a Min.
 const validateRange = (rule, [minKey, maxKey], formData, inputRefs) => {
   const label = rule.field;
   const minValue = formData[minKey];
@@ -98,12 +74,6 @@ const validateRange = (rule, [minKey, maxKey], formData, inputRefs) => {
   return valid();
 };
 
-/**
- * Validate one rule against the current form data.
- * `mapped` is either a formData key, or a [minKey, maxKey] pair for a range.
- * Returns { isValid, isMissing, message } — `isMissing` separates
- * "required but empty" from "present but malformed".
- */
 export const validateField = (rule, mapped, formData, inputRefs) => {
   if (Array.isArray(mapped)) return validateRange(rule, mapped, formData, inputRefs);
 
@@ -114,8 +84,7 @@ export const validateField = (rule, mapped, formData, inputRefs) => {
     return invalid(`${label} must be a valid ${String(rule.type || '').toLowerCase()}`);
   }
 
-  // NumberArray holds its own emptiness semantics, so check it before the
-  // generic blank/required handling below.
+  // NumberArray has its own emptiness semantics, checked before the generic blank/required handling below.
   if (rule.type === 'NumberArray') {
     const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [];
     if (rule.required && arr.length === 0) return missing(`${label} must have at least one value`);
@@ -166,18 +135,7 @@ export const validateField = (rule, mapped, formData, inputRefs) => {
 export const MESSAGE_REQUIRED = 'Fill required fields';
 export const MESSAGE_FORMAT = 'Enter data in correct format';
 
-/**
- * Validate a whole form in one pass.
- *
- * Surfaces exactly one message, required-wins: if any required field is empty
- * the message is MESSAGE_REQUIRED; otherwise, if any field (required or not)
- * is malformed, it is MESSAGE_FORMAT.
- *
- * `fieldStates` maps every mapped formData key that failed to `false` (and
- * every key that passed to `null`), ready to feed each form's per-field
- * validity setters. `skip` omits rules by their display `field` name — used
- * for the primary Date/DISA controls, which are validated by the lock flow.
- */
+// Surfaces exactly one message, required-wins; see frontend.md for the full rule.
 export const runValidation = ({ validationRanges, fieldMapping, formData, inputRefs, skip = [] }) => {
   const fieldStates = {};
   let firstMissing = null;
@@ -192,7 +150,6 @@ export const runValidation = ({ validationRanges, fieldMapping, formData, inputR
     const keys = Array.isArray(mapped) ? mapped : [mapped];
     const { isValid, isMissing, fields } = validateField(rule, mapped, formData, inputRefs);
 
-    // A range failure may name only the offending box; the sibling stays neutral.
     const badKeys = isValid ? [] : (fields || keys);
     for (const key of keys) fieldStates[key] = badKeys.includes(key) ? false : null;
 
@@ -211,10 +168,6 @@ export const runValidation = ({ validationRanges, fieldMapping, formData, inputR
   return { ok: true, message: '', firstErrorField: null, fieldStates };
 };
 
-/**
- * The mapped formData keys of every rule marked `required`, so labels can
- * render their asterisk from `validationRanges` instead of a hand-kept list.
- */
 export const getRequiredFields = (validationRanges, fieldMapping) => {
   const required = new Set();
   for (const rule of validationRanges) {
@@ -226,7 +179,5 @@ export const getRequiredFields = (validationRanges, fieldMapping) => {
   return required;
 };
 
-// Red asterisk for a required field's label. JSX-free so this module stays a
-// plain .js util alongside arrowNavigation.js.
 export const RequiredMark = () =>
   createElement('span', { 'aria-hidden': 'true', style: { color: '#ef4444', marginLeft: '0.15rem' } }, '*');

@@ -1,19 +1,5 @@
-// Per-department form configuration for the generic DepartmentContext.
-//
-// Each entry describes one department's persistent draft slice:
-//   - initialFormData:   the form field defaults (copied verbatim from the old
-//                        per-department context files, so behaviour is unchanged).
-//   - initialValidation: the per-field validation map (only for departments that
-//                        drive validation through the shared context: Impact,
-//                        MicroStructure, QcProduction). Departments that keep
-//                        validation local (Process, Tensile, MicroTensile) omit it.
-//   - initialMeta:       department-specific persistent extras surfaced under their
-//                        existing names (e.g. isPrimarySaved / entryCount / the
-//                        Process pouring-time objects).
-//
-// Adding a new department later means adding one entry here — no new context code.
+// Per-department draft config for DepartmentContext ({initialFormData, initialValidation?, initialMeta}); adding a department means adding one entry here.
 
-// UTC-based YYYY-MM-DD, matching the previous per-department contexts' getCurrentDate().
 const getCurrentDate = () => {
   const today = new Date();
   return today.toISOString().split('T')[0];

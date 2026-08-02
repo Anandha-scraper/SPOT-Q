@@ -1,22 +1,4 @@
-// ============================================================================
-// REUSABLE EXCEL EXPORT UTILITY
-// ----------------------------------------------------------------------------
-// Builds a styled .xlsx (yellow header theme) from a column definition + rows
-// and triggers a browser download. The file is only handed to the browser
-// building, no partial / broken file is produced.
-//
-// Usage:
-//   await exportToExcel({
-//     title: 'Process Control Report',
-//     fromDate: '2026-01-01',           // 'YYYY-MM-DD' (or '' / same as toDate)
-//     toDate:   '2026-02-15',
-//     columns: [{ header, key, width?, value?: (row) => any }],
-//     rows: [...],
-//     fileName: 'Process_Control_Report',
-//     sheetName: 'Report',
-//   });
-// ============================================================================
-
+// Builds a styled .xlsx (yellow header theme) from columns+rows and triggers a browser download; see frontend.md.
 import { API_ENDPOINTS } from '../config/api';
 
 // Yellow theme colours
@@ -52,10 +34,7 @@ export const MAX_EXPORT_DAYS = 62;
 const toLocalYMD = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-// Resolve the effective export range from the popup's raw values.
-// - `to`   defaults to today.
-// - `from` defaults to the first day of the previous calendar month relative to `to`
-//   (e.g. to = 06/06/26 -> from = 01/05/26), giving the "last 2 months" default.
+// `to` defaults to today; `from` defaults to the 1st of the previous calendar month relative to `to` (the "last 2 months" default).
 export const getExportRange = (rawFrom, rawTo) => {
   const to = rawTo || toLocalYMD(new Date());
   let from = rawFrom;
@@ -71,9 +50,7 @@ export const getExportRange = (rawFrom, rawTo) => {
 const safeSheetName = (name) =>
   String(name || 'Sheet').replace(/[:\\/?*[\]]+/g, ' ').trim().slice(0, 31) || 'Sheet';
 
-// Build a single worksheet (title row, date-range row, header, data rows) into
-// `workbook`. Extracted so both the single-sheet `exportToExcel` and the
-// multi-sheet `exportWorkbookToExcel` share identical rendering.
+// Shared by exportToExcel and exportWorkbookToExcel so single- and multi-sheet renders stay identical.
 const buildSheet = (workbook, { sheetName = 'Report', title = 'Report', fromDate = '', toDate = '', columns = [], rows = [] }) => {
   if (!columns.length) throw new Error('buildSheet: no columns provided');
 
@@ -209,10 +186,7 @@ const downloadWorkbook = async (workbook, { fileName, fromDate, toDate }) => {
   URL.revokeObjectURL(url);
 };
 
-// Record a download event in the backend log (fire-and-forget). Identity
-// (employeeId / department / userId) is filled server-side from the session, so
-// the client only sends what was exported. A logging failure must never break a
-// successful export, so errors are swallowed.
+// Fire-and-forget; identity is filled server-side from the session, and a logging failure must never break a completed export.
 const recordDownloadLog = ({ title, fromDate, toDate }) => {
   try {
     const rangeLabel = fromDate
@@ -252,9 +226,7 @@ export const exportToExcel = async ({
   recordDownloadLog({ title, fromDate, toDate });
 };
 
-// Multi-sheet variant: one worksheet (tab) per entry in `sheets`, all sharing the
-// same title + date-range header rows. Sheets with no rows are skipped so blank
-// tabs aren't produced; sheet names are sanitised and de-duplicated.
+// One worksheet per entry in `sheets`; empty sheets are skipped and names are sanitised/de-duplicated.
 export const exportWorkbookToExcel = async ({
   title = 'Report',
   fromDate = '',

@@ -1,80 +1,4 @@
-/**
- * ============================================================
- *  alert.jsx  —  Reusable UI Component Library
- * ============================================================
- *
- *  This file exports the following reusable components / hooks.
- *  Import only what you need:
- *
- *  ┌─────────────────────────────────────────────────────────┐
- *  │  MORPHING POPOVER                                       │
- *  │  A spring-animated popover with shared layout motion.   │
- *  │                                                         │
- *  │  Components:                                            │
- *  │    • MorphingPopover        — root wrapper              │
- *  │    • MorphingPopoverTrigger — button that opens it      │
- *  │    • MorphingPopoverContent — animated panel            │
- *  │                                                         │
- *  │  Usage:                                                 │
- *  │    import {                                             │
- *  │      MorphingPopover,                                   │
- *  │      MorphingPopoverTrigger,                            │
- *  │      MorphingPopoverContent,                            │
- *  │    } from '../Components/alert';                        │
- *  │                                                         │
- *  │    <MorphingPopover>                                    │
- *  │      <MorphingPopoverTrigger>Open</MorphingPopoverTrigger>│
- *  │      <MorphingPopoverContent>                           │
- *  │        <p>Content here</p>                              │
- *  │      </MorphingPopoverContent>                          │
- *  │    </MorphingPopover>                                   │
- *  │                                                         │
- *  │  Props (MorphingPopover):                               │
- *  │    transition?  — motion/react Transition object        │
- *  │    defaultOpen? — boolean (uncontrolled default)        │
- *  │    open?        — boolean (controlled)                  │
- *  │    onOpenChange?— (open: boolean) => void               │
- *  │    variants?    — motion/react Variants object          │
- *  │    className?   — extra CSS classes                     │
- *  │                                                         │
- *  │  Props (MorphingPopoverTrigger):                        │
- *  │    asChild? — render child as the motion element        │
- *  │                                                         │
- *  ├─────────────────────────────────────────────────────────┤
- *  │  TOAST SYSTEM                                           │
- *  │  Animated, accessible toast notifications.              │
- *  │                                                         │
- *  │  Exports:                                               │
- *  │    • ToastProvider — wraps app/subtree                  │
- *  │    • useToast      — hook to fire toasts                │
- *  │                                                         │
- *  │  Usage:                                                 │
- *  │    // 1. Wrap your app once (e.g. App.jsx / main.jsx):  │
- *  │    import { ToastProvider } from '../Components/alert'; │
- *  │    <ToastProvider position="bottom-right">              │
- *  │      <App />                                            │
- *  │    </ToastProvider>                                     │
- *  │                                                         │
- *  │    // 2. Fire toasts from any child component:          │
- *  │    import { useToast } from '../Components/alert';      │
- *  │    const { toast } = useToast();                        │
- *  │                                                         │
- *  │    toast.success('Saved!')          // green            │
- *  │    toast.error('Failed!')           // red              │
- *  │    toast.warning('Check input!')    // amber             │
- *  │    toast.info('FYI...')             // blue              │
- *  │    const id = toast.success('Saved!');                  │
- *  │    toast.dismiss(id)                                    │
- *  │                                                         │
- *  │  All toasts auto-dismiss after 4s (fixed).               │
- *  │                                                         │
- *  │  Props (ToastProvider):                                 │
- *  │    position?  — 'top-right' | 'top-left' | 'top-center'│
- *  │                 'bottom-right' (default) | 'bottom-left'│
- *  │                 'bottom-center'                         │
- *  │    maxToasts? — max visible at once (default: 5)        │
- *  └─────────────────────────────────────────────────────────┘
- */
+// Reusable UI library: MorphingPopover (spring-animated popover), ToastProvider/useToast, AlertDialog, and ExcelDownloadDialog — see frontend.md for usage.
 
 import {
   useState,
@@ -151,17 +75,6 @@ function usePopoverLogic({
 }
 
 // ─── MorphingPopover ──────────────────────────────────────────────────────────
-/**
- * @param {{
- *   children: React.ReactNode,
- *   transition?: object,
- *   defaultOpen?: boolean,
- *   open?: boolean,
- *   onOpenChange?: (open: boolean) => void,
- *   variants?: object,
- *   className?: string,
- * } & React.ComponentProps<'div'>} props
- */
 function MorphingPopover({
   children,
   transition = TRANSITION,
@@ -190,13 +103,6 @@ function MorphingPopover({
 }
 
 // ─── MorphingPopoverTrigger ───────────────────────────────────────────────────
-/**
- * @param {{
- *   children: React.ReactNode,
- *   className?: string,
- *   asChild?: boolean,
- * } & React.ComponentProps<typeof motion.button>} props
- */
 function MorphingPopoverTrigger({
   children,
   className = "",
@@ -248,12 +154,6 @@ function MorphingPopoverTrigger({
 }
 
 // ─── MorphingPopoverContent ───────────────────────────────────────────────────
-/**
- * @param {{
- *   children: React.ReactNode,
- *   className?: string,
- * } & React.ComponentProps<typeof motion.div>} props
- */
 function MorphingPopoverContent({ children, className = "", ...props }) {
   const context = useContext(MorphingPopoverContext);
   if (!context) {
@@ -302,9 +202,7 @@ function MorphingPopoverContent({ children, className = "", ...props }) {
 
 export { MorphingPopover, MorphingPopoverTrigger, MorphingPopoverContent };
 
-// ════════════════════════════════════════════════════════════════════════════
-// TOAST SYSTEM
-// ════════════════════════════════════════════════════════════════════════════
+// ── TOAST SYSTEM ──
 
 // ─── Toast Context ────────────────────────────────────────────────────────────
 const ToastContext = createContext(null);
@@ -319,10 +217,7 @@ const TOAST_TRANSITION = { type: "spring", bounce: 0.3, duration: 0.5 };
 const TOAST_DURATION = 4000; // every toast auto-dismisses after 4s, fixed
 
 // ─── ToastProvider ────────────────────────────────────────────────────────────
-/**
- * Wrap your app (or a subtree) with <ToastProvider> to enable toasts.
- * @param {{ children: React.ReactNode, position?: 'top-right'|'top-left'|'bottom-right'|'bottom-left'|'top-center'|'bottom-center', maxToasts?: number }} props
- */
+// Wrap the app (or a subtree) to enable toasts; position/maxToasts control placement and visible count.
 function ToastProvider({ children, position = "bottom-right", maxToasts = 5 }) {
   const [toasts, setToasts] = useState([]);
 
@@ -367,12 +262,7 @@ function ToastProvider({ children, position = "bottom-right", maxToasts = 5 }) {
 }
 
 // ─── useToast ─────────────────────────────────────────────────────────────────
-/**
- * Returns `{ toast }` where toast.success(msg) / toast.error(msg) /
- * toast.warning(msg) / toast.info(msg) trigger animated toasts.
- *
- * Must be used inside <ToastProvider>.
- */
+// toast.success/error/warning/info(msg) fire animated toasts; must be used inside <ToastProvider>.
 function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used within <ToastProvider>");
@@ -436,38 +326,7 @@ const TOAST_ICONS = {
 
 export { ToastProvider, useToast };
 
-// ════════════════════════════════════════════════════════════════════════════
-// ALERT DIALOG  (reusable confirmation modal — light theme, custom CSS)
-// ════════════════════════════════════════════════════════════════════════════
-//
-//  A controlled confirm/cancel dialog. Mirror of the shadcn AlertDialog shape,
-//  but styled to the SPOT-Q light theme (no radix/shadcn in this repo).
-//
-//  Usage:
-//    const [open, setOpen] = useState(false);
-//    <AlertDialog
-//      open={open}
-//      onOpenChange={setOpen}
-//      title="Delete entry?"
-//      description="This action cannot be undone."
-//      variant="danger"
-//      confirmLabel="Delete"
-//      onConfirm={() => doDelete()}
-//    />
-//
-//  Props:
-//    open           — boolean (controlled)
-//    onOpenChange   — (open: boolean) => void
-//    title          — string | node (required)
-//    description?   — string | node (optional sub-text)
-//    children?      — extra body content (e.g. inputs) rendered under description
-//    confirmLabel?  — default 'Confirm'
-//    cancelLabel?   — default 'Cancel'
-//    onConfirm      — () => void  (called before the dialog closes)
-//    variant?       — 'primary' (teal) | 'danger' (red)  — default 'primary'
-//    loading?       — boolean; shows a spinner + disables the confirm button
-//    icon?          — node rendered in the header (defaults per variant)
-//    closeOnConfirm?— default true; set false to keep it open (e.g. async work)
+// A controlled confirm/cancel dialog styled to the SPOT-Q light theme (no radix/shadcn in this repo).
 
 const DIALOG_VARIANTS = {
   initial: { opacity: 0, y: 24, scale: 0.96 },
@@ -584,21 +443,7 @@ function AlertDialog({
   );
 }
 
-// ─── ExcelDownloadDialog (specialized) ─────────────────────────────────────────
-//
-//  A confirmation dialog for Excel downloads. Asks for an optional From/To range.
-//  If either is left blank, the caller's export logic (getExportRange) applies the
-//  default range — so leaving both blank keeps the existing default behaviour.
-//
-//  Usage:
-//    <ExcelDownloadDialog
-//      open={showDownloadDialog}
-//      onOpenChange={setShowDownloadDialog}
-//      defaultFrom={fromDate}
-//      defaultTo={toDate}
-//      loading={isDownloading}
-//      onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
-//    />
+// A confirmation dialog for Excel downloads with an optional From/To range; a blank range falls back to the caller's default (see utils/exportToExcel.js#getExportRange).
 
 const todayYMD = () => {
   const d = new Date();

@@ -13,5 +13,5 @@ package-lock.json
 .claude/
 CLAUDE.md
 command.md
-INFO.md
-README.md
+backend.md
+frontend.md

@@ -2210,14 +2210,6 @@ const DisamaticProduct = () => {
     }
   };
 
-  // Submit Handler (placeholder)
-  const handleSubmit = () => {
-    if (!isPrimaryDataSaved) {
-      return;
-    }
-    console.log("Form Data:", formData);
-  };
-
   return (
     <div className="page-wrapper moulding-page-wrapper">
       {/* Header */}

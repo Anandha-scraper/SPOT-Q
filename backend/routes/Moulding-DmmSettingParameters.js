@@ -6,9 +6,7 @@ const {
     createDMMSettings
 } = require('../controllers/Moulding-DmmSettingParameters');
 
-// `protect` and checkDepartmentAccess('Moulding') are applied at the mount
-// site in server.js, not here. No /:id route — matches the original module.
-// GET /search/customer is dropped: confirmed zero frontend callers.
+// protect/checkDepartmentAccess('Moulding') apply at the server.js mount site. GET /search/customer is dropped (zero frontend callers).
 
 router.get('/all', getAllDMMSettings);
 router.get('/search/primary', getDMMSettingsByDate);

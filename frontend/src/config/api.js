@@ -1,8 +1,5 @@
-// All paths are relative so the Vite proxy forwards them to Express.
-// In production, set VITE_API_BASE to your backend URL (e.g. https://api.spot-q.com).
-// In development, leave it empty — the proxy handles it automatically.
+// Relative by default so the Vite proxy forwards requests; set VITE_API_BASE for an absolute production URL.
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-
 // Helper to build URLs — works in both dev (proxy) and production (absolute)
 export const buildApiUrl = (path) => `${API_BASE}${path}`;
 

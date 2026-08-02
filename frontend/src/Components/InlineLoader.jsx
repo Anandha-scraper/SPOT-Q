@@ -1,9 +1,6 @@
 import React from 'react';
 
-// Minimal inline status indicator.
-// Replaces the InlineLoader previously exported from the (removed) Alert.jsx.
-// Shows a short inline message tinted by `variant`. `size` tweaks the scale.
-// Self-contained (inline styles only) so it has no external CSS/animation deps.
+// Minimal self-contained status indicator (inline styles only), replacing the InlineLoader previously exported from the removed Alert.jsx.
 const VARIANT_COLORS = {
   primary: { color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe' },
   success: { color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0' },

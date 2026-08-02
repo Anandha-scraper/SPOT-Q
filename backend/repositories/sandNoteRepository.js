@@ -33,9 +33,7 @@ function updateEntryFields(entryId, data) {
     return prisma.sandNoteEntry.update({ where: { id: entryId }, data });
 }
 
-// One upsert per leaf — "overwrite this value if non-empty" from the old
-// deep-merge becomes a single-row upsert on the (entry, section, testNo,
-// fieldPath) unique key.
+// One upsert per leaf, replacing the old deep-merge's "overwrite if non-empty" on the (entry, section, testNo, fieldPath) unique key.
 function upsertLeaf(entryId, section, testNo, fieldPath, value) {
     return prisma.sandNoteField.upsert({
         where: { entryId_section_testNo_fieldPath: { entryId, section, testNo, fieldPath } },

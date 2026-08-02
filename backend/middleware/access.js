@@ -66,31 +66,3 @@ exports.checkAdminAccess = (req, res, next) => {
     }
     next();
 };
-
-// Access Control & Department-Based Route Protection
-// This middleware enforces department-based access control for API routes.
-// It ensures users can only access routes belonging to their department.
-// MAIN COMPONENTS:
-
-// 1) ROUTE_DEPARTMENT_MAP - Maps API routes to department names
-//    Example: '/api/v1/tensile' belongs to 'Tensile' department
-
-// 2) getRequiredDepartment(path) - Determines which department a route belongs to
-//    Example: getRequiredDepartment('/api/v1/tensile/123') returns 'Tensile'
-
-// 3) checkDepartmentAccess(requiredDept) - Main middleware that checks if user has access
-//    Example: router.use(checkDepartmentAccess('Tensile')) protects Tensile routes
-
-// 4) checkAdminAccess - Middleware that allows only admin users
-//    Example: router.get('/admin/users', checkAdminAccess, getUsers)
-
-// USAGE EXAMPLES:
-//
-// Example 1: Protect a specific department route
-//   router.use('/api/v1/tensile', checkDepartmentAccess('Tensile'), tensileRouter);
-//
-// Example 2: Auto-detect department from route map
-//   router.use('/api/v1/tensile', checkDepartmentAccess(), tensileRouter);
-//
-// Example 3: Protect admin-only routes
-//   router.get('/api/v1/admin/users', checkAdminAccess, getAllUsers);

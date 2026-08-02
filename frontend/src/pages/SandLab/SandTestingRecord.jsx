@@ -366,8 +366,6 @@ const SandTestingRecord = () => {
         remarks: table5FormData.remarks || ''
       };
 
-      console.log('Saving data:', dataToSave);
-
       const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1051,7 +1049,6 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        console.log('Table 1 submitted:', result.data);
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
@@ -1118,7 +1115,6 @@ const SandTestingRecord = () => {
       
       if (result.success) {
         alert('Table 2 data submitted successfully!');
-        console.log('Table 2 submitted:', result.data);
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
@@ -1185,7 +1181,6 @@ const SandTestingRecord = () => {
       
       if (result.success) {
         alert('Table 3 data submitted successfully!');
-        console.log('Table 3 submitted:', result.data);
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
@@ -1251,7 +1246,6 @@ const SandTestingRecord = () => {
       
       if (result.success) {
         alert('Table 4 data submitted successfully!');
-        console.log('Table 4 submitted:', result.data);
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {

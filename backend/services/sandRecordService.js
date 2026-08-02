@@ -126,11 +126,7 @@ function toColumnBody(wireBody) {
     return out;
 }
 
-// Nested wire object -> the two/three flat columns it splits into. Only
-// added to `flattened` when the nested object is actually present, so
-// buildColumns' hasOwnProperty check can tell "absent" from "present but
-// blank" — getting this wrong sends an explicit null into a NOT NULL
-// @default(0) column and Prisma rejects the whole create.
+// Nested wire object -> its flat columns, added to `flattened` only when present, so buildColumns can tell "absent" from "present but blank" (else an explicit null hits a NOT NULL @default(0) column and Prisma rejects the create).
 const NESTED_NUMBER_GROUPS = [
     ['sandTemp', { BC: 'sandTempBC', WU: 'sandTempWU', SSUmax: 'sandTempSSUmax' }],
     ['bentoniteWithPremix', { Kgs: 'bentoniteWithPremixKgs', Percent: 'bentoniteWithPremixPercent' }],

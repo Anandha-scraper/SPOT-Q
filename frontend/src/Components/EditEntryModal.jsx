@@ -23,10 +23,7 @@ const isListField = (f) => LIST_TYPES.includes(f.type);
 // A blank max collapses the range to a single value — same rule the entry forms use.
 const formatRange = (min, max) => (Number(max) ? `${min} - ${max}` : `${min}`);
 
-// Turn the stored value into the modal's row model.
-// numberList: ['1','2'] rows of a single value. With serialize:'csv' the value
-//   arrives as one comma-separated string (Impact's observedValue).
-// rangeList: [{min,max}] parsed out of 'min - max' strings (QC Production ys/el).
+// numberList: single values (CSV-serialized for Impact's observedValue); rangeList: {min,max} parsed from 'min - max' (QC Production ys/el).
 const hydrateList = (field, raw) => {
     if (field.type === 'numberList') {
         const values =

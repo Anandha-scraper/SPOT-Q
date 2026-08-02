@@ -60,9 +60,7 @@ const MONTH_NAMES = [
   "December",
 ];
 
-// Admin overview: departments included in the Entry Trends graph.
-// Sand Lab (table-based) and Moulding DISA (table-based) are intentionally excluded.
-// MOCK ONLY — real per-department entry counts will come from the backend later.
+// Admin Entry Trends graph departments — Sand Lab/Moulding DISA excluded (table-based); mock data until backend wiring lands (see backend.md's stats Open Item).
 const ADMIN_DEPARTMENTS = [
   "Melting · Log Sheet",
   "Melting · Cupola Holder",

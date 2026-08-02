@@ -2,9 +2,7 @@ const meltingLogRepository = require('../repositories/meltingLogRepository');
 const { AppError } = require('../utils/AppError');
 const { buildColumns, collectMissing, invalidInput, requireEditableFields } = require('../utils/fieldValidation');
 
-// Wire key -> SQL column, for the handful of entry fields whose flat name
-// (from the old controller's FLAT_TO_PATH) differs from the column name here.
-// Everything not listed maps to itself.
+// Wire key -> SQL column for the handful of entry fields that differ from the old FLAT_TO_PATH name; everything else maps to itself.
 const WIRE_TO_COLUMN = {
     heatNo: 'heatno',
     ifBath: 'chargingIfBath',
@@ -21,9 +19,7 @@ const WIRE_TO_COLUMN = {
 };
 const COLUMN_TO_WIRE = Object.fromEntries(Object.entries(WIRE_TO_COLUMN).map(([w, c]) => [c, w]));
 
-// The 51 entry fields, as columns. Includes furnace2/furnace3 Kw/A/V — the old
-// FLAT_TO_PATH omitted them from the edit whitelist (they could be created but
-// never edited); using the same allowlist for create and update closes that gap.
+// The 51 entry fields as columns; furnace2/3 Kw/A/V share the create+update allowlist now, closing a gap where the old FLAT_TO_PATH let them be created but never edited.
 const ENTRY_COLUMNS = [
     'heatno', 'grade',
     'chargingTime', 'chargingIfBath', 'chargingLiquidMetalPressPour', 'chargingLiquidMetalHolder',
@@ -130,9 +126,7 @@ function toWireEmptyPrimaryRow(primary, meltingLogDate) {
     };
 }
 
-// The old controller resolved the parent date-doc first, then searched its
-// primaries array in memory. With real tables that's a single query once the
-// date has a row; if it doesn't, there is nothing to find.
+// Real tables make this a single query once the date has a row, replacing the old in-memory search through the date-doc's primaries array.
 async function findPrimaryForDate(date, shift, furnaceNo, panel) {
     const meltingLog = await meltingLogRepository.findDateRow(date);
     if (!meltingLog) return null;

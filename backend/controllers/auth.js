@@ -1,7 +1,3 @@
-// HTTP layer only: read the request, call a service, shape the response.
-// No Prisma import, no try/catch (asyncHandler forwards rejections to the
-// global handler in server.js), no business rules.
-
 const authService = require('../services/authService');
 const userService = require('../services/userService');
 const { asyncHandler } = require('../utils/asyncHandler');
@@ -14,7 +10,7 @@ const {
     serializeLoginActivities,
 } = require('../utils/serialize');
 
-// PUBLIC AUTHENTICATION
+// Public authentication
 
 exports.login = asyncHandler(async (req, res) => {
     const { employeeId, password } = req.body ?? {};
@@ -22,31 +18,24 @@ exports.login = asyncHandler(async (req, res) => {
     const { token, expiresInMs, expiresAt, editWindowMs, user } = await authService.login({
         employeeId,
         password,
-        // req.ip is only correct because of app.set('trust proxy', 'loopback').
-        ip: req.ip || req.headers['x-forwarded-for'],
+        ip: req.ip || req.headers['x-forwarded-for'], // correct only because of app.set('trust proxy', 'loopback')
         userAgent: req.headers['user-agent'] || 'Unknown',
     });
 
     res.cookie(AUTH_COOKIE_NAME, token, { ...getAuthCookieOptions(), maxAge: expiresInMs });
 
-    // Deliberately flat, not wrapped in `data` — Login.jsx and AuthContext read
-    // data.expiresAt / data.editWindowMs / data.user off the top level.
+    // Deliberately flat, not wrapped in `data` — Login.jsx/AuthContext read these fields off the top level.
     res.status(200).json({ success: true, expiresAt, editWindowMs, user });
 });
 
-// PROTECTED USER ACTIONS
+// Protected user actions
 
 exports.verify = asyncHandler(async (req, res) => {
-    // req.user was already serialized (carrying both id and _id) by `protect`.
-    // The frontend reads only editWindowMs plus the status code here — any
-    // non-200 makes it wipe the session, so this is the entire
-    // session-invalidation mechanism.
+    // Any non-200 here wipes the frontend's session — this is its entire session-invalidation mechanism.
     res.status(200).json({ success: true, user: req.user, editWindowMs: getEditWindowMs() });
 });
 
 exports.logout = asyncHandler(async (req, res) => {
-    // The flags must match the ones used to set the cookie, or the browser
-    // silently ignores the clear — see the comment in utils/cookie.js.
     res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
     res.status(200).json({ success: true, message: 'Logged out successfully' });
 });
@@ -62,7 +51,7 @@ exports.getLoginHistory = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: serializeLoginActivities(history) });
 });
 
-// ADMIN USER MANAGEMENT
+// Admin user management
 
 exports.getDepartments = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: userService.listDepartments() });

@@ -1,11 +1,4 @@
-// Field configs that drive the generic EditEntryModal for each report page.
-// Each field: { name, label, type, options?, step? }
-//   type: 'text' | 'number' | 'select' | 'textarea'
-//       | 'numberList'  — addable rows of one number; { max?, serialize?: 'csv' }
-//       | 'rangeList'   — addable rows of a min/max pair, stored as 'min - max'; { max? }
-// Dotted names (e.g. 'item.it1') are read/written as nested objects in the payload.
-// Only listed fields are editable; anything omitted is left untouched by the backend.
-
+// Per-department field configs for EditEntryModal — see frontend.md for the full shape.
 import { API_ENDPOINTS } from '../config/api';
 
 const DISA_OPTIONS = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
@@ -54,10 +47,7 @@ export const processEditConfig = {
     ]
 };
 
-// Melting Log Sheet — entries live two levels deep (primaries[].entries[]).
-// Field names here are the FLAT names returned by the report's /filter response;
-// the backend maps them to the nested entry paths. Editable per-entry table data
-// only (the primary date/shift/furnace/panel are not edited here).
+// Field names are the flat names from the report's /filter response; the backend maps them to the nested entry paths (primary date/shift/furnace/panel aren't edited here).
 export const meltingEditConfig = {
     endpoint: API_ENDPOINTS.meltingLogs,
     title: 'Edit Melting Log Entry',
@@ -188,9 +178,7 @@ export const microStructureEditConfig = {
     ]
 };
 
-// QcProduction is a flat model; the report holds from/to fields directly, and the
-// update endpoint accepts them as-is. ts/ys/el are variable-length arrays capped at
-// 4 rows, matching the entry form — ts holds numbers, ys/el hold 'min - max' strings.
+// ts/ys/el are variable-length arrays capped at 4 rows, matching the entry form — ts holds numbers, ys/el hold 'min - max' strings.
 export const qcProductionEditConfig = {
     endpoint: API_ENDPOINTS.qcReports,
     title: 'Edit QC Production Entry',

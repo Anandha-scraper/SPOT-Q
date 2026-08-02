@@ -7,9 +7,7 @@ const {
     createOrUpdatePrimary
 } = require('../controllers/Melting-CupolaHolderLog');
 
-// `protect` and checkDepartmentAccess('Melting') are applied at the mount site
-// in server.js, not here. No /:id route — Cupola has no edit/delete path,
-// matching the original Mongoose module exactly.
+// protect/checkDepartmentAccess('Melting') apply at the server.js mount site; no /:id route — Cupola has no edit/delete path.
 
 router.get('/filter', filterByDateRange);
 router.get('/primary/:date', getPrimaryByDate);

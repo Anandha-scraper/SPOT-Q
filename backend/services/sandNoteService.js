@@ -3,10 +3,7 @@ const { AppError } = require('../utils/AppError');
 
 const MERGE_SECTIONS = ['clayTests', 'sieveTesting', 'parameters', 'additionalData'];
 
-// Recursively walks a nested section object and emits (dotPath, value) for
-// every non-empty leaf — the write-side mirror of the old recursive
-// deep-merge, which overwrote a leaf only when the incoming value was
-// non-empty.
+// Recursively emits (dotPath, value) for every non-empty leaf — the write-side mirror of the old recursive deep-merge.
 function walkLeaves(obj, prefix, emit) {
     for (const [key, value] of Object.entries(obj ?? {})) {
         const path = prefix ? `${prefix}.${key}` : key;

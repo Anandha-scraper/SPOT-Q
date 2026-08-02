@@ -129,18 +129,6 @@ const CustomDatePicker = forwardRef(({ value, onChange, max, style, name, onKeyD
     setShowMonthList(false);
   };
 
-  const selectToday = () => {
-    const today = new Date();
-    const formatted = formatDate(today);
-    setSelectedDate(formatted);
-    setViewDate(today);
-    if (onChange) {
-      const event = { target: { name, value: formatted } };
-      onChange(event);
-    }
-    setIsOpen(false);
-  };
-
   const getYearList = () => {
     const currentYear = viewDate.getFullYear();
     const maxYear = maxDate.getFullYear();
@@ -183,22 +171,6 @@ const CustomDatePicker = forwardRef(({ value, onChange, max, style, name, onKeyD
       }
     }
   }, [showMonthList]);
-
-  // Fast wheel scrolling for years
-  const handleYearWheel = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? 1 : -1;
-    changeYear(delta);
-  };
-
-  // Fast wheel scrolling for months
-  const handleMonthWheel = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? 1 : -1;
-    changeMonth(delta);
-  };
 
   const handleYearClick = () => {
     setShowYearList(!showYearList);

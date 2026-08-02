@@ -1,9 +1,3 @@
-// Process department business logic. Never touches req/res.
-//
-// Everything the Mongoose schema used to enforce implicitly lives here now:
-// `required`, `trim`, the datecode regex, the default values, and the
-// number-vs-'-' coercion. Prisma has no validation or setter layer.
-
 const processRepository = require('../repositories/processRepository');
 const {
     buildColumns,
@@ -12,10 +6,7 @@ const {
     requireEditableFields,
 } = require('../utils/fieldValidation');
 
-// The 21 former `Mixed` fields plus the plain strings. Blank optionals arrive
-// from the form as the literal '-' and are stored verbatim — the report renders
-// the stored value directly, so translating '-' to null here would change what
-// operators see.
+// Blank optionals arrive as the literal '-' and are stored verbatim — translating to null would change what the report shows.
 const SENTINEL_FIELDS = [
     'metalCompositionC', 'metalCompositionSi', 'metalCompositionMn', 'metalCompositionP',
     'metalCompositionS', 'metalCompositionMgFL', 'metalCompositionCu', 'metalCompositionCr',
@@ -24,13 +15,11 @@ const SENTINEL_FIELDS = [
     'tappingWt', 'mg', 'resMgConvertor', 'recOfMg', 'streamInoculant', 'pTime',
 ];
 
-// Fields the old Mongoose schema declared with `trim: true`.
 const TRIMMED_FIELDS = [
     'disa', 'partName', 'datecode', 'heatcode',
     'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'remarks',
 ];
 
-// Not trimmed by the old schema — these are formatted time strings.
 const RAW_STRING_FIELDS = ['timeOfPouring', 'tappingTime'];
 
 const NUMERIC_FIELDS = ['quantityOfMoulds', 'pouringTemperatureMin', 'pouringTemperatureMax'];
@@ -50,10 +39,6 @@ function buildEntryData(body) {
     return data;
 }
 
-// ── read ─────────────────────────────────────────────────────────────────────
-
-// All optional. With no filters this returns the whole table, which is what the
-// current report page expects (it filters client-side).
 function listEntries({ from, to, disa } = {}) {
     return processRepository.findEntries({ from, to, disa });
 }
@@ -62,11 +47,7 @@ function listPartNames() {
     return processRepository.findPartNames();
 }
 
-// ── primary lock ─────────────────────────────────────────────────────────────
-
-// `exists` means "this DISA has been saved as a primary for this date" — NOT
-// "a row exists for this date". The frontend's usePrimaryLock hook branches on
-// exactly this flag to decide whether to unlock the form.
+// `exists` means this DISA was saved as a primary for this date, not "a row exists" — usePrimaryLock branches on exactly this flag.
 async function checkPrimary({ date, disa }) {
     requireDateAndDisa(date, disa);
 
@@ -122,8 +103,6 @@ async function savePrimary({ date, disa }) {
     };
 }
 
-// ── write ────────────────────────────────────────────────────────────────────
-
 async function createEntry(body, userId) {
     const { date, disa } = body ?? {};
     requireDateAndDisa(date, disa);
@@ -134,8 +113,7 @@ async function createEntry(body, userId) {
     return processRepository.createEntry(dateRow.id, { ...data, createdBy: userId ?? null });
 }
 
-// `date`, ownership and timestamps are never editable. The middleware has
-// already authorised this entry, so no re-check here.
+// date, ownership and timestamps are never editable; middleware has already authorised this entry.
 const PROTECTED_ON_UPDATE = ['id', '_id', 'processId', 'createdBy', 'createdAt', 'updatedAt', 'date'];
 
 async function updateEntry(entryId, body) {
@@ -152,7 +130,6 @@ function deleteEntry(entryId) {
     return processRepository.deleteEntry(entryId);
 }
 
-// Used by routes/Process.js to feed middleware/entryAccess.js.
 function loadEntryForAuth(id) {
     return processRepository.findEntryAuthInfo(id);
 }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Save, Loader2, FileText } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { SubmitButton, PlusButton, MinusButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { InlineLoader } from '../../Components/InlineLoader';

@@ -55,10 +55,5 @@ const describePrismaError = (error) => {
 
     return { status: 500, message: GENERIC_MESSAGE, fields: [] };
 };
-const sendError = (res, error) => {
-    console.error(error);
-    const { status, message, fields } = describePrismaError(error);
-    return res.status(status).json({ success: false, message, fields });
-};
 
-module.exports = { describePrismaError, sendError, GENERIC_MESSAGE };
+module.exports = { describePrismaError, GENERIC_MESSAGE };

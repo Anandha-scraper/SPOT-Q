@@ -9,8 +9,11 @@ const {
     updateEntry,
     deleteEntry
 } = require('../controllers/Process');
-const Process = require('../models/Process');
-const { resolveAndAuthorize } = require('../middleware/editWindow');
+const { authorizeEntry } = require('../middleware/entryAccess');
+const { loadEntryForAuth } = require('../services/processService');
+
+// `protect` and checkDepartmentAccess('Process') are applied at the mount site
+// in server.js, not here.
 
 router.route('/')
     .get(getAllEntries)
@@ -25,8 +28,10 @@ router.route('/save-primary')
 router.route('/part-names')
     .get(getPartNames);
 
+// Declared after the static paths so '/check', '/save-primary' and
+// '/part-names' aren't swallowed by ':id'.
 router.route('/:id')
-    .put(resolveAndAuthorize(Process, { mode: 'nested', action: 'edit' }), updateEntry)
-    .delete(resolveAndAuthorize(Process, { mode: 'nested', action: 'delete' }), deleteEntry);
+    .put(authorizeEntry({ loadEntry: loadEntryForAuth, action: 'edit' }), updateEntry)
+    .delete(authorizeEntry({ loadEntry: loadEntryForAuth, action: 'delete' }), deleteEntry);
 
 module.exports = router;

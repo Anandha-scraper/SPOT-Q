@@ -1,287 +1,94 @@
-const User = require("../models/user");
-const { sendError } = require("../utils/mongooseError");
-const LoginActivity = require("../models/LoginActivity");
-const { generateToken } = require("../utils/jwt");
+// HTTP layer only: read the request, call a service, shape the response.
+// No Prisma import, no try/catch (asyncHandler forwards rejections to the
+// global handler in server.js), no business rules.
+
+const authService = require('../services/authService');
+const userService = require('../services/userService');
+const { asyncHandler } = require('../utils/asyncHandler');
+const { getAuthCookieOptions } = require('../utils/cookie');
+const { getEditWindowMs } = require('../utils/duration');
+const { AUTH_COOKIE_NAME } = require('../utils/constants');
 const {
-  keepLastNLoginActivitiesForUser,
-  cleanupLoginActivity,
-} = require("../utils/cleanupLoginActivity");
-const { hashPassword, comparePassword } = require("../utils/password");
-const { parseDurationMs, getEditWindowMs } = require("../utils/duration");
-const { getAuthCookieOptions } = require("../utils/cookie");
-// Centralized Department List
-const DEPARTMENTS = [
-  "Melting",
-  "Sand Lab",
-  "Moulding",
-  "Process",
-  "Micro Tensile",
-  "Tensile",
-  "QC - production",
-  "Micro Structure",
-  "Impact",
-  "Admin",
-];
+    serializeUser,
+    serializeUsers,
+    serializeLoginActivities,
+} = require('../utils/serialize');
 
 // PUBLIC AUTHENTICATION
-exports.login = async (req, res) => {
-  try {
-    const { employeeId, password } = req.body;
 
-    if (!employeeId || !password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "ID and password are required." });
-    }
+exports.login = asyncHandler(async (req, res) => {
+    const { employeeId, password } = req.body ?? {};
 
-    const user = await User.findOne({
-      employeeId: employeeId.toUpperCase(),
-    }).select("+password");
-
-    if (!user || !user.isActive) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Invalid credentials or account inactive",
-        });
-    }
-
-    const isMatch = await comparePassword(password, user.password);
-    if (!isMatch) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid credentials." });
-    }
-    // Generate fresh JWT token for this login
-    const token = generateToken(user._id);
-    // Convert JWT_EXPIRE (e.g. '8h', '1d', or raw seconds) to ms.
-    // Default to 8h if missing/malformed (logged by parseDurationMs).
-    const expiresInMs = parseDurationMs(
-      process.env.JWT_EXPIRE,
-      8 * 60 * 60 * 1000,
-    );
-
-    const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
-    // Set JWT token in httpOnly cookie
-    res.cookie("__session", token, {
-      ...getAuthCookieOptions(),
-      maxAge: expiresInMs,
+    const { token, expiresInMs, expiresAt, editWindowMs, user } = await authService.login({
+        employeeId,
+        password,
+        // req.ip is only correct because of app.set('trust proxy', 'loopback').
+        ip: req.ip || req.headers['x-forwarded-for'],
+        userAgent: req.headers['user-agent'] || 'Unknown',
     });
 
-    // Async Audit Logging
-    try {
-      await LoginActivity.create({
-        userId: user._id,
-        employeeId: user.employeeId,
-        department: user.department,
-        ip: req.ip || req.headers["x-forwarded-for"],
-        userAgent: req.headers["user-agent"] || "Unknown",
-      });
+    res.cookie(AUTH_COOKIE_NAME, token, { ...getAuthCookieOptions(), maxAge: expiresInMs });
 
-      // Keep only the last 5 login activities for this user
-      await keepLastNLoginActivitiesForUser(user._id, 5);
-
-      // Run global cleanup (excess + orphaned records)
-      await cleanupLoginActivity(5);
-    } catch (auditError) {
-      console.error("Audit Log failed:", auditError.message);
-    }
-
-    res.status(200).json({
-      success: true,
-      expiresAt,
-      editWindowMs: getEditWindowMs(),
-      user: {
-        id: user._id,
-        employeeId: user.employeeId,
-        name: user.name,
-        role: user.role,
-        department: user.department,
-      },
-    });
-  } catch (error) {
-    console.error("Login Error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Server error during login." });
-  }
-};
+    // Deliberately flat, not wrapped in `data` — Login.jsx and AuthContext read
+    // data.expiresAt / data.editWindowMs / data.user off the top level.
+    res.status(200).json({ success: true, expiresAt, editWindowMs, user });
+});
 
 // PROTECTED USER ACTIONS
-exports.verify = async (req, res) => {
-  res
-    .status(200)
-    .json({ success: true, user: req.user, editWindowMs: getEditWindowMs() });
-};
 
-exports.logout = async (req, res) => {
-  try {
-    // Clear the token cookie
-    res.clearCookie("__session", getAuthCookieOptions());
+exports.verify = asyncHandler(async (req, res) => {
+    // req.user was already serialized (carrying both id and _id) by `protect`.
+    // The frontend reads only editWindowMs plus the status code here — any
+    // non-200 makes it wipe the session, so this is the entire
+    // session-invalidation mechanism.
+    res.status(200).json({ success: true, user: req.user, editWindowMs: getEditWindowMs() });
+});
 
-    res.status(200).json({ success: true, message: "Logged out successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Logout failed" });
-  }
-};
+exports.logout = asyncHandler(async (req, res) => {
+    // The flags must match the ones used to set the cookie, or the browser
+    // silently ignores the clear — see the comment in utils/cookie.js.
+    res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
+});
 
-exports.changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    if (newPassword.length < 6)
-      return res
-        .status(400)
-        .json({ success: false, message: "Minimum 6 characters." });
+exports.changePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    await authService.changeOwnPassword(req.user.id, { currentPassword, newPassword });
+    res.status(200).json({ success: true, message: 'Password updated.' });
+});
 
-    const user = await User.findById(req.user._id).select("+password");
-
-    if (currentPassword) {
-      const isMatch = await comparePassword(currentPassword, user.password);
-      if (!isMatch)
-        return res
-          .status(401)
-          .json({ success: false, message: "Current password incorrect." });
-    }
-
-    user.password = newPassword;
-    await user.save();
-
-    res.status(200).json({ success: true, message: "Password updated." });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Password update failed." });
-  }
-};
+exports.getLoginHistory = asyncHandler(async (req, res) => {
+    const history = await authService.getLoginHistory(req.user.id);
+    res.status(200).json({ success: true, data: serializeLoginActivities(history) });
+});
 
 // ADMIN USER MANAGEMENT
-exports.createEmployee = async (req, res) => {
-  try {
-    const { employeeId, name, department, password } = req.body;
 
-    if (!employeeId || !name || !department || !password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields required." });
-    }
+exports.getDepartments = asyncHandler(async (req, res) => {
+    res.status(200).json({ success: true, data: userService.listDepartments() });
+});
 
-    const exists = await User.findOne({ employeeId: employeeId.toUpperCase() });
-    if (exists)
-      return res
-        .status(400)
-        .json({ success: false, message: "ID already exists." });
+exports.getAllUsers = asyncHandler(async (req, res) => {
+    const users = await userService.listUsers();
+    res.status(200).json({ success: true, data: serializeUsers(users) });
+});
 
-    const user = new User({
-      employeeId: employeeId.toUpperCase(),
-      name,
-      department,
-      password: password,
-      role: "employee",
+exports.createEmployee = asyncHandler(async (req, res) => {
+    const user = await userService.createEmployee(req.body ?? {});
+    res.status(201).json({
+        success: true,
+        message: 'Employee created',
+        data: serializeUser(user),
     });
+});
 
-    await user.save();
-    res
-      .status(201)
-      .json({ success: true, message: "Employee created", data: user });
-  } catch (error) {
-    console.error("Create Employee Error:", error);
-    if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map((e) => e.message);
-      return res
-        .status(400)
-        .json({ success: false, message: errors.join(", ") });
-    }
-    sendError(res, error);
-  }
-};
+exports.resetEmployeePassword = asyncHandler(async (req, res) => {
+    const { password } = req.body ?? {};
+    await userService.resetPassword(req.params.id, password);
+    res.status(200).json({ success: true, message: 'Password reset successfully.' });
+});
 
-exports.getAllUsers = async (req, res) => {
-  try {
-    const users = await User.find().sort({ createdAt: -1 });
-
-    const usersWithLastLogin = await Promise.all(
-      users.map(async (user) => {
-        const lastLogin = await LoginActivity.findOne({
-          userId: user._id,
-        }).sort({ loginAt: -1 });
-
-        const userObj = user.toJSON();
-        userObj.lastLogin = lastLogin ? lastLogin.loginAt : null;
-        return userObj;
-      }),
-    );
-
-    res.status(200).json({ success: true, data: usersWithLastLogin });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Fetch failed." });
-  }
-};
-
-exports.resetEmployeePassword = async (req, res) => {
-  try {
-    const { password } = req.body;
-    if (!password || password.length < 6) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Password must be at least 6 characters.",
-        });
-    }
-
-    const user = await User.findById(req.params.id);
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-
-    user.password = password;
-    await user.save();
-
-    res
-      .status(200)
-      .json({ success: true, message: "Password reset successfully." });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Password reset failed." });
-  }
-};
-
-exports.deleteEmployee = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-    await User.findByIdAndDelete(req.params.id);
-    res
-      .status(200)
-      .json({ success: true, message: "Employee deleted successfully" });
-  } catch (error) {
-    console.error("Delete Employee Error:", error);
-    res.status(500).json({ success: false, message: "Delete failed." });
-  }
-};
-
-exports.getDepartments = async (req, res) => {
-  res.status(200).json({ success: true, data: DEPARTMENTS });
-};
-
-exports.getLoginHistory = async (req, res) => {
-  try {
-    const loginHistory = await LoginActivity.find({ userId: req.user._id })
-      .sort({ loginAt: -1 })
-      .limit(5)
-      .select("loginAt ip userAgent");
-
-    res.status(200).json({ success: true, data: loginHistory });
-  } catch (error) {
-    console.error("Login History Error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch login history" });
-  }
-};
+exports.deleteEmployee = asyncHandler(async (req, res) => {
+    await userService.deleteUser(req.params.id, req.user);
+    res.status(200).json({ success: true, message: 'Employee deleted successfully' });
+});

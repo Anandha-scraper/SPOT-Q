@@ -1,14 +1,14 @@
 const ROUTE_DEPARTMENT_MAP = {
     '/api/v1/tensile': 'Tensile',
     '/api/v1/impact-tests': 'Impact',
-    '/api/v1/micro-tensile-tests': 'Micro Tensile',
+    '/api/v1/micro-tensile': 'Micro Tensile',
     '/api/v1/micro-structure': 'Micro Structure',
     '/api/v1/qc-reports': 'QC - production',
     '/api/v1/process': 'Process',
     '/api/v1/melting-logs': 'Melting',
-    '/api/v1/cupola-holder-logs': 'Melting',
-    '/api/v1/dmm-settings': 'Moulding',
-    '/api/v1/dismatic-reports': 'Moulding',
+    '/api/v1/cupola-logs': 'Melting',
+    '/api/v1/moulding-dmm': 'Moulding',
+    '/api/v1/moulding-disa': 'Moulding',
     '/api/v1/sand-testing-records': 'Sand Lab',
     '/api/v1/foundry-sand-testing-notes': 'Sand Lab'
 };

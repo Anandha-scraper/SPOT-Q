@@ -1,10 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const dmmController = require('../controllers/Moulding-DmmSettingParameters');
+const {
+    getAllDMMSettings,
+    getDMMSettingsByDate,
+    createDMMSettings
+} = require('../controllers/Moulding-DmmSettingParameters');
 
-router.get('/all', dmmController.getAllDMMSettings);
-router.get('/search/primary', dmmController.getDMMSettingsByDate); 
-router.get('/search/customer', dmmController.getDMMSettingsByCustomer);
-router.post('/', dmmController.createDMMSettings);
+// `protect` and checkDepartmentAccess('Moulding') are applied at the mount
+// site in server.js, not here. No /:id route — matches the original module.
+// GET /search/customer is dropped: confirmed zero frontend callers.
+
+router.get('/all', getAllDMMSettings);
+router.get('/search/primary', getDMMSettingsByDate);
+router.post('/', createDMMSettings);
 
 module.exports = router;

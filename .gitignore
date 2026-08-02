@@ -8,20 +8,9 @@ dist/
 # Environment variables
 .env
 
-# Logs
-*.log
-
-#ClaudE
+# markdown
 .claude/
 CLAUDE.md
-Department.md
-DEPLOYMENT.md
-QUICK-DEPLOY.md
-README-DEPLOY.md
-CLAUDE.md
-Department.md
-SPOT-Q_Server_Requirements.md
-
-# OS
-.DS_Store
-Thumbs.db
+command.md
+INFO.md
+README.md

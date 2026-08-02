@@ -8,6 +8,10 @@ const {
     savePrimaryData
 } = require('../controllers/Moulding-DismaticProductReportDISA');
 
+// `protect` and checkDepartmentAccess('Moulding') are applied at the mount
+// site in server.js, not here. No /:id route — matches the original module,
+// which never had one.
+
 router.get('/by-date', getDismaticReportByDate);
 router.get('/range', getDismaticReportsByDateRange);
 router.get('/primary', getPrimaryDataByDateShift);

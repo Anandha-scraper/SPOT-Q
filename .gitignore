@@ -4,6 +4,7 @@ node_modules/
 # Production
 build/
 dist/
+package-lock.json
 
 # Environment variables
 .env

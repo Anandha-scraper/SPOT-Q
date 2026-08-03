@@ -355,6 +355,7 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 #f1f5f9;
+}
 
 /* ── Admin dept trend checkboxes ── */
 .up-dept-checks {

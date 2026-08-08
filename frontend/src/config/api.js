@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
   process:                 `${API_BASE}/api/v1/process`,
   sandTestingRecords:      `${API_BASE}/api/v1/sand-testing-records`,
   foundrySandTestingNotes: `${API_BASE}/api/v1/foundry-sand-testing-notes`,
+  returnSandFoundrySandTestingNotes: `${API_BASE}/api/v1/return-sand-foundry-sand-testing-notes`,
   mouldingDisa:            `${API_BASE}/api/v1/moulding-disa`,
   mouldingDmm:             `${API_BASE}/api/v1/moulding-dmm`,
   meltingLogs:             `${API_BASE}/api/v1/melting-logs`,

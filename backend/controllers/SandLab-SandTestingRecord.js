@@ -18,9 +18,28 @@ exports.getEntriesByDate = asyncHandler(async (req, res) => {
 
 exports.createTableEntry = asyncHandler(async (req, res) => {
     const tableNum = req.params.tableNum || req.body.tableNum;
-    const result = await sandRecordService.createTableEntry({ ...req.body, tableNum });
+    const result = await sandRecordService.createTableEntry({ ...req.body, tableNum }, req.user.id);
 
     res.status(200).json({ success: true, data: result, message: result.message });
+});
+
+exports.savePrimary = asyncHandler(async (req, res) => {
+    const { date, plant } = req.body;
+    const data = await sandRecordService.savePrimary({ date, plant }, req.user.id);
+
+    res.status(200).json({ success: true, data });
+});
+
+exports.updateEntry = asyncHandler(async (req, res) => {
+    const data = await sandRecordService.updateRecord(req.targetEntry.id, req.body ?? {});
+
+    res.status(200).json({ success: true, data, message: 'Sand Testing Record updated successfully.' });
+});
+
+exports.deleteEntry = asyncHandler(async (req, res) => {
+    await sandRecordService.deleteRecord(req.targetEntry.id);
+
+    res.status(200).json({ success: true, message: 'Sand Testing Record deleted successfully.' });
 });
 
 exports.getStats = asyncHandler(async (req, res) => {

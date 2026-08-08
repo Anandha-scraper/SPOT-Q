@@ -9,6 +9,31 @@ import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
+// Single source of truth for both the Info modal and field validation.
+// Each entry's `key` matches the input row field name so validateField can
+// look it up. Module-scope (not component-local) so
+// CupolaHolderLogSheetReport.jsx can import it for admin-only deviation highlighting.
+export const validationRanges = [
+  { key: 'heatNo', field: 'Heat No', type: 'Auto', description: 'Auto-incremented per holder & date' },
+  { key: 'cpc',    field: 'CPC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'mFeSl',  field: 'Fe Sl',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'feMn',   field: 'Fe Mn',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'sic',    field: 'SIC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'pureMg', field: 'Pure Mg', type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'cu',     field: 'Cu',      type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'feCr',   field: 'Fe Cr',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
+  { key: 'actualTime',  field: 'Actual Time',  type: 'Time', pattern: 'HH:MM' },
+  { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
+  { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
+  { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
+  { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
+  { key: 'indFur', field: 'IND FUR', type: 'Text' },
+  { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
+  { key: 'tap',    field: 'TAP',     type: 'Text' },
+  { key: 'kw',     field: 'KW',      type: 'Number', min: 0, max: 5000, unit: 'KW' },
+  { key: 'remarks', field: 'Remarks', type: 'Text' },
+];
+
 const CupolaHolderLogSheet = () => {
   // Validation-range info modal (driven by the same validationRanges that powers validation)
   const { isOpen, openModal, closeModal } = useInfoModal();
@@ -184,29 +209,6 @@ const CupolaHolderLogSheet = () => {
     }
   };
 
-  // Single source of truth for both the Info modal and field validation.
-  // Each entry's `key` matches the input row field name so validateField can look it up.
-  const validationRanges = [
-    { key: 'heatNo', field: 'Heat No', type: 'Auto', description: 'Auto-incremented per holder & date' },
-    { key: 'cpc',    field: 'CPC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'mFeSl',  field: 'Fe Sl',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'feMn',   field: 'Fe Mn',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'sic',    field: 'SIC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'pureMg', field: 'Pure Mg', type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'cu',     field: 'Cu',      type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'feCr',   field: 'Fe Cr',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-    { key: 'actualTime',  field: 'Actual Time',  type: 'Time', pattern: 'HH:MM' },
-    { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
-    { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
-    { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
-    { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
-    { key: 'indFur', field: 'IND FUR', type: 'Text' },
-    { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
-    { key: 'tap',    field: 'TAP',     type: 'Text' },
-    { key: 'kw',     field: 'KW',      type: 'Number', min: 0, max: 5000, unit: 'KW' },
-    { key: 'remarks', field: 'Remarks', type: 'Text' },
-  ];
-
   // Derived min/max lookup used by validateField — keeps validation in lock-step with the Info modal
   const FIELD_RANGES = Object.fromEntries(
     validationRanges
@@ -251,11 +253,8 @@ const CupolaHolderLogSheet = () => {
       if (isNaN(num) || !isFinite(num)) {
         return false;
       }
-      const range = FIELD_RANGES[field];
-      if (range) {
-        if (range.min !== undefined && num < range.min) return false;
-        if (range.max !== undefined && num > range.max) return false;
-      }
+      // min/max are QC target ranges, not hard input limits — the real
+      // measured value must be accepted even outside spec.
     }
 
     return true;

@@ -1,16 +1,41 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { impactEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/Dimpact';
 import '../../styles/PageStyles/Impact/ImpactReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const ImpactReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const devClass = (fieldName, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
+  // observedValue is stored as a raw CSV string ("12.5, 13.0") — the
+  // "Observed Value" rule declares type: 'NumberArray', so each part is
+  // checked individually as a plain Number against the same min/max.
+  const observedValueDevClass = (value) => {
+    if (!showDeviations || !isAdmin || !value) return undefined;
+    const rule = ruleByField['Observed Value'];
+    if (!rule) return undefined;
+    const parts = String(value).split(',').map((v) => v.trim());
+    return parts.some((v) => isDeviant({ ...rule, type: 'Number' }, v)) ? 'deviation-flag' : undefined;
+  };
   const formatDateLocal = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -226,6 +251,12 @@ const ImpactReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -276,12 +307,12 @@ const ImpactReport = () => {
                         </td>
                       ) : null}
                       <td style={{ textAlign: 'center' }}>{item.partName || '-'}</td>
-                      <td style={{ textAlign: 'center' }}>{item.dateCode || '-'}</td>
+                      <td className={devClass('Date Code', item.dateCode)} style={{ textAlign: 'center' }}>{item.dateCode || '-'}</td>
                       <td style={{ textAlign: 'center' }}>{item.specification || '-'}</td>
-                      <td style={{ textAlign: 'center' }}>
+                      <td className={observedValueDevClass(item.observedValue)} style={{ textAlign: 'center' }}>
                         {item.observedValue !== undefined && item.observedValue !== null ? item.observedValue : '-'}
                       </td>
-                      <td style={{ textAlign: 'center' }}>{item.remarks || '-'}</td>
+                      <td className={devClass('Remarks', item.remarks)} style={{ textAlign: 'center' }}>{item.remarks || '-'}</td>
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <EntryActions entry={item} editConfig={impactEditConfig} onChanged={fetchData} />
                       </td>

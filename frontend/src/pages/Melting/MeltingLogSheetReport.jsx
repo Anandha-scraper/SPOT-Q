@@ -1,17 +1,69 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { meltingEditConfig } from '../../utils/editFieldConfigs';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 import '../../styles/ComponentStyles/Table.css';
 import '../../styles/ComponentStyles/Buttons.css';
 
+// Report-column key -> Info.jsx rule display name, for numeric columns that
+// actually declare a min/max worth flagging as a deviation.
+const KEY_TO_RULE_FIELD = {
+  ifBath: 'IF Bath',
+  liquidMetalPressPour: 'Liquid Metal - Press & Pour',
+  liquidMetalHolder: 'Liquid Metal - Holder',
+  sgMsSteel: 'SG MS Steel',
+  greyMsSteel: 'Grey MS Steel',
+  returnsSg: 'Returns (SG)',
+  pigIron: 'Pig Iron',
+  borings: 'Borings',
+  finalBath: 'Final Bath',
+  charCoal: 'Char Coal',
+  cpcFur: 'CPC (Furnace)',
+  cpcLc: 'CPC (L/C)',
+  siliconCarbideFur: 'Silicon Carbide (Furnace)',
+  ferrosiliconFur: 'Ferrosilicon (Furnace)',
+  ferrosiliconLc: 'Ferrosilicon (L/C)',
+  ferroManganeseFur: 'Ferromanganese (Furnace)',
+  ferroManganeseLc: 'Ferromanganese (L/C)',
+  cu: 'Cu',
+  cr: 'Cr',
+  pureMg: 'Pure Mg',
+  labCoinTempC: 'Lab Coin Temp (C)',
+  tempCSg: 'Temp C - SG',
+  directFurnace: 'Direct Furnace',
+  holderToFurnace: 'Holder to Furnace',
+  furnaceToHolder: 'Furnace to Holder',
+  furnace1Kw: 'Furnace 1 KW',
+  furnace1A: 'Furnace 1 A',
+  furnace1V: 'Furnace 1 V',
+  furnace4Hz: 'Furnace 4 Hz',
+  furnace4Gld: 'Furnace 4 Gld',
+  furnace4KwHr: 'Furnace 4 KW/Hr'
+};
+
 const MeltingLogSheetReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const devClass = (key, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const ruleFieldName = KEY_TO_RULE_FIELD[key];
+    const rule = ruleFieldName && ruleByField[ruleFieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
 
   // ========================================================================
   // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
@@ -370,6 +422,12 @@ const MeltingLogSheetReport = () => {
           </select>
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ClearButton onClick={handleClear} />
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
@@ -535,30 +593,30 @@ const MeltingLogSheetReport = () => {
                       {show.table1 && <td>{row.heatNo ?? '-'}</td>}
                       {show.table1 && <td>{row.grade ?? '-'}</td>}
                       {show.table1 && <td>{row.chargingTime ?? '-'}</td>}
-                      {show.table1 && <td>{row.ifBath ?? '-'}</td>}
-                      {show.table1 && <td>{row.liquidMetalPressPour ?? '-'}</td>}
-                      {show.table1 && <td>{row.liquidMetalHolder ?? '-'}</td>}
-                      {show.table1 && <td>{row.sgMsSteel ?? '-'}</td>}
-                      {show.table1 && <td>{row.greyMsSteel ?? '-'}</td>}
-                      {show.table1 && <td>{row.returnsSg ?? '-'}</td>}
-                      {show.table1 && <td>{row.pigIron ?? '-'}</td>}
-                      {show.table1 && <td>{row.borings ?? '-'}</td>}
-                      {show.table1 && <td>{row.finalBath ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('ifBath', row.ifBath)}>{row.ifBath ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('liquidMetalPressPour', row.liquidMetalPressPour)}>{row.liquidMetalPressPour ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('liquidMetalHolder', row.liquidMetalHolder)}>{row.liquidMetalHolder ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('sgMsSteel', row.sgMsSteel)}>{row.sgMsSteel ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('greyMsSteel', row.greyMsSteel)}>{row.greyMsSteel ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('returnsSg', row.returnsSg)}>{row.returnsSg ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('pigIron', row.pigIron)}>{row.pigIron ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('borings', row.borings)}>{row.borings ?? '-'}</td>}
+                      {show.table1 && <td className={devClass('finalBath', row.finalBath)}>{row.finalBath ?? '-'}</td>}
                       {/* Table 2 */}
-                      {show.table2 && <td>{row.charCoal ?? '-'}</td>}
-                      {show.table2 && <td>{row.cpcFur ?? '-'}</td>}
-                      {show.table2 && <td>{row.cpcLc ?? '-'}</td>}
-                      {show.table2 && <td>{row.siliconCarbideFur ?? '-'}</td>}
-                      {show.table2 && <td>{row.ferrosiliconFur ?? '-'}</td>}
-                      {show.table2 && <td>{row.ferrosiliconLc ?? '-'}</td>}
-                      {show.table2 && <td>{row.ferroManganeseFur ?? '-'}</td>}
-                      {show.table2 && <td>{row.ferroManganeseLc ?? '-'}</td>}
-                      {show.table2 && <td>{row.cu ?? '-'}</td>}
-                      {show.table2 && <td>{row.cr ?? '-'}</td>}
-                      {show.table2 && <td>{row.pureMg ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('charCoal', row.charCoal)}>{row.charCoal ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('cpcFur', row.cpcFur)}>{row.cpcFur ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('cpcLc', row.cpcLc)}>{row.cpcLc ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('siliconCarbideFur', row.siliconCarbideFur)}>{row.siliconCarbideFur ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('ferrosiliconFur', row.ferrosiliconFur)}>{row.ferrosiliconFur ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('ferrosiliconLc', row.ferrosiliconLc)}>{row.ferrosiliconLc ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('ferroManganeseFur', row.ferroManganeseFur)}>{row.ferroManganeseFur ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('ferroManganeseLc', row.ferroManganeseLc)}>{row.ferroManganeseLc ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('cu', row.cu)}>{row.cu ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('cr', row.cr)}>{row.cr ?? '-'}</td>}
+                      {show.table2 && <td className={devClass('pureMg', row.pureMg)}>{row.pureMg ?? '-'}</td>}
                       {/* Table 3 */}
                       {show.table3 && <td>{row.labCoinTime ?? '-'}</td>}
-                      {show.table3 && <td>{row.labCoinTempC ?? '-'}</td>}
+                      {show.table3 && <td className={devClass('labCoinTempC', row.labCoinTempC)}>{row.labCoinTempC ?? '-'}</td>}
                       {show.table3 && <td>{row.deslagingTimeFrom ?? '-'}</td>}
                       {show.table3 && <td>{row.deslagingTimeTo ?? '-'}</td>}
                       {show.table3 && <td>{row.metalReadyTime ?? '-'}</td>}
@@ -575,19 +633,19 @@ const MeltingLogSheetReport = () => {
                       )}
                       {/* Table 4 */}
                       {show.table4 && <td>{row.time ?? '-'}</td>}
-                      {show.table4 && <td>{row.tempCSg ?? '-'}</td>}
-                      {show.table4 && <td>{row.directFurnace ?? '-'}</td>}
-                      {show.table4 && <td>{row.holderToFurnace ?? '-'}</td>}
-                      {show.table4 && <td>{row.furnaceToHolder ?? '-'}</td>}
+                      {show.table4 && <td className={devClass('tempCSg', row.tempCSg)}>{row.tempCSg ?? '-'}</td>}
+                      {show.table4 && <td className={devClass('directFurnace', row.directFurnace)}>{row.directFurnace ?? '-'}</td>}
+                      {show.table4 && <td className={devClass('holderToFurnace', row.holderToFurnace)}>{row.holderToFurnace ?? '-'}</td>}
+                      {show.table4 && <td className={devClass('furnaceToHolder', row.furnaceToHolder)}>{row.furnaceToHolder ?? '-'}</td>}
                       {show.table4 && <td>{row.disaNo ?? '-'}</td>}
                       {show.table4 && <td>{row.item ?? '-'}</td>}
                       {/* Table 5 */}
-                      {show.table5 && <td>{row.furnace1Kw ?? '-'}</td>}
-                      {show.table5 && <td>{row.furnace1A ?? '-'}</td>}
-                      {show.table5 && <td>{row.furnace1V ?? '-'}</td>}
-                      {show.table5 && <td>{row.furnace4Hz ?? '-'}</td>}
-                      {show.table5 && <td>{row.furnace4Gld ?? '-'}</td>}
-                      {show.table5 && <td>{row.furnace4KwHr ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace1Kw', row.furnace1Kw)}>{row.furnace1Kw ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace1A', row.furnace1A)}>{row.furnace1A ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace1V', row.furnace1V)}>{row.furnace1V ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace4Hz', row.furnace4Hz)}>{row.furnace4Hz ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace4Gld', row.furnace4Gld)}>{row.furnace4Gld ?? '-'}</td>}
+                      {show.table5 && <td className={devClass('furnace4KwHr', row.furnace4KwHr)}>{row.furnace4KwHr ?? '-'}</td>}
                       {/* Actions — only real entry rows (not primary-only placeholders) */}
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                         {row.primaryId && (

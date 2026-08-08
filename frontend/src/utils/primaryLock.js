@@ -51,6 +51,10 @@ export function usePrimaryLock({
   useEffect(() => {
     const id = ++requestId.current;
     clearTimers();
+    // A pending "clear the red warning highlight" timer (see the mousedown
+    // handler below) gets cancelled by clearTimers() without ever running —
+    // reset synchronously here so switching date/disa never leaves it stuck true.
+    setHighlightPrimaryFields(false);
 
     if (!date || !disa) {
       setIsPrimarySaved(false);
@@ -103,6 +107,10 @@ export function usePrimaryLock({
 
     const id = ++requestId.current;
     clearTimers();
+    // Same reasoning as the check() effect above: don't rely on a cancellable
+    // timer to clear the warning highlight — a save started mid-warning must
+    // not leave the red border stuck on after it succeeds.
+    setHighlightPrimaryFields(false);
     setStatus('saving');
     const startedAt = Date.now();
 

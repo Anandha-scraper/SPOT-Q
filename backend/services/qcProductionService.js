@@ -38,8 +38,6 @@ const PLAIN_NUMERIC_FIELDS = ['nodularity', 'noduleCount', 'pearlite', 'ferrite'
 
 const PROTECTED_ON_UPDATE = ['id', '_id', 'createdBy', 'createdAt', 'updatedAt', 'date'];
 
-const MIN_MOULDS = 1;
-
 function parseRange(raw) {
     if (isNotRecorded(raw)) return { from: null, to: NO_MAX };
 
@@ -82,9 +80,9 @@ function buildEntryData(source) {
         if (data[column] === null) data[column] = NO_MAX;
     }
 
-    if (typeof data.noOfMoulds === 'number' && data.noOfMoulds < MIN_MOULDS) {
-        invalid.push('noOfMoulds');
-    }
+    // noOfMoulds' floor of 1 was a QC spec hint, not a hard input limit — a
+    // shift can genuinely produce 0 moulds (e.g. a breakdown), and that real
+    // value must be accepted rather than rejected.
 
     if (invalid.length) throw invalidInput(invalid);
 

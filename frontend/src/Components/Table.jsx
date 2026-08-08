@@ -118,6 +118,7 @@ const Table = ({
                     <td
                       key={col.key || colIndex}
                       rowSpan={rowSpan}
+                      className={col.cellClassName ? col.cellClassName(item, rowIndex) : undefined}
                       style={{
                         width: col.width || 'auto',
                         textAlign: col.align || defaultAlign,

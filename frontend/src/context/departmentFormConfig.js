@@ -14,6 +14,8 @@ export const departmentFormConfig = {
       datecode: '',
       heatcode: '',
       quantityOfMoulds: '',
+      quantityOfMouldsFrom: '',
+      quantityOfMouldsTo: '',
       metalCompositionC: '',
       metalCompositionSi: '',
       metalCompositionMn: '',
@@ -59,7 +61,7 @@ export const departmentFormConfig = {
       partName: '',
       dateCode: '',
       specification: '',
-      observedValue: '',
+      observedValues: [''],
       remarks: ''
     },
     initialValidation: {
@@ -67,7 +69,7 @@ export const departmentFormConfig = {
       partName: null,
       dateCode: null,
       specification: null,
-      observedValue: null,
+      observedValues: null,
       remarks: null
     }
   },
@@ -202,6 +204,22 @@ export const departmentFormConfig = {
       elongation: '',
       remarks: '',
       testedBy: ''
+    },
+    initialValidation: {
+      dateOfInspection: null,
+      item: null,
+      dateCode: null,
+      heatCode: null,
+      dia: null,
+      lo: null,
+      li: null,
+      breakingLoad: null,
+      yieldLoad: null,
+      uts: null,
+      ys: null,
+      elongation: null,
+      remarks: null,
+      testedBy: null
     }
   },
 

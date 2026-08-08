@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
@@ -8,9 +8,82 @@ import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { qcProductionEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/DqcProduction';
+import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
+// Report-column key -> Info.jsx rule display name.
+const KEY_TO_RULE_FIELD = {
+  cPercent: 'C % (Carbon)',
+  siPercent: 'Si % (Silicon)',
+  mnPercent: 'Mn % (Manganese)',
+  pPercent: 'P % (Phosphorus)',
+  sPercent: 'S % (Sulfur)',
+  mgPercent: 'Mg % (Magnesium)',
+  cuPercent: 'Cu % (Copper)',
+  crPercent: 'Cr % (Chromium)',
+  nodularity: 'Nodularity',
+  noduleCount: 'Nodule count',
+  graphiteType: 'Graphite Type',
+  pearlite: 'Pearlite',
+  ferrite: 'Ferrite',
+  hardnessBHN: 'Hardness BHN',
+  ts: 'TS (Tensile Strength)',
+  ys: 'YS (Yield Strength)',
+  el: 'EL (Elongation)'
+};
+// From/To column pairs (composite "min - max" cells).
+const FROM_TO_KEYS = {
+  cPercent: ['cPercentFrom', 'cPercentTo'],
+  siPercent: ['siPercentFrom', 'siPercentTo'],
+  mnPercent: ['mnPercentFrom', 'mnPercentTo'],
+  pPercent: ['pPercentFrom', 'pPercentTo'],
+  sPercent: ['sPercentFrom', 'sPercentTo'],
+  mgPercent: ['mgPercentFrom', 'mgPercentTo'],
+  cuPercent: ['cuPercentFrom', 'cuPercentTo'],
+  crPercent: ['crPercentFrom', 'crPercentTo'],
+  graphiteType: ['graphiteTypeFrom', 'graphiteTypeTo'],
+  hardnessBHN: ['hardnessBHNFrom', 'hardnessBHNTo']
+};
+// ts/ys/el are arrays — ts of plain numbers, ys/el of "min - max" range strings.
+const ARRAY_KEYS = { ts: false, ys: true, el: true };
+
 const QcProductionDetailsReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+
+  // A single column key can be a plain value, a From/To pair, or an array of
+  // values/range-strings — each checked against the same rule, just reshaped.
+  const isColumnDeviant = (colKey, item) => {
+    if (!showDeviations || !isAdmin) return false;
+    const ruleFieldName = KEY_TO_RULE_FIELD[colKey];
+    if (!ruleFieldName) return false;
+    const rule = ruleByField[ruleFieldName];
+    if (!rule) return false;
+    const numRule = { ...rule, type: 'Number' };
+
+    if (FROM_TO_KEYS[colKey]) {
+      const [fromKey, toKey] = FROM_TO_KEYS[colKey];
+      return isDeviant(numRule, item[fromKey]) || isDeviant(numRule, item[toKey]);
+    }
+    if (colKey in ARRAY_KEYS) {
+      const arr = item[colKey];
+      if (!Array.isArray(arr)) return false;
+      const isRange = ARRAY_KEYS[colKey];
+      return arr.some((v) => {
+        if (!isRange) return isDeviant(numRule, v);
+        return String(v).split('-').map((p) => p.trim()).some((p) => isDeviant(numRule, p));
+      });
+    }
+    return isDeviant(numRule, item[colKey]);
+  };
   const formatDateLocal = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -189,6 +262,20 @@ const QcProductionDetailsReport = () => {
     { key: 'el', label: 'EL', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatList(item.el, formatRangeDisplay) }
   ];
 
+  // On-screen only — exportColumns below is built from the untouched
+  // tableColumns, since col.render there also doubles as the Excel cell
+  // value function and must keep returning plain values, not JSX.
+  const displayColumns = tableColumns.map((col) => {
+    if (!KEY_TO_RULE_FIELD[col.key]) return col;
+    return {
+      ...col,
+      // deviation-flag goes on the <td> itself (via cellClassName) so the
+      // highlight fills the whole cell, matching every hand-rolled report
+      // table's `td.deviation-flag` — not just a pill around the text.
+      cellClassName: (item) => (isColumnDeviant(col.key, item) ? 'deviation-flag' : undefined)
+    };
+  });
+
   // Display-only Actions column (not part of the Excel export).
   const actionsColumn = {
     key: 'actions',
@@ -286,6 +373,12 @@ const QcProductionDetailsReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -303,7 +396,7 @@ const QcProductionDetailsReport = () => {
         </div>
       ) : (
         <Table
-          columns={[...tableColumns, actionsColumn]}
+          columns={[...displayColumns, actionsColumn]}
           data={paginatedEntries}
           minWidth={2400}
           defaultAlign="left"

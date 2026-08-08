@@ -14,14 +14,13 @@ const NUMERIC_FIELDS = ['dia', 'lo', 'li', 'breakingLoad', 'yieldLoad', 'uts', '
 const REQUIRED_ON_CREATE = ['item', 'dateCode'];
 const PROTECTED_ON_UPDATE = ['id', '_id', 'tensileId', 'createdBy', 'createdAt', 'updatedAt', 'date'];
 
-const DATECODE_PATTERN = /^[0-9][A-Z][0-9]{2}$/;
-
 function buildEntryData(body) {
+    // dateCode's format is a QC spec hint, not a hard input limit — the real
+    // recorded value must be accepted even outside spec, so no pattern check here.
     const { data, invalid } = buildColumns(body, {
         trimmed: TRIMMED_FIELDS,
         raw: RAW_STRING_FIELDS,
         numbers: NUMERIC_FIELDS,
-        patterns: { dateCode: DATECODE_PATTERN },
     });
 
     if (invalid.length) throw invalidInput(invalid);

@@ -59,6 +59,12 @@
   margin-bottom: 0.5rem;
 }
 
+/* --- Table --- */
+.dlr-table th,
+.dlr-table td {
+  text-align: center;
+}
+
 /* --- Loader --- */
 .dlr-loader-container {
   display: flex;

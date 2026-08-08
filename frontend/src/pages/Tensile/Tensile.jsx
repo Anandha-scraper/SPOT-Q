@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
@@ -11,181 +11,47 @@ import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { validationRanges, fieldMapping } from '../../deviations/Dtensile';
 import '../../styles/PageStyles/Tensile/Tensile.css';
+
+const getCurrentDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// Matches validationRanges' declared order, so Enter-key navigation always
+// follows the same field sequence as Dtensile.js and the JSX below.
+const fieldOrder = Object.values(fieldMapping);
 
 const Tensile = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
   const { toast } = useToast();
 
-  const validationRanges = [
-    {
-      field: 'Date Of Inspection',
-      required: true,
-      type: 'Date',
-      pattern: 'YYYY-MM-DD'
-    },
-    {
-      field: 'Item',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., Cast Iron Bar'
-    },
-    {
-      field: 'Date Code',
-      type: 'Text',
-      format: 'dateCode',
-      pattern: '5E04 (1 digit, 1 letter, 2 digits)'
-    },
-    {
-      field: 'Heat Code',
-      type: 'Number',
-      pattern: 'e.g., 12345'
-    },
-    {
-      field: 'Dia',
-      type: 'Number',
-      min: 0,
-      unit: 'mm',
-      pattern: 'e.g., 12.5'
-    },
-    {
-      field: 'Lo',
-      type: 'Number',
-      min: 0,
-      unit: 'mm',
-      pattern: 'e.g., 50.0'
-    },
-    {
-      field: 'Li',
-      type: 'Number',
-      min: 0,
-      unit: 'mm',
-      pattern: 'e.g., 58.0'
-    },
-    {
-      field: 'Breaking Load',
-      type: 'Number',
-      min: 0,
-      unit: 'kN',
-      pattern: 'e.g., 48.5'
-    },
-    {
-      field: 'Yield Load',
-      type: 'Number',
-      min: 0,
-      unit: 'kN',
-      pattern: 'e.g., 38.0'
-    },
-    {
-      field: 'UTS',
-      type: 'Number',
-      min: 0,
-      unit: 'N/mm²',
-      pattern: 'e.g., 680.0'
-    },
-    {
-      field: 'YS',
-      type: 'Number',
-      min: 0,
-      unit: 'N/mm²',
-      pattern: 'e.g., 460.0'
-    },
-    {
-      field: 'Elongation',
-      type: 'Number',
-      min: 0,
-      max: 100,
-      unit: '%',
-      pattern: 'e.g., 18.5'
-    },
-    {
-      field: 'Tested By',
-      type: 'Text',
-      pattern: 'e.g., John Doe'
-    },
-    {
-      field: 'Remarks',
-      type: 'Text'
-    }
-  ];
-
-  const fieldMapping = {
-    'Date Of Inspection': 'dateOfInspection',
-    'Item': 'item',
-    'Date Code': 'dateCode',
-    'Heat Code': 'heatCode',
-    'Dia': 'dia',
-    'Lo': 'lo',
-    'Li': 'li',
-    'Breaking Load': 'breakingLoad',
-    'Yield Load': 'yieldLoad',
-    'UTS': 'uts',
-    'YS': 'ys',
-    'Elongation': 'elongation',
-    'Tested By': 'testedBy',
-    'Remarks': 'remarks'
-  };
-
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
-  const getCurrentDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  // Draft form state persists across Form <-> Report navigation (shared context).
-  const { formData, setFormData } = useDepartmentForm('tensile');
+  // Draft form/validation state persists across Form <-> Report navigation (shared context).
+  const {
+    formData,
+    setFormData,
+    validationStates,
+    setValidation,
+    resetFormData
+  } = useDepartmentForm('tensile');
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
 
   const isDateSelected = formData.dateOfInspection && formData.dateOfInspection.trim() !== '';
 
-  const [dateValid, setDateValid] = useState(null);
-  const [itemValid, setItemValid] = useState(null);
-  const [dateCodeValid, setDateCodeValid] = useState(null);
-  const [heatCodeValid, setHeatCodeValid] = useState(null);
-  const [diaValid, setDiaValid] = useState(null);
-  const [loValid, setLoValid] = useState(null);
-  const [liValid, setLiValid] = useState(null);
-  const [breakingLoadValid, setBreakingLoadValid] = useState(null);
-  const [yieldLoadValid, setYieldLoadValid] = useState(null);
-  const [utsValid, setUtsValid] = useState(null);
-  const [ysValid, setYsValid] = useState(null);
-  const [elongationValid, setElongationValid] = useState(null);
-  const [testedByValid, setTestedByValid] = useState(null);
-  const [remarksValid, setRemarksValid] = useState(null);
-
-  const validationSetters = {
-    'dateOfInspection': setDateValid,
-    'item': setItemValid,
-    'dateCode': setDateCodeValid,
-    'heatCode': setHeatCodeValid,
-    'dia': setDiaValid,
-    'lo': setLoValid,
-    'li': setLiValid,
-    'breakingLoad': setBreakingLoadValid,
-    'yieldLoad': setYieldLoadValid,
-    'uts': setUtsValid,
-    'ys': setYsValid,
-    'elongation': setElongationValid,
-    'testedBy': setTestedByValid,
-    'remarks': setRemarksValid
-  };
-
   const inputRefs = useRef({});
   const submitButtonRef = useRef(null);
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
-  const fieldOrder = ['dateOfInspection', 'item', 'dateCode', 'heatCode', 'dia', 'lo', 'li',
-    'breakingLoad', 'yieldLoad', 'uts', 'ys', 'elongation', 'testedBy', 'remarks'];
-
-  const getInputClassName = (fieldName, validationState) => {
+  const getInputClassName = (validationState) => {
     if (validationState === false) return 'invalid-input';
     return '';
   };
-
 
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
@@ -196,11 +62,7 @@ const Tensile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    const setter = validationSetters[name];
-    if (setter) {
-      setter(null);
-    }
-
+    setValidation(name, null);
     setSubmitErrorMessage('');
 
     const finalValue = name === 'dateCode' ? value.toUpperCase() : value;
@@ -252,7 +114,7 @@ const Tensile = () => {
       inputRefs
     });
 
-    Object.entries(fieldStates).forEach(([key, state]) => validationSetters[key]?.(state));
+    Object.entries(fieldStates).forEach(([key, state]) => setValidation(key, state));
 
     if (!ok) {
       setSubmitErrorMessage(message);
@@ -331,24 +193,10 @@ const Tensile = () => {
       if (data.success) {
         toast.success('Entry saved successfully.');
 
-        setFormData({
-          dateOfInspection: getCurrentDate(),
-          item: '',
-          dateCode: '',
-          heatCode: '',
-          dia: '',
-          lo: '',
-          li: '',
-          breakingLoad: '',
-          yieldLoad: '',
-          uts: '',
-          ys: '',
-          elongation: '',
-          remarks: '',
-          testedBy: ''
-        });
+        resetFormData();
+        // Re-default the date to today after the reset (still changeable).
+        setFormData(prev => ({ ...prev, dateOfInspection: getCurrentDate() }));
 
-        Object.values(validationSetters).forEach(setter => setter(null));
         setSubmitErrorMessage('');
 
         setTimeout(() => {
@@ -385,7 +233,6 @@ const Tensile = () => {
       </div>
 
       <form className="tensile-form-grid" ref={gridRef} onKeyDown={handleArrowKeyDown}>
-        { }
         <div className="tensile-form-group">
           <label>Date Of Inspection{mark('dateOfInspection')}</label>
           <CustomDatePicker
@@ -396,7 +243,7 @@ const Tensile = () => {
             onKeyDown={e => handleKeyDown(e, 'dateOfInspection')}
             max={new Date().toISOString().split('T')[0]}
             style={{
-              border: dateValid === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
+              border: validationStates.dateOfInspection === false ? '2px solid #ef4444' : '2px solid #cbd5e1',
               width: '100%',
               padding: '0.625rem 0.875rem',
               borderRadius: '8px',
@@ -418,7 +265,7 @@ const Tensile = () => {
             placeholder="e.g: Steel Rod"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('item', itemValid)}
+            className={getInputClassName(validationStates.item)}
           />
         </div>
 
@@ -434,7 +281,7 @@ const Tensile = () => {
             placeholder="e.g: 6F25"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('dateCode', dateCodeValid)}
+            className={getInputClassName(validationStates.dateCode)}
           />
         </div>
 
@@ -450,7 +297,7 @@ const Tensile = () => {
             placeholder="Enter number only"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('heatCode', heatCodeValid)}
+            className={getInputClassName(validationStates.heatCode)}
           />
         </div>
 
@@ -466,7 +313,7 @@ const Tensile = () => {
             placeholder="e.g: 10.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('dia', diaValid)}
+            className={getInputClassName(validationStates.dia)}
           />
         </div>
 
@@ -482,7 +329,7 @@ const Tensile = () => {
             placeholder="e.g: 50.0"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('lo', loValid)}
+            className={getInputClassName(validationStates.lo)}
           />
         </div>
 
@@ -498,7 +345,7 @@ const Tensile = () => {
             placeholder="e.g: 52.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('li', liValid)}
+            className={getInputClassName(validationStates.li)}
           />
         </div>
 
@@ -514,7 +361,7 @@ const Tensile = () => {
             placeholder="e.g: 45.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('breakingLoad', breakingLoadValid)}
+            className={getInputClassName(validationStates.breakingLoad)}
           />
         </div>
 
@@ -530,7 +377,7 @@ const Tensile = () => {
             placeholder="e.g: 38.2"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('yieldLoad', yieldLoadValid)}
+            className={getInputClassName(validationStates.yieldLoad)}
           />
         </div>
 
@@ -546,7 +393,7 @@ const Tensile = () => {
             placeholder="e.g: 550"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('uts', utsValid)}
+            className={getInputClassName(validationStates.uts)}
           />
         </div>
 
@@ -564,7 +411,7 @@ const Tensile = () => {
             placeholder="e.g: 460"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('ys', ysValid)}
+            className={getInputClassName(validationStates.ys)}
           />
         </div>
 
@@ -582,7 +429,7 @@ const Tensile = () => {
             placeholder="e.g: 18.5"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('elongation', elongationValid)}
+            className={getInputClassName(validationStates.elongation)}
           />
         </div>
 
@@ -598,7 +445,7 @@ const Tensile = () => {
             placeholder="e.g: Kumaran"
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('testedBy', testedByValid)}
+            className={getInputClassName(validationStates.testedBy)}
           />
         </div>
 
@@ -615,7 +462,7 @@ const Tensile = () => {
             maxLength={200}
             autoComplete="off"
             disabled={!isDateSelected}
-            className={getInputClassName('remarks', remarksValid)}
+            className={getInputClassName(validationStates.remarks)}
           />
         </div>
       </form>
@@ -641,8 +488,6 @@ const Tensile = () => {
           </SubmitButton>
         </div>
       </div>
-
-      { }
 
       <InfoCard
         isOpen={isOpen}

@@ -2,7 +2,7 @@ const sandRecordRepository = require('../repositories/sandRecordRepository');
 const { AppError } = require('../utils/AppError');
 const { buildColumns } = require('../utils/fieldValidation');
 
-const VALID_PLANTS = ['Disa', 'Eirich'];
+const VALID_PLANTS = ['Eirich', 'Disa', 'Foundry-A'];
 
 const TABLE1_SHIFTS = ['shiftI', 'shiftII', 'shiftIII'];
 const TABLE1_ARRAY_FIELDS = ['rSand', 'nSand', 'mixingMode', 'bentonite', 'coalDustPremix'];
@@ -26,16 +26,22 @@ const TABLE4_FRIABILITY_SHIFTS = ['shiftI', 'shiftII', 'shiftIII'];
 const TESTPARAM_WIRE_TO_COLUMN = {
     CompactabilitySettings: 'compactabilitySettings',
 };
-const TESTPARAM_STRING_FIELDS = ['time', 'mixno', 'itemName', 'remarks'];
+// gcsFdyA/gcsFdyB, bentoniteKgs/Percent, premixKgs/Percent, coalDustKgs/Percent
+// are radio-driven: the option the user didn't pick stores the '-' sentinel
+// rather than a numeric 0, which would be indistinguishable from a genuine
+// zero reading — so they're raw/String, not numbers, matching `time`.
+const TESTPARAM_STRING_FIELDS = [
+    'time', 'mixno', 'itemName', 'remarks',
+    'gcsFdyA', 'gcsFdyB',
+    'bentoniteKgs', 'bentonitePercent', 'bentoniteCheckpoint',
+    'premixKgs', 'premixPercent', 'coalDustKgs', 'coalDustPercent',
+];
 const TESTPARAM_NUMBER_FIELDS = [
-    'sno', 'permeability', 'gcsFdyA', 'gcsFdyB', 'wts', 'moisture',
+    'sno', 'permeability', 'wts', 'moisture',
     'compactability', 'compressibility', 'waterLitre',
     'sandTempBC', 'sandTempWU', 'sandTempSSUmax',
     'newSandKgs', 'mould',
     'bentoniteWithPremixKgs', 'bentoniteWithPremixPercent',
-    'bentoniteKgs', 'bentonitePercent',
-    'premixKgs', 'premixPercent',
-    'coalDustKgs', 'coalDustPercent',
     'lc', 'compactabilitySettings', 'mouldStrength', 'shearStrengthSetting', 'preparedSandlumps',
 ];
 
@@ -50,13 +56,13 @@ function getCurrentDate() {
 
 function requirePlant(plant) {
     if (!VALID_PLANTS.includes(plant)) {
-        throw new AppError(400, 'A valid plant ("Disa" or "Eirich") is required.');
+        throw new AppError(400, 'A valid plant ("Eirich", "Disa", or "Foundry-A") is required.');
     }
 }
 
-async function ensureRecord(date, plant) {
+async function ensureRecord(date, plant, createdBy) {
     requirePlant(plant);
-    return sandRecordRepository.ensureDayRow(String(date || getCurrentDate()).trim(), plant);
+    return sandRecordRepository.ensureDayRow(String(date || getCurrentDate()).trim(), plant, createdBy);
 }
 
 // ── table writes ─────────────────────────────────────────────────────────────
@@ -130,7 +136,7 @@ function toColumnBody(wireBody) {
 const NESTED_NUMBER_GROUPS = [
     ['sandTemp', { BC: 'sandTempBC', WU: 'sandTempWU', SSUmax: 'sandTempSSUmax' }],
     ['bentoniteWithPremix', { Kgs: 'bentoniteWithPremixKgs', Percent: 'bentoniteWithPremixPercent' }],
-    ['bentonite', { Kgs: 'bentoniteKgs', Percent: 'bentonitePercent' }],
+    ['bentonite', { Kgs: 'bentoniteKgs', Percent: 'bentonitePercent', Checkpoint: 'bentoniteCheckpoint' }],
     ['premix', { Kgs: 'premixKgs', Percent: 'premixPercent' }],
     ['coalDust', { Kgs: 'coalDustKgs', Percent: 'coalDustPercent' }],
 ];
@@ -149,9 +155,10 @@ async function saveTable5(recordId, body) {
 
     const { data } = buildColumns(flattened, { raw: TESTPARAM_STRING_FIELDS, numbers: TESTPARAM_NUMBER_FIELDS });
 
-    // None of these Float columns are nullable (all @default(0)) — an
-    // explicit null here means "not present", which the DB default handles
-    // once the key is omitted rather than sent as null.
+    // Only the remaining Float @default(0) columns can produce null here
+    // (raw/String fields always come back as a string from toRawString) —
+    // deleting a null key lets the DB default apply instead of violating
+    // the NOT NULL constraint.
     for (const key of Object.keys(data)) {
         if (data[key] === null) delete data[key];
     }
@@ -161,14 +168,14 @@ async function saveTable5(recordId, body) {
 
 const TABLE_HANDLERS = { 1: saveTable1, 2: saveTable2, 3: saveTable3, 4: saveTable4, 5: saveTable5 };
 
-async function createTableEntry({ tableNum, plant, ...body }) {
+async function createTableEntry({ tableNum, plant, ...body }, userId) {
     const num = Number(tableNum ?? body.tableNum);
     const handler = TABLE_HANDLERS[num];
     if (!handler) throw new AppError(400, 'Invalid Table Number');
 
     const targetDate = body.date || getCurrentDate();
     const resolvedPlant = plant || body.plant;
-    const record = await ensureRecord(targetDate, resolvedPlant);
+    const record = await ensureRecord(targetDate, resolvedPlant, userId);
 
     await handler(record.id, body);
 
@@ -203,13 +210,18 @@ function toWireDay(day) {
         plant: day.plant,
         sandLump: day.sandLump,
         newSandWt: day.newSandWt,
+        // Report-page inline edit/delete permission gating (EntryActions.jsx-style).
+        createdBy: day.createdBy,
+        createdAt: day.createdAt,
         sandShifts: sections.sandShifts ?? {},
         clayShifts: sections.clayShifts ?? {},
         mixshifts: sections.mixshifts ?? {},
         sandFriability: Object.fromEntries(
             Object.entries(sections.sandFriability ?? {}).map(([shift, bucket]) => [shift, bucket.value])
         ),
-        testParameter: (day.testParameters ?? []).map(({ id, recordId, createdAt, ...p }) => p),
+        // _id kept (unlike the other stripped fields) so the report page's
+        // inline edit can address a specific historical Table 5 row.
+        testParameter: (day.testParameters ?? []).map(({ id, recordId, createdAt, ...p }) => ({ _id: id, ...p })),
     };
 }
 
@@ -229,6 +241,73 @@ async function getEntryByDate(date, plant) {
     return toWireDay(full);
 }
 
+async function getEntryById(id) {
+    const full = await sandRecordRepository.findDayWithEverything(id);
+    if (!full || !full.id) return null;
+    return toWireDay(full);
+}
+
+// Persists just the Date+Plant combination (no table data) — lets the entry
+// page lock the primary combination before any section is filled in, same as
+// the other Sand Lab departments' "Save Primary" step.
+async function savePrimary({ date, plant }, userId) {
+    const record = await ensureRecord(date, plant, userId);
+    return { date: record.date, plant: record.plant };
+}
+
+// Report-page inline edit: a flat list of leaves to resync in place, rather
+// than the per-table append-shaped body createTableEntry takes. Each `edits`
+// entry carries the leaf's *entire current array* (`values`) — a scalar leaf
+// is just a 1-element array — and gets resynced by upserting positions
+// 0..values.length-1 then deleting anything left over at or beyond that
+// length. One shape covers Table 1a/1b/2/3/4 uniformly: correcting an
+// existing value, Plus-adding a new position, and Minus-removing one are all
+// just "here's the array now" from the frontend's point of view; Table 3's
+// mixno.total is deliberately never sent this way — it's derived from
+// start/end and included as its own `edits` entry only when those change.
+// `testParameterEdits` updates Table 5 rows by their own id. `dayFieldEdits`
+// covers the two scalar columns on SandRecordDay itself (sandLump/newSandWt).
+async function updateRecord(recordId, body) {
+    const { edits = [], testParameterEdits = [], dayFieldEdits = {} } = body ?? {};
+
+    const ops = [];
+
+    for (const e of edits) {
+        if (!e || !e.section || !e.shiftKey || !e.field || !Array.isArray(e.values)) continue;
+        e.values.forEach((value, position) => {
+            ops.push(sandRecordRepository.updateValueAtPosition(recordId, e.section, e.shiftKey, e.field, position, String(value)));
+        });
+        ops.push(sandRecordRepository.deleteValuesFromPosition(recordId, e.section, e.shiftKey, e.field, e.values.length));
+    }
+
+    for (const t of testParameterEdits) {
+        if (!t || !t.id) continue;
+        const flattened = toColumnBody(t.data ?? {});
+        const { data } = buildColumns(flattened, { raw: TESTPARAM_STRING_FIELDS, numbers: TESTPARAM_NUMBER_FIELDS });
+        for (const key of Object.keys(data)) {
+            if (data[key] === null) delete data[key];
+        }
+        if (Object.keys(data).length) ops.push(sandRecordRepository.updateTestParameterRow(t.id, data));
+    }
+
+    const dayPatch = {};
+    if (nonEmpty(dayFieldEdits.sandLump)) dayPatch.sandLump = dayFieldEdits.sandLump;
+    if (nonEmpty(dayFieldEdits.newSandWt)) dayPatch.newSandWt = dayFieldEdits.newSandWt;
+    if (Object.keys(dayPatch).length) ops.push(sandRecordRepository.updateDayFields(recordId, dayPatch));
+
+    await Promise.all(ops);
+
+    return getEntryById(recordId);
+}
+
+function deleteRecord(recordId) {
+    return sandRecordRepository.deleteDay(recordId);
+}
+
+function loadEntryForAuth(id) {
+    return sandRecordRepository.findDayAuthInfo(id);
+}
+
 async function getStats({ startDate, endDate, plant }) {
     const result = await sandRecordRepository.aggregateStats({ from: startDate, to: endDate, plant });
     if (result._avg.permeability === null && result._avg.moisture === null && result._avg.gcsFdyA === null) {
@@ -245,5 +324,10 @@ module.exports = {
     createTableEntry,
     getAllEntries,
     getEntryByDate,
+    getEntryById,
     getStats,
+    savePrimary,
+    updateRecord,
+    deleteRecord,
+    loadEntryForAuth,
 };

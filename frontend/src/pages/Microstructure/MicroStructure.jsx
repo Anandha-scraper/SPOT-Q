@@ -11,115 +11,31 @@ import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import { API_ENDPOINTS } from '../../config/api';
+import { validationRanges, fieldMapping } from '../../deviations/DmicroStructure';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
 
+const getCurrentDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// Every entry field except the primary pair (Date/DISA), reset to blank.
+const EMPTY_ENTRY_FIELDS = Object.fromEntries(
+  validationRanges
+    .filter(r => r.field !== 'Date' && r.field !== 'DISA')
+    .flatMap(r => (Array.isArray(r.key) ? r.key : [r.key]))
+    .map(key => [key, ''])
+);
+
+// Matches validationRanges' declared order, so Enter-key navigation always
+// follows the same field sequence as DmicroStructure.js and the JSX below.
+const fieldOrder = validationRanges.flatMap(r => (Array.isArray(r.key) ? r.key : [r.key]));
+
 const MicroStructure = () => {
-  // Info modal hook
   const { isOpen, openModal, closeModal } = useInfoModal();
   const { toast } = useToast();
 
-  // Get current date in YYYY-MM-DD format
-  const getCurrentDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  // ====================== Validation Ranges ======================
-  // Single source of truth for validation. Each rule carries the state `key` it
-  // validates (a string for single fields, a [min, max] pair for range fields),
-  // so `handleSubmit` can verify the whole form by iterating this array alone.
-  const validationRanges = [
-    {
-      field: 'Date',
-      key: 'date',
-      required: true,
-      type: 'Date',
-      pattern: 'DD/MM/YYYY'
-    },
-    {
-      field: 'DISA',
-      key: 'disa',
-      required: true,
-      type: 'Select',
-      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
-    },
-    {
-      field: 'Part Name',
-      key: 'partName',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., Brake Disc'
-    },
-    {
-      field: 'Date Code',
-      key: 'dateCode',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., 3A15'
-    },
-    {
-      field: 'Heat Code',
-      key: 'heatCode',
-      type: 'Number',
-      pattern: 'e.g., 20'
-    },
-    {
-      field: 'Nodularity %',
-      key: 'nodularity',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Graphite Type',
-      key: 'graphiteType',
-      type: 'Text'
-    },
-    // Range fields - combined min/max pairs
-    {
-      field: 'Count Range',
-      key: ['countMin', 'countMax'],
-      type: 'NumberRange',
-      min: 0,
-      unit: 'count'
-    },
-    {
-      field: 'Size Range',
-      key: ['sizeMin', 'sizeMax'],
-      type: 'NumberRange',
-      min: 0,
-      unit: 'μm'
-    },
-    {
-      field: 'Ferrite Range %',
-      key: ['ferriteMin', 'ferriteMax'],
-      type: 'NumberRange',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Pearlite Range %',
-      key: ['pearliteMin', 'pearliteMax'],
-      type: 'NumberRange',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Carbide Range %',
-      key: ['carbideMin', 'carbideMax'],
-      type: 'NumberRange',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Remarks',
-      key: 'remarks',
-      type: 'Text'
-    }
-  ];
-
-  // ====================== State from Context ======================
-  // Get form data and validation states from context to persist across Entry/Report navigation
+  // Draft form/validation state + primary-lock flags persist across Form <-> Report navigation.
   const {
     formData,
     setFormData,
@@ -134,78 +50,12 @@ const MicroStructure = () => {
     setEntryCount
   } = useDepartmentForm('micro-structure');
 
-  // Local UI states that don't need to persist
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // Extract form field values from context for easier access
-  const date = formData.date;
-  const disa = formData.disa;
-  const partName = formData.partName;
-  const dateCode = formData.dateCode;
-  const heatCode = formData.heatCode;
-  const nodularity = formData.nodularity;
-  const graphiteType = formData.graphiteType;
-  const countMin = formData.countMin;
-  const countMax = formData.countMax;
-  const sizeMin = formData.sizeMin;
-  const sizeMax = formData.sizeMax;
-  const ferriteMin = formData.ferriteMin;
-  const ferriteMax = formData.ferriteMax;
-  const pearliteMin = formData.pearliteMin;
-  const pearliteMax = formData.pearliteMax;
-  const carbideMin = formData.carbideMin;
-  const carbideMax = formData.carbideMax;
-  const remarks = formData.remarks;
-
-  // Setters for form fields using context
-  const setDate = (value) => setFormData(prev => ({ ...prev, date: value }));
-  const setDisa = (value) => setFormData(prev => ({ ...prev, disa: value }));
-  const setPartName = (value) => setFormData(prev => ({ ...prev, partName: value }));
-  const setDateCode = (value) => setFormData(prev => ({ ...prev, dateCode: value }));
-  const setHeatCode = (value) => setFormData(prev => ({ ...prev, heatCode: value }));
-  const setNodularity = (value) => setFormData(prev => ({ ...prev, nodularity: value }));
-  const setGraphiteType = (value) => setFormData(prev => ({ ...prev, graphiteType: value }));
-  const setCountMin = (value) => setFormData(prev => ({ ...prev, countMin: value }));
-  const setCountMax = (value) => setFormData(prev => ({ ...prev, countMax: value }));
-  const setSizeMin = (value) => setFormData(prev => ({ ...prev, sizeMin: value }));
-  const setSizeMax = (value) => setFormData(prev => ({ ...prev, sizeMax: value }));
-  const setFerriteMin = (value) => setFormData(prev => ({ ...prev, ferriteMin: value }));
-  const setFerriteMax = (value) => setFormData(prev => ({ ...prev, ferriteMax: value }));
-  const setPearliteMin = (value) => setFormData(prev => ({ ...prev, pearliteMin: value }));
-  const setPearliteMax = (value) => setFormData(prev => ({ ...prev, pearliteMax: value }));
-  const setCarbideMin = (value) => setFormData(prev => ({ ...prev, carbideMin: value }));
-  const setCarbideMax = (value) => setFormData(prev => ({ ...prev, carbideMax: value }));
-  const setRemarks = (value) => setFormData(prev => ({ ...prev, remarks: value }));
-
-  // Extract validation states from context
-  const dateValid = validationStates.date;
-  const disaValid = validationStates.disa;
-  const partNameValid = validationStates.partName;
-  const dateCodeValid = validationStates.dateCode;
-  const heatCodeValid = validationStates.heatCode;
-  const nodularityValid = validationStates.nodularity;
-  const graphiteTypeValid = validationStates.graphiteType;
-  const countMinValid = validationStates.countMin;
-  const countMaxValid = validationStates.countMax;
-  const sizeMinValid = validationStates.sizeMin;
-  const sizeMaxValid = validationStates.sizeMax;
-  const ferriteMinValid = validationStates.ferriteMin;
-  const ferriteMaxValid = validationStates.ferriteMax;
-  const pearliteMinValid = validationStates.pearliteMin;
-  const pearliteMaxValid = validationStates.pearliteMax;
-  const carbideMinValid = validationStates.carbideMin;
-  const carbideMaxValid = validationStates.carbideMax;
-  const remarksValid = validationStates.remarks;
-
-  // Refs for navigation
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
-
-  // Spatial arrow-key navigation across the form grid (↑/↓/←/→ move focus)
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
-  // Rule `key` doubles as the formData key, so the mapping falls out of the rules.
-  const fieldMapping = Object.fromEntries(validationRanges.map(r => [r.field, r.key]));
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
@@ -228,28 +78,13 @@ const MicroStructure = () => {
   const primaryBusy = status === 'checking' || status === 'saving' || status === 'found' || status === 'added';
   const statusInfo = PRIMARY_STATUS[status];
 
-  // Field order for Enter key navigation
-  const fieldOrder = [
-    'date', 'disa', 'partName', 'dateCode', 'heatCode', 'nodularity', 'graphiteType',
-    'countMin', 'countMax', 'sizeMin', 'sizeMax', 'ferriteMin', 'ferriteMax',
-    'pearliteMin', 'pearliteMax', 'carbideMin', 'carbideMax', 'remarks'
-  ];
-
-  // ====================== Effects ======================
-
   // Set current date and load previous DISA from database on mount (only if not already set)
   useEffect(() => {
-    // Only set date if not already set in context (preserves data when navigating back)
-    if (!date) {
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      const d = String(today.getDate()).padStart(2, '0');
-      setDate(`${y}-${m}-${d}`);
+    if (!formData.date) {
+      setFormData(prev => ({ ...prev, date: getCurrentDate() }));
     }
 
-    // Fetch last used DISA from database only if not already set
-    if (!disa) {
+    if (!formData.disa) {
       const fetchLastDisa = async () => {
         try {
           const response = await fetch(`${API_ENDPOINTS.microStructure}/last-disa`, {
@@ -258,7 +93,7 @@ const MicroStructure = () => {
           });
           const data = await response.json();
           if (data.success && data.lastDisa) {
-            setDisa(data.lastDisa);
+            setFormData(prev => ({ ...prev, disa: data.lastDisa }));
           }
         } catch (error) {
           console.error('Error fetching last DISA:', error);
@@ -267,86 +102,46 @@ const MicroStructure = () => {
       fetchLastDisa();
     }
   }, []);
-  
-  // ====================== Helpers ======================
-  
+
   const getInputClassName = (baseClass, validationState) => {
     let classes = baseClass;
     if (validationState === false) classes += ' invalid-input';
     return classes;
   };
 
-  // ====================== Handlers ======================
-  
   const handleDateChange = (e) => {
-    setDate(e.target.value);
     setIsPrimarySaved(false);
 
-    // Reset all form fields except date and disa
     setFormData(prev => ({
       ...prev,
-      date: e.target.value,
-      partName: '',
-      dateCode: '',
-      heatCode: '',
-      nodularity: '',
-      graphiteType: '',
-      countMin: '',
-      countMax: '',
-      sizeMin: '',
-      sizeMax: '',
-      ferriteMin: '',
-      ferriteMax: '',
-      pearliteMin: '',
-      pearliteMax: '',
-      carbideMin: '',
-      carbideMax: '',
-      remarks: ''
+      ...EMPTY_ENTRY_FIELDS,
+      date: e.target.value
     }));
 
-    // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
   };
 
   const handleDisaChange = (e) => {
-    setDisa(e.target.value);
     setIsPrimarySaved(false);
 
-    // Reset all form fields except date and disa
     setFormData(prev => ({
       ...prev,
-      disa: e.target.value,
-      partName: '',
-      dateCode: '',
-      heatCode: '',
-      nodularity: '',
-      graphiteType: '',
-      countMin: '',
-      countMax: '',
-      sizeMin: '',
-      sizeMax: '',
-      ferriteMin: '',
-      ferriteMax: '',
-      pearliteMin: '',
-      pearliteMax: '',
-      carbideMin: '',
-      carbideMax: '',
-      remarks: ''
+      ...EMPTY_ENTRY_FIELDS,
+      disa: e.target.value
     }));
 
-    // Reset all validation states using context
     resetValidation();
     setSubmitErrorMessage('');
   };
 
-  const handleInputChange = (setter, fieldKey) => (e) => {
-    setter(e.target.value);
-    if (fieldKey) setValidation(fieldKey, null);
+  const handleInputChange = (fieldKey) => (e) => {
+    setFormData(prev => ({ ...prev, [fieldKey]: e.target.value }));
+    setValidation(fieldKey, null);
   };
 
   const handleDateCodeChange = (e) => {
-    setDateCode(e.target.value.toUpperCase());
+    setFormData(prev => ({ ...prev, dateCode: e.target.value.toUpperCase() }));
     setValidation('dateCode', null);
   };
 
@@ -386,29 +181,28 @@ const MicroStructure = () => {
       return;
     }
 
-
     try {
       setSubmitLoading(true);
 
       const payload = {
-        date,
-        disa,
-        partName,
-        dateCode,
-        heatCode,
-        nodularity: parseFloat(nodularity),
-        graphiteType,
-        countMin: parseFloat(countMin),
-        countMax: countMax === '' ? 0 : parseFloat(countMax),
-        sizeMin: parseFloat(sizeMin),
-        sizeMax: sizeMax === '' ? 0 : parseFloat(sizeMax),
-        ferriteMin: parseFloat(ferriteMin),
-        ferriteMax: ferriteMax === '' ? 0 : parseFloat(ferriteMax),
-        pearliteMin: parseFloat(pearliteMin),
-        pearliteMax: pearliteMax === '' ? 0 : parseFloat(pearliteMax),
-        carbideMin: parseFloat(carbideMin),
-        carbideMax: carbideMax === '' ? 0 : parseFloat(carbideMax),
-        remarks
+        date: formData.date,
+        disa: formData.disa,
+        partName: formData.partName,
+        dateCode: formData.dateCode,
+        heatCode: formData.heatCode,
+        nodularity: parseFloat(formData.nodularity),
+        graphiteType: formData.graphiteType,
+        countMin: parseFloat(formData.countMin),
+        countMax: formData.countMax === '' ? 0 : parseFloat(formData.countMax),
+        sizeMin: parseFloat(formData.sizeMin),
+        sizeMax: formData.sizeMax === '' ? 0 : parseFloat(formData.sizeMax),
+        ferriteMin: parseFloat(formData.ferriteMin),
+        ferriteMax: formData.ferriteMax === '' ? 0 : parseFloat(formData.ferriteMax),
+        pearliteMin: parseFloat(formData.pearliteMin),
+        pearliteMax: formData.pearliteMax === '' ? 0 : parseFloat(formData.pearliteMax),
+        carbideMin: parseFloat(formData.carbideMin),
+        carbideMax: formData.carbideMax === '' ? 0 : parseFloat(formData.carbideMax),
+        remarks: formData.remarks
       };
 
       const response = await fetch(`${API_ENDPOINTS.microStructure}`, {
@@ -433,25 +227,7 @@ const MicroStructure = () => {
       if (data.success) {
         toast.success('Entry saved successfully.');
 
-        // Reset all fields except primary data
-        setPartName('');
-        setDateCode('');
-        setHeatCode('');
-        setNodularity('');
-        setGraphiteType('');
-        setCountMin('');
-        setCountMax('');
-        setSizeMin('');
-        setSizeMax('');
-        setFerriteMin('');
-        setFerriteMax('');
-        setPearliteMin('');
-        setPearliteMax('');
-        setCarbideMin('');
-        setCarbideMax('');
-        setRemarks('');
-
-        // Reset validation states
+        setFormData(prev => ({ ...prev, ...EMPTY_ENTRY_FIELDS }));
         resetValidation();
 
         setSubmitErrorMessage('');
@@ -481,17 +257,14 @@ const MicroStructure = () => {
     }
   };
 
-  // ====================== Format date ======================
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
     const [y, m, d] = iso.split('-');
     return `${d}/${m}/${y}`;
   };
 
-  // ====================== JSX ======================
   return (
     <>
-      
       <div className="microstructure-header">
         <div className="microstructure-header-text">
           <h2>
@@ -501,11 +274,10 @@ const MicroStructure = () => {
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
-          DATE : {date ? formatDisplayDate(date) : '-'}
+          DATE : {formData.date ? formatDisplayDate(formData.date) : '-'}
         </div>
       </div>
 
-      {/* Info Modal */}
       <InfoCard
         isOpen={isOpen}
         onClose={closeModal}
@@ -524,17 +296,17 @@ const MicroStructure = () => {
             <label>Ins. Date{mark('date')}</label>
             <CustomDatePicker
               ref={el => inputRefs.current.date = el}
-              value={date}
+              value={formData.date}
               onChange={handleDateChange}
               onKeyDown={e => handleKeyDown(e, 'date')}
               max={getCurrentDate()}
               name="date"
               style={{
-                border: (highlightPrimaryFields || dateValid === false) ? '2px solid #ef4444' : '2px solid #cbd5e1',
+                border: (highlightPrimaryFields || validationStates.date === false) ? '2px solid #ef4444' : '2px solid #cbd5e1',
                 width: '100%',
                 borderRadius: '8px',
                 fontSize: '0.875rem',
-                backgroundColor: (highlightPrimaryFields || dateValid === false) ? '#fee2e2' : '#fff',
+                backgroundColor: (highlightPrimaryFields || validationStates.date === false) ? '#fee2e2' : '#fff',
                 transition: 'all 0.3s ease'
               }}
             />
@@ -543,13 +315,13 @@ const MicroStructure = () => {
             <label>DISA{mark('disa')}</label>
             <DisaDropdown
               ref={el => inputRefs.current.disa = el}
-              value={disa}
+              value={formData.disa}
               onChange={handleDisaChange}
               onKeyDown={e => handleKeyDown(e, 'disa')}
               name="disa"
               style={{
-                border: (highlightPrimaryFields || disaValid === false) ? '2px solid #ef4444' : undefined,
-                backgroundColor: (highlightPrimaryFields || disaValid === false) ? '#fee2e2' : undefined,
+                border: (highlightPrimaryFields || validationStates.disa === false) ? '2px solid #ef4444' : undefined,
+                backgroundColor: (highlightPrimaryFields || validationStates.disa === false) ? '#fee2e2' : undefined,
                 transition: 'all 0.3s ease'
               }}
             />
@@ -563,7 +335,7 @@ const MicroStructure = () => {
             <label>&nbsp;</label>
             <LockPrimaryButton
               onClick={savePrimary}
-              disabled={primaryBusy || !date || !disa || isPrimarySaved}
+              disabled={primaryBusy || !formData.date || !formData.disa || isPrimarySaved}
               isLocked={isPrimarySaved}
             />
           </div>
@@ -577,13 +349,13 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.partName = el}
             type="text"
-            value={partName}
-            onChange={handleInputChange(setPartName, 'partName')}
+            value={formData.partName}
+            onChange={handleInputChange('partName')}
             onKeyDown={e => handleKeyDown(e, 'partName')}
             name="partName"
             placeholder="Enter part name"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', partNameValid)}
+            className={getInputClassName('microstructure-input', validationStates.partName)}
           />
         </div>
         <div className="microstructure-field">
@@ -591,13 +363,13 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.dateCode = el}
             type="text"
-            value={dateCode}
+            value={formData.dateCode}
             onChange={handleDateCodeChange}
             onKeyDown={e => handleKeyDown(e, 'dateCode')}
             name="dateCode"
             placeholder="Enter date code"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', dateCodeValid)}
+            className={getInputClassName('microstructure-input', validationStates.dateCode)}
           />
         </div>
         <div className="microstructure-field">
@@ -605,13 +377,13 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.heatCode = el}
             type="text"
-            value={heatCode}
-            onChange={handleInputChange(setHeatCode, 'heatCode')}
+            value={formData.heatCode}
+            onChange={handleInputChange('heatCode')}
             onKeyDown={e => handleKeyDown(e, 'heatCode')}
             name="heatCode"
             placeholder="Enter heat code"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', heatCodeValid)}
+            className={getInputClassName('microstructure-input', validationStates.heatCode)}
           />
         </div>
         <div className="microstructure-field">
@@ -619,16 +391,15 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.nodularity = el}
             type="number"
-            value={nodularity}
-            onChange={handleInputChange(setNodularity, 'nodularity')}
+            value={formData.nodularity}
+            onChange={handleInputChange('nodularity')}
             onKeyDown={e => handleKeyDown(e, 'nodularity')}
             name="nodularity"
             placeholder="0-100"
             min="0"
-            max="100"
             step="0.01"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', nodularityValid)}
+            className={getInputClassName('microstructure-input', validationStates.nodularity)}
           />
         </div>
         <div className="microstructure-field">
@@ -636,13 +407,13 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.graphiteType = el}
             type="text"
-            value={graphiteType}
-            onChange={handleInputChange(setGraphiteType, 'graphiteType')}
+            value={formData.graphiteType}
+            onChange={handleInputChange('graphiteType')}
             onKeyDown={e => handleKeyDown(e, 'graphiteType')}
             name="graphiteType"
             placeholder="Enter graphite type"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', graphiteTypeValid)}
+            className={getInputClassName('microstructure-input', validationStates.graphiteType)}
           />
         </div>
       </div>
@@ -655,29 +426,29 @@ const MicroStructure = () => {
             <input
               ref={el => inputRefs.current.countMin = el}
               type="number"
-              value={countMin}
-              onChange={handleInputChange(setCountMin, 'countMin')}
+              value={formData.countMin}
+              onChange={handleInputChange('countMin')}
               onKeyDown={e => handleKeyDown(e, 'countMin')}
               name="countMin"
               placeholder="Min"
               min="0"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', countMinValid)}
+              className={getInputClassName('microstructure-input', validationStates.countMin)}
             />
             <span className="range-separator">-</span>
             <input
               ref={el => inputRefs.current.countMax = el}
               type="number"
-              value={countMax}
-              onChange={handleInputChange(setCountMax, 'countMax')}
+              value={formData.countMax}
+              onChange={handleInputChange('countMax')}
               onKeyDown={e => handleKeyDown(e, 'countMax')}
               name="countMax"
               placeholder="Max"
               min="0"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', countMaxValid)}
+              className={getInputClassName('microstructure-input', validationStates.countMax)}
             />
           </div>
         </div>
@@ -687,29 +458,29 @@ const MicroStructure = () => {
             <input
               ref={el => inputRefs.current.sizeMin = el}
               type="number"
-              value={sizeMin}
-              onChange={handleInputChange(setSizeMin, 'sizeMin')}
+              value={formData.sizeMin}
+              onChange={handleInputChange('sizeMin')}
               onKeyDown={e => handleKeyDown(e, 'sizeMin')}
               name="sizeMin"
               placeholder="Min"
               min="0"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', sizeMinValid)}
+              className={getInputClassName('microstructure-input', validationStates.sizeMin)}
             />
             <span className="range-separator">-</span>
             <input
               ref={el => inputRefs.current.sizeMax = el}
               type="number"
-              value={sizeMax}
-              onChange={handleInputChange(setSizeMax, 'sizeMax')}
+              value={formData.sizeMax}
+              onChange={handleInputChange('sizeMax')}
               onKeyDown={e => handleKeyDown(e, 'sizeMax')}
               name="sizeMax"
               placeholder="Max"
               min="0"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', sizeMaxValid)}
+              className={getInputClassName('microstructure-input', validationStates.sizeMax)}
             />
           </div>
         </div>
@@ -719,31 +490,29 @@ const MicroStructure = () => {
             <input
               ref={el => inputRefs.current.ferriteMin = el}
               type="number"
-              value={ferriteMin}
-              onChange={handleInputChange(setFerriteMin, 'ferriteMin')}
+              value={formData.ferriteMin}
+              onChange={handleInputChange('ferriteMin')}
               onKeyDown={e => handleKeyDown(e, 'ferriteMin')}
               name="ferriteMin"
               placeholder="Min"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', ferriteMinValid)}
+              className={getInputClassName('microstructure-input', validationStates.ferriteMin)}
             />
             <span className="range-separator">-</span>
             <input
               ref={el => inputRefs.current.ferriteMax = el}
               type="number"
-              value={ferriteMax}
-              onChange={handleInputChange(setFerriteMax, 'ferriteMax')}
+              value={formData.ferriteMax}
+              onChange={handleInputChange('ferriteMax')}
               onKeyDown={e => handleKeyDown(e, 'ferriteMax')}
               name="ferriteMax"
               placeholder="Max"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', ferriteMaxValid)}
+              className={getInputClassName('microstructure-input', validationStates.ferriteMax)}
             />
           </div>
         </div>
@@ -753,31 +522,29 @@ const MicroStructure = () => {
             <input
               ref={el => inputRefs.current.pearliteMin = el}
               type="number"
-              value={pearliteMin}
-              onChange={handleInputChange(setPearliteMin, 'pearliteMin')}
+              value={formData.pearliteMin}
+              onChange={handleInputChange('pearliteMin')}
               onKeyDown={e => handleKeyDown(e, 'pearliteMin')}
               name="pearliteMin"
               placeholder="Min"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', pearliteMinValid)}
+              className={getInputClassName('microstructure-input', validationStates.pearliteMin)}
             />
             <span className="range-separator">-</span>
             <input
               ref={el => inputRefs.current.pearliteMax = el}
               type="number"
-              value={pearliteMax}
-              onChange={handleInputChange(setPearliteMax, 'pearliteMax')}
+              value={formData.pearliteMax}
+              onChange={handleInputChange('pearliteMax')}
               onKeyDown={e => handleKeyDown(e, 'pearliteMax')}
               name="pearliteMax"
               placeholder="Max"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', pearliteMaxValid)}
+              className={getInputClassName('microstructure-input', validationStates.pearliteMax)}
             />
           </div>
         </div>
@@ -787,31 +554,29 @@ const MicroStructure = () => {
             <input
               ref={el => inputRefs.current.carbideMin = el}
               type="number"
-              value={carbideMin}
-              onChange={handleInputChange(setCarbideMin, 'carbideMin')}
+              value={formData.carbideMin}
+              onChange={handleInputChange('carbideMin')}
               onKeyDown={e => handleKeyDown(e, 'carbideMin')}
               name="carbideMin"
               placeholder="Min"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', carbideMinValid)}
+              className={getInputClassName('microstructure-input', validationStates.carbideMin)}
             />
             <span className="range-separator">-</span>
             <input
               ref={el => inputRefs.current.carbideMax = el}
               type="number"
-              value={carbideMax}
-              onChange={handleInputChange(setCarbideMax, 'carbideMax')}
+              value={formData.carbideMax}
+              onChange={handleInputChange('carbideMax')}
               onKeyDown={e => handleKeyDown(e, 'carbideMax')}
               name="carbideMax"
               placeholder="Max"
               min="0"
-              max="100"
               step="0.01"
               disabled={!isPrimarySaved}
-              className={getInputClassName('microstructure-input', carbideMaxValid)}
+              className={getInputClassName('microstructure-input', validationStates.carbideMax)}
             />
           </div>
         </div>
@@ -824,13 +589,13 @@ const MicroStructure = () => {
           <input
             ref={el => inputRefs.current.remarks = el}
             type="text"
-            value={remarks}
-            onChange={handleInputChange(setRemarks, 'remarks')}
+            value={formData.remarks}
+            onChange={handleInputChange('remarks')}
             onKeyDown={e => handleKeyDown(e, 'remarks')}
             name="remarks"
             placeholder="Enter remarks"
             disabled={!isPrimarySaved}
-            className={getInputClassName('microstructure-input', remarksValid)}
+            className={getInputClassName('microstructure-input', validationStates.remarks)}
           />
         </div>
       </div>

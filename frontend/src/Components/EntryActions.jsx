@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EditEntryModal from './EditEntryModal';
+import { useToast } from './alert';
 import { formatRemaining } from '../utils/formatDateTime';
 import '../styles/ComponentStyles/EntryActions.css';
 
@@ -12,6 +13,7 @@ const FINE_TICK_THRESHOLD_MS = 2 * 60 * 1000;
 // Edit (pencil): admins, or the creator within editWindowMs of createdAt (mirrors backend enforcement). Delete (trash): admins only. Neither renders otherwise.
 const EntryActions = ({ entry, editConfig, onChanged }) => {
     const { isAdmin, user, editWindowMs } = useAuth();
+    const { toast } = useToast();
     const [showEdit, setShowEdit] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -36,8 +38,11 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
     const canDelete = isAdmin;
 
     // Re-render while the window is open so the countdown advances and the pencil
-    // disappears the moment it lapses, without waiting for a page refresh.
-    const tickMs = remainingMs !== null && remainingMs <= FINE_TICK_THRESHOLD_MS ? 1000 : 30000;
+    // disappears the moment it lapses, without waiting for a page refresh. While
+    // the tooltip is actually being hovered/focused, always tick every second so
+    // the visible countdown moves in real time instead of jumping in 30s steps.
+    const isHovering = tooltipAnchor !== null;
+    const tickMs = remainingMs !== null && (remainingMs <= FINE_TICK_THRESHOLD_MS || isHovering) ? 1000 : 30000;
     useEffect(() => {
         if (!isOwnerWithinWindow) return undefined;
         const id = setInterval(() => setNow(Date.now()), tickMs);
@@ -67,14 +72,14 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.success) {
-                alert(data.message || 'Entry deleted successfully.');
+                toast.success(data.message || 'Entry deleted successfully.');
                 setConfirmDelete(false);
                 onChanged && onChanged();
             } else {
-                alert(data.message || 'Failed to delete entry.');
+                toast.error(data.message || 'Failed to delete entry.');
             }
         } catch (err) {
-            alert('Network error while deleting. Please try again.');
+            toast.error('Network error while deleting. Please try again.');
         } finally {
             setDeleting(false);
         }

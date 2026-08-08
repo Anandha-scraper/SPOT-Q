@@ -35,7 +35,7 @@ const DownloadLogsReport = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 15;
+  const itemsPerPage = 12;
 
   const isFilterEnabled =
     toDate &&
@@ -179,7 +179,7 @@ const DownloadLogsReport = () => {
         </div>
       ) : (
         <div className="reusable-table-container">
-          <table className="reusable-table">
+          <table className="reusable-table dlr-table">
             <colgroup>
               <col style={{ width: "4%" }} />
               <col style={{ width: "10%" }} />

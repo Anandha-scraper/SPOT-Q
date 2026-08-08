@@ -11,65 +11,25 @@ import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { validationRanges, fieldMapping } from '../../deviations/DmicroTensile';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
-const EMPTY_ENTRY = {
-  item: '',
-  itemSecond: '',
-  dateCode: '',
-  heatCode: '',
-  barDia: '',
-  gaugeLength: '',
-  maxLoad: '',
-  yieldLoad: '',
-  tensileStrength: '',
-  yieldStrength: '',
-  elongation: '',
-  remarks: '',
-  testedBy: ''
-};
+// Every entry field except the primary pair (Date/DISA), reset to blank.
+const EMPTY_ENTRY = Object.fromEntries(
+  validationRanges
+    .filter(r => r.field !== 'Date' && r.field !== 'DISA')
+    .map(r => [fieldMapping[r.field], ''])
+);
 
-// Mirrors the required/min/max constraints on backend/models/MicroTensile.js.
-const validationRanges = [
-  { field: 'Date', required: true, type: 'Date', pattern: 'DD/MM/YYYY' },
-  { field: 'DISA', required: true, type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'] },
-  { field: 'Item', required: true, type: 'Text', pattern: 'e.g., Volvo Bkt 234' },
-  { field: 'Item (Optional)', type: 'Text', pattern: 'e.g., 343/34/56' },
-  { field: 'Date Code', required: true, type: 'Text', format: 'dateCode', pattern: 'e.g., 5E04' },
-  { field: 'Heat Code', type: 'Number',min:0, pattern: 'e.g., 1' },
-  { field: 'Bar Dia', type: 'Number', unit: 'mm',min:0, pattern: 'e.g., 6.0' },
-  { field: 'Gauge Length', type: 'Number', unit: 'mm',min:0, pattern: 'e.g., 30.0' },
-  { field: 'Max Load', type: 'Number', min: 0, exclusiveMin: true, unit: 'Kgs or KN', pattern: 'e.g., 1560' },
-  { field: 'Yield Load', type: 'Number', min: 0, exclusiveMin: true, unit: 'Kgs or KN', pattern: 'e.g., 1290' },
-  { field: 'Tensile Strength', type: 'Number', min: 0, exclusiveMin: true, unit: 'Kg/mm² or MPa', pattern: 'e.g., 550' },
-  { field: 'Yield Strength', type: 'Number', min: 0, exclusiveMin: true, unit: 'Kg/mm² or MPa', pattern: 'e.g., 455' },
-  { field: 'Elongation', type: 'Number', min: 0,unit: '%', pattern: 'e.g., 18.5' },
-  { field: 'Remarks', type: 'Text' },
-  { field: 'Tested By', type: 'Text', pattern: 'e.g., Shanmugam' }
-];
+// Matches validationRanges' declared order, so Enter-key navigation always
+// follows the same field sequence as Dmicrotensile.js and the JSX below.
+const fieldOrder = Object.values(fieldMapping);
 
-const fieldMapping = {
-  'Date': 'date',
-  'DISA': 'disa',
-  'Item': 'item',
-  'Item (Optional)': 'itemSecond',
-  'Date Code': 'dateCode',
-  'Heat Code': 'heatCode',
-  'Bar Dia': 'barDia',
-  'Gauge Length': 'gaugeLength',
-  'Max Load': 'maxLoad',
-  'Yield Load': 'yieldLoad',
-  'Tensile Strength': 'tensileStrength',
-  'Yield Strength': 'yieldStrength',
-  'Elongation': 'elongation',
-  'Remarks': 'remarks',
-  'Tested By': 'testedBy'
-};
-
-const fieldOrder = ['date', 'disa', 'item', 'itemSecond', 'dateCode', 'heatCode', 'barDia', 'gaugeLength',
-  'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation', 'remarks', 'testedBy'];
-
-const DECIMAL_FIELDS = ['barDia', 'gaugeLength', 'maxLoad', 'yieldLoad', 'tensileStrength', 'yieldStrength', 'elongation'];
+// Every Number-typed field gets rounded to 1 decimal on blur; Heat Code is
+// Integer-typed so it's naturally excluded.
+const DECIMAL_FIELDS = validationRanges
+  .filter(r => r.type === 'Number')
+  .map(r => fieldMapping[r.field]);
 
 const requiredFields = getRequiredFields(validationRanges, fieldMapping);
 
@@ -150,7 +110,6 @@ const MicroTensile = () => {
 
     let next = value;
     if (name === 'dateCode') next = value.toUpperCase();
-    if (name === 'heatCode') next = String(value).replace(/\D/g, '');
 
     if (name === 'itemSecond') {
       // Cap at two slashes so the value can never exceed three segments.

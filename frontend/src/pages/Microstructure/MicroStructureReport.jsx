@@ -1,16 +1,38 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { microStructureEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/DmicroStructure';
 import '../../styles/PageStyles/MicroStructure/MicroStructureReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const MicroStructureReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const devClass = (fieldName, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
+  const devClassRange = (fieldName, minValue, maxValue) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    if (!rule) return undefined;
+    const numRule = { ...rule, type: 'Number' };
+    return (isDeviant(numRule, minValue) || isDeviant(numRule, maxValue)) ? 'deviation-flag' : undefined;
+  };
 
   // ========================================================================
   // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
@@ -328,6 +350,12 @@ const MicroStructureReport = () => {
           />
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ClearButton onClick={handleClear} />
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
@@ -400,15 +428,15 @@ const MicroStructureReport = () => {
                         </td>
                       ) : null}
                       <td>{item.partName || '-'}</td>
-                      <td>{item.dateCode || '-'}</td>
+                      <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
                       <td>{item.heatCode || '-'}</td>
-                      <td>{item.nodularity !== undefined && item.nodularity !== null ? item.nodularity : '-'}</td>
+                      <td className={devClass('Nodularity %', item.nodularity)}>{item.nodularity !== undefined && item.nodularity !== null ? item.nodularity : '-'}</td>
                       <td>{item.graphiteType !== undefined && item.graphiteType !== null ? item.graphiteType : '-'}</td>
-                      <td>{renderRange(item.countMin, item.countMax)}</td>
-                      <td>{renderRange(item.sizeMin, item.sizeMax)}</td>
-                      <td>{renderRange(item.ferriteMin, item.ferriteMax)}</td>
-                      <td>{renderRange(item.pearliteMin, item.pearliteMax)}</td>
-                      <td>{renderRange(item.carbideMin, item.carbideMax)}</td>
+                      <td className={devClassRange('Count Range', item.countMin, item.countMax)}>{renderRange(item.countMin, item.countMax)}</td>
+                      <td className={devClassRange('Size Range', item.sizeMin, item.sizeMax)}>{renderRange(item.sizeMin, item.sizeMax)}</td>
+                      <td className={devClassRange('Ferrite Range %', item.ferriteMin, item.ferriteMax)}>{renderRange(item.ferriteMin, item.ferriteMax)}</td>
+                      <td className={devClassRange('Pearlite Range %', item.pearliteMin, item.pearliteMax)}>{renderRange(item.pearliteMin, item.pearliteMax)}</td>
+                      <td className={devClassRange('Carbide Range %', item.carbideMin, item.carbideMax)}>{renderRange(item.carbideMin, item.carbideMax)}</td>
                       <td
                         className={`micro-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}
                         onClick={() => item.remarks && showRemarksPopup(item.remarks)}

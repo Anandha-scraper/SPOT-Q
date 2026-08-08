@@ -68,9 +68,16 @@ model User {
   microStructureEntries MicroStructureEntry[]
   qcProductionEntries   QcProduction[]
 
-  // Cupola, both Moulding modules and both Sand Lab modules never had a
-  // createdBy field in Mongoose — genuinely ownerless, no back-relation here.
+  // Cupola and both Moulding modules never had a createdBy field in Mongoose —
+  // genuinely ownerless, no back-relation here. Sand Lab's three modules
+  // (SandNoteEntry/ReturnSandNoteEntry/SandRecordDay) were ownerless too until
+  // their report pages needed the same ownership+edit-window gating every
+  // other department already has.
   meltingLogEntries MeltingLogEntry[]
+
+  sandNoteEntries       SandNoteEntry[]
+  returnSandNoteEntries ReturnSandNoteEntry[]
+  sandRecordDays        SandRecordDay[]
 
   downloadLogs DownloadLog[]
 
@@ -585,25 +592,25 @@ model MeltingLogEntry {
   grade  String @default("-") @db.VarChar(32)
 
   chargingTime                 String @default("-") @db.VarChar(16)
-  chargingIfBath                String @default("-") @db.VarChar(32)
-  chargingLiquidMetalPressPour  String @default("-") @db.VarChar(32)
-  chargingLiquidMetalHolder     String @default("-") @db.VarChar(32)
-  chargingSgMsSteel             String @default("-") @db.VarChar(32)
-  chargingGreyMsSteel           String @default("-") @db.VarChar(32)
-  chargingReturnsSg             String @default("-") @db.VarChar(32)
-  chargingPigIron               String @default("-") @db.VarChar(32)
-  chargingBorings               String @default("-") @db.VarChar(32)
-  chargingFinalBath             String @default("-") @db.VarChar(32)
+  chargingIfBath               String @default("-") @db.VarChar(32)
+  chargingLiquidMetalPressPour String @default("-") @db.VarChar(32)
+  chargingLiquidMetalHolder    String @default("-") @db.VarChar(32)
+  chargingSgMsSteel            String @default("-") @db.VarChar(32)
+  chargingGreyMsSteel          String @default("-") @db.VarChar(32)
+  chargingReturnsSg            String @default("-") @db.VarChar(32)
+  chargingPigIron              String @default("-") @db.VarChar(32)
+  chargingBorings              String @default("-") @db.VarChar(32)
+  chargingFinalBath            String @default("-") @db.VarChar(32)
 
   charCoal String @default("-") @db.VarChar(32)
   cpcFur   String @default("-") @db.VarChar(32)
   cpcLc    String @default("-") @db.VarChar(32)
 
   siliconCarbideFur String @default("-") @db.VarChar(32)
-  ferrosiliconFur    String @default("-") @db.VarChar(32)
-  ferrosiliconLc     String @default("-") @db.VarChar(32)
-  ferroManganeseFur  String @default("-") @db.VarChar(32)
-  ferroManganeseLc   String @default("-") @db.VarChar(32)
+  ferrosiliconFur   String @default("-") @db.VarChar(32)
+  ferrosiliconLc    String @default("-") @db.VarChar(32)
+  ferroManganeseFur String @default("-") @db.VarChar(32)
+  ferroManganeseLc  String @default("-") @db.VarChar(32)
 
   cu String @default("-") @db.VarChar(32)
   cr String @default("-") @db.VarChar(32)
@@ -633,15 +640,15 @@ model MeltingLogEntry {
   disaNo String @default("-") @db.VarChar(16)
   item   String @default("-") @db.VarChar(64)
 
-  furnace1Kw String @default("-") @db.VarChar(16)
-  furnace1A  String @default("-") @db.VarChar(16)
-  furnace1V  String @default("-") @db.VarChar(16)
-  furnace2Kw String @default("-") @db.VarChar(16)
-  furnace2A  String @default("-") @db.VarChar(16)
-  furnace2V  String @default("-") @db.VarChar(16)
-  furnace3Kw String @default("-") @db.VarChar(16)
-  furnace3A  String @default("-") @db.VarChar(16)
-  furnace3V  String @default("-") @db.VarChar(16)
+  furnace1Kw   String @default("-") @db.VarChar(16)
+  furnace1A    String @default("-") @db.VarChar(16)
+  furnace1V    String @default("-") @db.VarChar(16)
+  furnace2Kw   String @default("-") @db.VarChar(16)
+  furnace2A    String @default("-") @db.VarChar(16)
+  furnace2V    String @default("-") @db.VarChar(16)
+  furnace3Kw   String @default("-") @db.VarChar(16)
+  furnace3A    String @default("-") @db.VarChar(16)
+  furnace3V    String @default("-") @db.VarChar(16)
   furnace4Hz   String @default("-") @db.VarChar(16)
   furnace4Gld  String @default("-") @db.VarChar(16)
   furnace4KwHr String @default("-") @db.VarChar(16)
@@ -997,11 +1004,17 @@ model SandNoteEntry {
   shearStrengthSetting  String @default("") @db.VarChar(32)
   remarks               String @default("") @db.VarChar(500)
 
+  createdBy String? @db.VarChar(36)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   day    SandNoteDay     @relation(fields: [sandNoteDayId], references: [id], onDelete: Cascade)
   fields SandNoteField[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
 
   @@unique([sandNoteDayId, shift, sandPlant])
   @@map("sand_note_entries")
@@ -1026,6 +1039,62 @@ model SandNoteField {
   @@map("sand_note_fields")
 }
 
+// Return Sand Foundry Sand Testing Note — a scoped-down sibling of
+// SandNoteDay/Entry/Field above: same date+shift+plant primary shape and the
+// same generic path/value discriminator table, but only clayTests/sieveTesting
+// sections and no Compactability/Shear-Strength/Remarks scalar columns, since
+// this module never has them. plant is 'Eirich' | 'Disa' | 'Foundry-A',
+// validated in the service — no enum, per the portability contract.
+model ReturnSandNoteDay {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries ReturnSandNoteEntry[]
+
+  @@map("return_sand_note_days")
+}
+
+model ReturnSandNoteEntry {
+  id    String @id @default(uuid()) @db.VarChar(36)
+  dayId String @db.VarChar(36)
+
+  shift String @db.VarChar(16)
+  plant String @db.VarChar(32)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  day    ReturnSandNoteDay     @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  fields ReturnSandNoteField[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@unique([dayId, shift, plant])
+  @@map("return_sand_note_entries")
+}
+
+model ReturnSandNoteField {
+  id      String @id @default(uuid()) @db.VarChar(36)
+  entryId String @db.VarChar(36)
+
+  section   String @db.VarChar(20) // 'clayTests' | 'sieveTesting'
+  testNo    Int
+  fieldPath String @db.VarChar(40)
+  value     String @db.VarChar(64)
+
+  entry ReturnSandNoteEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, section, testNo, fieldPath])
+  @@map("return_sand_note_fields")
+}
+
 // date+plant keyed (was a compound unique index in Mongoose; plant is
 // 'Disa' | 'Eirich', validated in the service — no enum, per the portability
 // contract).
@@ -1037,11 +1106,17 @@ model SandRecordDay {
   sandLump  String @default("") @db.VarChar(32)
   newSandWt String @default("") @db.VarChar(32)
 
+  createdBy String? @db.VarChar(36)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   values         SandRecordValue[]
   testParameters SandRecordTestParameter[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
 
   @@unique([date, plant])
   @@map("sand_record_days")
@@ -1081,14 +1156,14 @@ model SandRecordTestParameter {
   time  String @default("") @db.VarChar(16)
   mixno String @default("") @db.VarChar(16)
 
-  permeability    Float @default(0)
-  gcsFdyA         Float @default(0)
-  gcsFdyB         Float @default(0)
-  wts             Float @default(0)
-  moisture        Float @default(0)
-  compactability  Float @default(0)
-  compressibility Float @default(0)
-  waterLitre      Float @default(0)
+  permeability    Float  @default(0)
+  gcsFdyA         String @default("-") @db.VarChar(16)
+  gcsFdyB         String @default("-") @db.VarChar(16)
+  wts             Float  @default(0)
+  moisture        Float  @default(0)
+  compactability  Float  @default(0)
+  compressibility Float  @default(0)
+  waterLitre      Float  @default(0)
 
   sandTempBC     Float @default(0)
   sandTempWU     Float @default(0)
@@ -1097,14 +1172,15 @@ model SandRecordTestParameter {
   newSandKgs Float @default(0)
   mould      Float @default(0)
 
-  bentoniteWithPremixKgs     Float @default(0)
-  bentoniteWithPremixPercent Float @default(0)
-  bentoniteKgs               Float @default(0)
-  bentonitePercent           Float @default(0)
-  premixKgs                  Float @default(0)
-  premixPercent              Float @default(0)
-  coalDustKgs                Float @default(0)
-  coalDustPercent            Float @default(0)
+  bentoniteWithPremixKgs     Float  @default(0)
+  bentoniteWithPremixPercent Float  @default(0)
+  bentoniteKgs               String @default("-") @db.VarChar(16)
+  bentonitePercent           String @default("-") @db.VarChar(16)
+  bentoniteCheckpoint        String @default("-") @db.VarChar(16)
+  premixKgs                  String @default("-") @db.VarChar(16)
+  premixPercent              String @default("-") @db.VarChar(16)
+  coalDustKgs                String @default("-") @db.VarChar(16)
+  coalDustPercent            String @default("-") @db.VarChar(16)
 
   lc                     Float @default(0)
   compactabilitySettings Float @default(0)

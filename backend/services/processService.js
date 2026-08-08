@@ -1,6 +1,7 @@
 const processRepository = require('../repositories/processRepository');
 const {
     buildColumns,
+    collectMissing,
     invalidInput,
     requireDateAndDisa,
     requireEditableFields,
@@ -24,14 +25,13 @@ const RAW_STRING_FIELDS = ['timeOfPouring', 'tappingTime'];
 
 const NUMERIC_FIELDS = ['quantityOfMoulds', 'pouringTemperatureMin', 'pouringTemperatureMax'];
 
-const DATECODE_PATTERN = /^[0-9][A-Z][0-9]{2}$/;
-
 function buildEntryData(body) {
+    // datecode's format is a QC spec hint, not a hard input limit — the real
+    // recorded value must be accepted even outside spec, so no pattern check here.
     const { data, invalid } = buildColumns(body, {
         trimmed: TRIMMED_FIELDS,
         raw: [...RAW_STRING_FIELDS, ...SENTINEL_FIELDS],
         integers: NUMERIC_FIELDS,
-        patterns: { datecode: DATECODE_PATTERN },
     });
 
     if (invalid.length) throw invalidInput(invalid);
@@ -122,6 +122,13 @@ async function updateEntry(entryId, body) {
 
     const data = buildEntryData(patch);
     requireEditableFields(data);
+
+    // requireEditableFields only checks the patch isn't empty, not that any
+    // particular field is non-blank — disa is required whenever it's part
+    // of the patch, same as it is on create via requireDateAndDisa.
+    if ('disa' in data && collectMissing(data, ['disa']).length) {
+        throw invalidInput(['disa']);
+    }
 
     return processRepository.updateEntry(entryId, data);
 }

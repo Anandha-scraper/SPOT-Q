@@ -1,6 +1,5 @@
-  import React, { useContext } from 'react';
+import React, { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-
 // Context & Layout
 import { AuthContext } from './src/context/AuthContext';
 import Sidebar from './src/Components/sidebar';
@@ -16,6 +15,7 @@ import Login from './src/pages/Login';
 import UserProfile from './src/Components/UserProfile';
 import AdminDashboard from './src/Components/AdminDashboard';
 import DownloadLogsReport from './src/pages/Admin/DownloadLogsReport';
+import DownloadLogsMine from './src/pages/DownloadLogsMine';
 
 // Feature Pages
 import MicroTensile from './src/pages/MicroTensile/MicroTensile';
@@ -36,6 +36,8 @@ import SandTestingRecord from './src/pages/SandLab/SandTestingRecord';
 import SandTestingRecordReport from './src/pages/SandLab/SandTestingRecordReport';
 import FoundarySandTestingNote from './src/pages/SandLab/FoundarySandTestingNote';
 import FoundrySandTestingReport from './src/pages/SandLab/FoundrySandTestingReport';
+import ReturnSandFoundrySandTestingNote from './src/pages/SandLab/ReturnSandFoundrySandTestingNote';
+import ReturnSandFoundrySandTestingNoteReport from './src/pages/SandLab/ReturnSandFoundrySandTestingNoteReport';
 import DisamaticProduct from './src/pages/Moulding/DisamaticProduct';
 import DisamaticProductReport from './src/pages/Moulding/DisamaticProductReport';
 import DmmSettingParameters from './src/pages/Moulding/DmmSettingParameters';
@@ -175,6 +177,8 @@ const App = () => {
              <Route path="sand-testing-record/report" element={<DepartmentRouteGuard><SandTestingRecordReport /></DepartmentRouteGuard>} />
              <Route path="foundry-sand-testing-note" element={<DepartmentRouteGuard><FoundarySandTestingNote /></DepartmentRouteGuard>} />
              <Route path="foundry-sand-testing-note/report" element={<DepartmentRouteGuard><FoundrySandTestingReport /></DepartmentRouteGuard>} />
+             <Route path="return-sand-foundry-sand-testing-note" element={<DepartmentRouteGuard><ReturnSandFoundrySandTestingNote /></DepartmentRouteGuard>} />
+             <Route path="return-sand-foundry-sand-testing-note/report" element={<DepartmentRouteGuard><ReturnSandFoundrySandTestingNoteReport /></DepartmentRouteGuard>} />
           </Route>
 
           <Route path="moulding">
@@ -185,6 +189,7 @@ const App = () => {
           </Route>
 
           <Route path="user-profile" element={<UserProfile />} />
+          <Route path="user-profile/download-logs" element={<DownloadLogsMine />} />
         </Route>
 
         {/* Catch-all Redirect */}

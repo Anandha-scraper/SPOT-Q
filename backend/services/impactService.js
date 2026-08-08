@@ -9,19 +9,26 @@ const {
 
 const TRIMMED_FIELDS = ['partName', 'dateCode', 'specification', 'observedValue', 'remarks'];
 
-const REQUIRED_FIELDS = TRIMMED_FIELDS;
+// Matches frontend/src/deviations/Dimpact.js's validationRanges — only these
+// two are required: true there. Specification/Observed Value/Remarks are
+// required: false, so they must stay optional here too, or a blank Observed
+// Value (Impact.jsx never backfills it with '-' like every other optional
+// field, since it's a NumberArray not a scalar) fails collectMissing() and
+// the entry can never be saved without at least one observed value.
+const REQUIRED_FIELDS = ['partName', 'dateCode'];
 const PROTECTED_ON_UPDATE = ['id', '_id', 'impactId', 'createdBy', 'createdAt', 'updatedAt', 'date'];
 
-const PART_NAME_PATTERN = /^[A-Za-z0-9\s\-]+$/;
-const DATECODE_PATTERN = /^[0-9][A-Z][0-9]{2}$/;
+// A comma-separated list of numbers — this guards observedValue's actual
+// numeric shape (same intent as the numbers/integers buildColumns options
+// elsewhere), not a QC spec preference, so it stays enforced.
 const OBSERVED_VALUE_PATTERN = /^(\d+([.,]\d+)?)(\s*,\s*\d+([.,]\d+)?)*$/;
 
 function buildEntryData(body) {
+    // partName/dateCode formats are QC spec hints, not hard input limits —
+    // the real recorded value must be accepted even outside spec.
     const { data, invalid } = buildColumns(body, {
         trimmed: TRIMMED_FIELDS,
         patterns: {
-            partName: PART_NAME_PATTERN,
-            dateCode: DATECODE_PATTERN,
             observedValue: OBSERVED_VALUE_PATTERN,
         },
     });

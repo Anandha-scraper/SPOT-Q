@@ -1,16 +1,42 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { processEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/Dprocess';
 import '../../styles/PageStyles/Process/ProcessReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const ProcessReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+
+  // Admin-only: does this displayed value fall outside its department's
+  // declared QC spec (Info.jsx's validationRanges)? Submission never blocked
+  // on this — it's purely a "flag it for review" signal.
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const devClass = (fieldName, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
+  const devClassRange = (fieldName, minValue, maxValue) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    if (!rule) return undefined;
+    const numRule = { ...rule, type: 'Number' };
+    return (isDeviant(numRule, minValue) || isDeviant(numRule, maxValue)) ? 'deviation-flag' : undefined;
+  };
 
   const formatDateLocal = (d) => {
     if (!d) return '';
@@ -325,6 +351,12 @@ const ProcessReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -446,22 +478,22 @@ const ProcessReport = () => {
                         </td>
                       ) : null}
                       <td>{item.partName || '-'}</td>
-                      <td>{item.datecode || '-'}</td>
+                      <td className={devClass('Date Code', item.datecode)}>{item.datecode || '-'}</td>
                       <td>{item.heatcode || '-'}</td>
-                      <td>{item.quantityOfMoulds || '-'}</td>
+                      <td className={devClass('Qty. Of Moulds', item.quantityOfMoulds)}>{item.quantityOfMoulds || '-'}</td>
                       {show.metalComposition && (
                         <>
-                          <td>{item.metalCompositionC || '-'}</td>
-                          <td>{item.metalCompositionSi || '-'}</td>
-                          <td>{item.metalCompositionMn || '-'}</td>
-                          <td>{item.metalCompositionP || '-'}</td>
-                          <td>{item.metalCompositionS || '-'}</td>
-                          <td>{item.metalCompositionMgFL || '-'}</td>
-                          <td>{item.metalCompositionCu || '-'}</td>
-                          <td>{item.metalCompositionCr || '-'}</td>
+                          <td className={devClass('Metal Composition - C', item.metalCompositionC)}>{item.metalCompositionC || '-'}</td>
+                          <td className={devClass('Metal Composition - Si', item.metalCompositionSi)}>{item.metalCompositionSi || '-'}</td>
+                          <td className={devClass('Metal Composition - Mn', item.metalCompositionMn)}>{item.metalCompositionMn || '-'}</td>
+                          <td className={devClass('Metal Composition - P', item.metalCompositionP)}>{item.metalCompositionP || '-'}</td>
+                          <td className={devClass('Metal Composition - S', item.metalCompositionS)}>{item.metalCompositionS || '-'}</td>
+                          <td className={devClass('Metal Composition - Mg F/L', item.metalCompositionMgFL)}>{item.metalCompositionMgFL || '-'}</td>
+                          <td className={devClass('Metal Composition - Cu', item.metalCompositionCu)}>{item.metalCompositionCu || '-'}</td>
+                          <td className={devClass('Metal Composition - Cr', item.metalCompositionCr)}>{item.metalCompositionCr || '-'}</td>
                         </>
                       )}
-                      <td>
+                      <td className={devClassRange('Pouring Temp', item.pouringTemperatureMin, item.pouringTemperatureMax)}>
                         {item.pouringTemperatureMin && item.pouringTemperatureMax
                           ? `${item.pouringTemperatureMin} - ${item.pouringTemperatureMax}`
                           : '-'}
@@ -470,28 +502,28 @@ const ProcessReport = () => {
                       <td>{item.ppCode || '-'}</td>
                       <td>{item.treatmentNo || '-'}</td>
                       <td>{item.fcNo || '-'}</td>
-                      <td>{item.heatNo || '-'}</td>
+                      <td className={devClass('Heat No', item.heatNo)}>{item.heatNo || '-'}</td>
                       <td>{item.conNo || '-'}</td>
                       {show.correctiveAdditions && (
                         <>
-                          <td>{item.correctiveAdditionC || '-'}</td>
-                          <td>{item.correctiveAdditionSi || '-'}</td>
-                          <td>{item.correctiveAdditionMn || '-'}</td>
-                          <td>{item.correctiveAdditionS || '-'}</td>
-                          <td>{item.correctiveAdditionCr || '-'}</td>
-                          <td>{item.correctiveAdditionCu || '-'}</td>
-                          <td>{item.correctiveAdditionSn || '-'}</td>
+                          <td className={devClass('Corrective Addition - C', item.correctiveAdditionC)}>{item.correctiveAdditionC || '-'}</td>
+                          <td className={devClass('Corrective Addition - Si', item.correctiveAdditionSi)}>{item.correctiveAdditionSi || '-'}</td>
+                          <td className={devClass('Corrective Addition - Mn', item.correctiveAdditionMn)}>{item.correctiveAdditionMn || '-'}</td>
+                          <td className={devClass('Corrective Addition - S', item.correctiveAdditionS)}>{item.correctiveAdditionS || '-'}</td>
+                          <td className={devClass('Corrective Addition - Cr', item.correctiveAdditionCr)}>{item.correctiveAdditionCr || '-'}</td>
+                          <td className={devClass('Corrective Addition - Cu', item.correctiveAdditionCu)}>{item.correctiveAdditionCu || '-'}</td>
+                          <td className={devClass('Corrective Addition - Sn', item.correctiveAdditionSn)}>{item.correctiveAdditionSn || '-'}</td>
                         </>
                       )}
-                      <td>{item.tappingWt || '-'}</td>
+                      <td className={devClass('Tapping Wt', item.tappingWt)}>{item.tappingWt || '-'}</td>
                       <td>{item.tappingTime || '-'}</td>
-                      <td>{item.mg || '-'}</td>
-                      <td>{item.resMgConvertor || '-'}</td>
-                      <td>{item.recOfMg || '-'}</td>
-                      <td>{item.streamInoculant || '-'}</td>
-                      <td>{item.pTime || '-'}</td>
+                      <td className={devClass('Mg', item.mg)}>{item.mg || '-'}</td>
+                      <td className={devClass('Res. Mg. Convertor', item.resMgConvertor)}>{item.resMgConvertor || '-'}</td>
+                      <td className={devClass('Rec. Of Mg', item.recOfMg)}>{item.recOfMg || '-'}</td>
+                      <td className={devClass('Stream Inoculant', item.streamInoculant)}>{item.streamInoculant || '-'}</td>
+                      <td className={devClass('P.Time', item.pTime)}>{item.pTime || '-'}</td>
                       <td
-                        className={`process-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}
+                        className={`process-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'} ${devClass('Remarks', item.remarks) || ''}`}
                         onClick={() => item.remarks && showRemarksPopup(item.remarks)}
                         title={item.remarks || 'No remarks'}
                       >

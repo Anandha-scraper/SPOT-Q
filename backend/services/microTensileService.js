@@ -23,12 +23,6 @@ const PROTECTED_ON_UPDATE = [
     'id', '_id', 'microTensileId', 'createdBy', 'createdAt', 'updatedAt', 'date',
 ];
 
-const DATECODE_PATTERN = /^[0-9][A-Z][0-9]{2}$/;
-const ITEM_IT2_PATTERN = /^\(\d+\/\d+\/\d+\)$/;
-
-const ELONGATION_MIN = 0;
-const ELONGATION_MAX = 100;
-
 const COLUMN_TO_WIRE_NAME = { itemIt1: 'item.it1', itemIt2: 'item.it2' };
 const toWireFields = (fields) => fields.map((field) => COLUMN_TO_WIRE_NAME[field] ?? field);
 
@@ -52,20 +46,15 @@ function toWireEntry(row) {
     return { ...rest, item: { it1: itemIt1, it2: itemIt2 } };
 }
 
+// dateCode/itemIt2 formats and elongation's 0-100 range are QC spec hints,
+// not hard input limits — the real recorded value must be accepted even
+// outside spec.
 function buildEntryData(source) {
     const { data, invalid } = buildColumns(source, {
         trimmed: TRIMMED_FIELDS,
         raw: RAW_STRING_FIELDS,
         numbers: NUMERIC_FIELDS,
-        patterns: { dateCode: DATECODE_PATTERN, itemIt2: ITEM_IT2_PATTERN },
     });
-
-    if (
-        typeof data.elongation === 'number' &&
-        (data.elongation < ELONGATION_MIN || data.elongation > ELONGATION_MAX)
-    ) {
-        invalid.push('elongation');
-    }
 
     if (invalid.length) throw invalidInput(toWireFields(invalid));
 

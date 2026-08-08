@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FilterButton, ClearButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from './CupolaHolderLogSheet';
+import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
 const ITEMS_PER_PAGE = 20;
@@ -12,6 +16,18 @@ const ITEMS_PER_PAGE = 20;
 const todayISO = () => new Date().toISOString().split('T')[0];
 
 const CupolaHolderLogSheetReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByKey = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.key] = r; });
+    return map;
+  }, []);
+  const devClass = (key, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByKey[key];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
 
@@ -291,6 +307,12 @@ const CupolaHolderLogSheetReport = () => {
           {loading ? 'Loading...' : 'Filter'}
         </FilterButton>
         <ClearButton onClick={clearFilters}>Clear</ClearButton>
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -430,21 +452,21 @@ const CupolaHolderLogSheetReport = () => {
                       <td style={{ ...tdStyle, fontWeight: 600, color: '#0ea5e9' }}>{fmtVal(row.heatNo)}</td>
                       {show.additions && (
                         <>
-                          <td style={tdStyle}>{fmtVal(row.cpc)}</td>
-                          <td style={tdStyle}>{fmtVal(row.FeSl ?? row.mFeSl)}</td>
-                          <td style={tdStyle}>{fmtVal(row.feMn)}</td>
-                          <td style={tdStyle}>{fmtVal(row.sic)}</td>
-                          <td style={tdStyle}>{fmtVal(row.pureMg)}</td>
-                          <td style={tdStyle}>{fmtVal(row.cu)}</td>
-                          <td style={tdStyle}>{fmtVal(row.feCr)}</td>
+                          <td className={devClass('cpc', row.cpc)} style={tdStyle}>{fmtVal(row.cpc)}</td>
+                          <td className={devClass('mFeSl', row.FeSl ?? row.mFeSl)} style={tdStyle}>{fmtVal(row.FeSl ?? row.mFeSl)}</td>
+                          <td className={devClass('feMn', row.feMn)} style={tdStyle}>{fmtVal(row.feMn)}</td>
+                          <td className={devClass('sic', row.sic)} style={tdStyle}>{fmtVal(row.sic)}</td>
+                          <td className={devClass('pureMg', row.pureMg)} style={tdStyle}>{fmtVal(row.pureMg)}</td>
+                          <td className={devClass('cu', row.cu)} style={tdStyle}>{fmtVal(row.cu)}</td>
+                          <td className={devClass('feCr', row.feCr)} style={tdStyle}>{fmtVal(row.feCr)}</td>
                         </>
                       )}
                       {show.tapping && (
                         <>
                           <td style={tdStyle}>{fmtVal(row.actualTime)}</td>
                           <td style={tdStyle}>{fmtVal(row.tappingTime)}</td>
-                          <td style={tdStyle}>{fmtVal(row.tappingTemp)}</td>
-                          <td style={tdStyle}>{fmtVal(row.metalKg)}</td>
+                          <td className={devClass('tappingTemp', row.tappingTemp)} style={tdStyle}>{fmtVal(row.tappingTemp)}</td>
+                          <td className={devClass('metalKg', row.metalKg)} style={tdStyle}>{fmtVal(row.metalKg)}</td>
                         </>
                       )}
                       {show.pouring && (
@@ -457,7 +479,7 @@ const CupolaHolderLogSheetReport = () => {
                       {show.electrical && (
                         <>
                           <td style={tdStyle}>{fmtVal(row.tap)}</td>
-                          <td style={tdStyle}>{fmtVal(row.kw)}</td>
+                          <td className={devClass('kw', row.kw)} style={tdStyle}>{fmtVal(row.kw)}</td>
                         </>
                       )}
                       {show.remarks && (

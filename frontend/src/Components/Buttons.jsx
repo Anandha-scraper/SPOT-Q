@@ -19,6 +19,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { Time } from "@internationalized/date";
 import "../styles/ComponentStyles/Buttons.css";
@@ -77,6 +78,24 @@ export const ClearButton = ({ onClick, disabled = false, children }) => (
     >
       <X size={18} />
       {children || "Clear"}
+    </button>
+  </div>
+);
+
+// Admin-only report-page toggle: highlights values outside their declared QC
+// spec. Same size/shape as FilterButton/ClearButton (shares .filter-button-wrapper),
+// own amber color so "active" reads distinctly from Filter/Clear.
+export const DeviationToggleButton = ({ active = false, onClick, disabled = false }) => (
+  <div className="filter-button-wrapper">
+    <button
+      onClick={onClick}
+      type="button"
+      disabled={disabled}
+      title="Highlight values outside their declared QC spec"
+      className={`deviation-toggle-btn${active ? " active" : ""}`}
+    >
+      <AlertTriangle size={18} />
+      {active ? "Hide Deviations" : "Show Deviations"}
     </button>
   </div>
 );
@@ -264,20 +283,23 @@ export const LockPrimaryButton = ({
   onClick,
   disabled = false,
   isLocked = false,
+  statusMessage = null,
+  statusVariant = "primary",
 }) => (
   <div className="lock-primary-button-wrapper">
     <button
       onClick={onClick}
       type="button"
-      disabled={disabled || isLocked}
-      title={isLocked ? "Primary Saved" : "Save Primary"}
+      disabled={disabled || isLocked || !!statusMessage}
+      title={statusMessage || (isLocked ? "Primary Saved" : "Save Primary")}
+      className={statusMessage ? `status-${statusVariant}` : ""}
       style={
-        isLocked
+        !statusMessage && isLocked
           ? { backgroundColor: "#10b981", cursor: "not-allowed", opacity: 0.8 }
           : {}
       }
     >
-      {isLocked ? "Primary Saved" : "Save Primary"}
+      {statusMessage || (isLocked ? "Primary Saved" : "Save Primary")}
     </button>
   </div>
 );
@@ -326,6 +348,51 @@ export const DisaDropdown = forwardRef(
   },
 );
 DisaDropdown.displayName = "DisaDropdown";
+
+// Plant Dropdown Component (Return Sand Foundry Sand Testing Note) — same
+// look/structure as DisaDropdown, different fixed option set.
+
+export const PlantDropdown = forwardRef(
+  (
+    {
+      value,
+      onChange,
+      name,
+      disabled,
+      onKeyDown,
+      className = "",
+      onFocus,
+      onBlur,
+      style,
+    },
+    ref,
+  ) => {
+    const plantOptions = ["Eirich", "Disa", "Foundry-A"];
+
+    return (
+      <div className={`disa-dropdown-wrapper ${className}`}>
+        <select
+          ref={ref}
+          name={name}
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          disabled={disabled}
+          style={style}
+        >
+          {plantOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  },
+);
+PlantDropdown.displayName = "PlantDropdown";
 
 // Filter DISA Dropdown Component (for reports with "All" option)
 

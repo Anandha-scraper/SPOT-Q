@@ -19,10 +19,10 @@ function findEntry(sandNoteDayId, shift, sandPlant) {
     });
 }
 
-async function ensureEntryId(sandNoteDayId, shift, sandPlant) {
+async function ensureEntryId(sandNoteDayId, shift, sandPlant, createdBy) {
     const entry = await prisma.sandNoteEntry.upsert({
         where: { sandNoteDayId_shift_sandPlant: { sandNoteDayId, shift, sandPlant } },
-        create: { sandNoteDayId, shift, sandPlant },
+        create: { sandNoteDayId, shift, sandPlant, createdBy },
         update: {},
         select: { id: true },
     });
@@ -43,7 +43,21 @@ function upsertLeaf(entryId, section, testNo, fieldPath, value) {
 }
 
 function findEntryWithFields(entryId) {
-    return prisma.sandNoteEntry.findUnique({ where: { id: entryId }, include: { fields: true } });
+    return prisma.sandNoteEntry.findUnique({
+        where: { id: entryId },
+        include: { day: { select: { date: true } }, fields: true },
+    });
+}
+
+function findEntryAuthInfo(id) {
+    return prisma.sandNoteEntry.findUnique({
+        where: { id },
+        select: { id: true, createdBy: true, createdAt: true },
+    });
+}
+
+function deleteEntry(id) {
+    return prisma.sandNoteEntry.delete({ where: { id } });
 }
 
 function findEntriesInRange({ from, to } = {}) {
@@ -73,6 +87,8 @@ module.exports = {
     updateEntryFields,
     upsertLeaf,
     findEntryWithFields,
+    findEntryAuthInfo,
+    deleteEntry,
     findEntriesInRange,
     findEntriesForDate,
 };

@@ -6,7 +6,23 @@
     display: flex;
     flex-direction: column;
     gap: clamp(0.6rem, 0.9vw, 0.875rem);
-    min-height: calc(100vh - 4rem);
+    /* Matches .dashboard-page-container's own top+bottom padding per breakpoint
+       (Dashboard.css), so this is a real ceiling, not just a floor. */
+    height: calc(100vh - 2rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+@media (min-width: 768px) {
+    .up-page {
+        height: calc(100vh - 3rem);
+    }
+}
+
+@media (min-width: 1024px) {
+    .up-page {
+        height: calc(100vh - 4rem);
+    }
 }
 
 /* ── Identity Strip ── */
@@ -116,6 +132,7 @@
     grid-template-columns: 1fr 2fr;
     gap: 0.875rem;
     align-items: stretch;
+    min-height: 0;
 }
 
 /* Left column: Identity + Login History stacked, stretched by .up-grid-2
@@ -125,6 +142,7 @@
     flex-direction: column;
     gap: 0.875rem;
     min-width: 0;
+    min-height: 0;
 }
 
 /* ── Base card ── */
@@ -230,6 +248,10 @@
     background: #f8fafc;
     border: 1px dashed #cbd5e1;
     border-radius: 0.55vw; /* ≈ 8px @ 1440px */
+}
+
+.up-card-download {
+    min-height: 0;
 }
 
 /* ── Download logs table ── */

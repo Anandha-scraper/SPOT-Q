@@ -8,142 +8,38 @@ import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
+import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT, checkNumber } from '../../utils/formValidation';
 import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { validationRanges, fieldMapping } from '../../deviations/DqcProduction';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
+
+// Scalar/paired formData keys for every Number-typed rule, derived from
+// validationRanges/fieldMapping rather than hand-listed, so live digit
+// filtering in handleChange never drifts from the declared rule types.
+// (ts/ys/el are per-row array fields with their own handleTsChange etc. —
+// out of scope here, they never reach this generic handleChange.)
+const NUMERIC_FIELDS = validationRanges
+  .filter(r => r.type === 'Number' || r.type === 'Number Range')
+  .flatMap(r => {
+    const mapped = fieldMapping[r.field];
+    return Array.isArray(mapped) ? mapped : [mapped];
+  });
+
+// Sibling min/max keys, derived from fieldMapping's array-valued entries —
+// used to clear a field's red-highlight when its paired min/max changes.
+const MIN_MAX_PAIRS = Object.fromEntries(
+  Object.values(fieldMapping)
+    .filter(Array.isArray)
+    .flatMap(([minKey, maxKey]) => [[minKey, maxKey], [maxKey, minKey]])
+);
+
+const TS_RULE = validationRanges.find(r => r.field === 'TS (Tensile Strength)');
+const YS_RULE = validationRanges.find(r => r.field === 'YS (Yield Strength)');
+const EL_RULE = validationRanges.find(r => r.field === 'EL (Elongation)');
 
 const QcProductionDetails = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
   const { toast } = useToast();
-
-  const validationRanges = [
-    {
-      field: 'Date',
-      required: true,
-      type: 'Date',
-      pattern: 'DD/MM/YYYY'
-    },
-    {
-      field: 'Part Name',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., Brake Disc'
-    },
-    {
-      field: 'No. of Moulds',
-      type: 'Number',
-      min: 1
-    },
-    {
-      field: 'C % (Carbon)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Si % (Silicon)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Mn % (Manganese)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'P % (Phosphorus)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'S % (Sulfur)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Mg % (Magnesium)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Cu % (Copper)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Cr % (Chromium)',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Nodularity',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Nodule count',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Graphite Type',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0
-    },
-    {
-      field: 'Pearlite',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Ferrite',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Hardness BHN',
-      type: 'Number Range',
-      requireMinForMax: true,
-      min: 0,
-      unit: 'BHN'
-    },
-    {
-      field: 'TS (Tensile Strength)',
-      type: 'Dynamic Array',
-      min: 0,
-      required:false,
-      unit: 'MPa',
-    },
-    {
-      field: 'YS (Yield Strength)',
-      type: 'Dynamic Range Array',
-      min: 0, 
-      unit: 'MPa',
-    },
-    {
-      field: 'EL (Elongation)',
-      type: 'Dynamic Range Array',
-      min: 0,
-      unit: '%',
-      required: false
-    }
-  ];
 
   const formatDisplayDate = (iso) => {
     if (!iso || typeof iso !== 'string' || !iso.includes('-')) return '';
@@ -164,7 +60,6 @@ const QcProductionDetails = () => {
     setFormData,
     validationStates,
     setValidation,
-    resetValidation,
     submitErrorMessage,
     setSubmitErrorMessage,
     resetFormData
@@ -175,29 +70,6 @@ const QcProductionDetails = () => {
   const [partNames, setPartNames] = useState([]);
   const [showPartDropdown, setShowPartDropdown] = useState(false);
   const [filteredPartNames, setFilteredPartNames] = useState([]);
-
-  const fieldMapping = {
-    'Date': 'date',
-    'Part Name': 'partName',
-    'No. of Moulds': 'noOfMoulds',
-    'C % (Carbon)': ['cPercentMin', 'cPercentMax'],
-    'Si % (Silicon)': ['siPercentMin', 'siPercentMax'],
-    'Mn % (Manganese)': ['mnPercentMin', 'mnPercentMax'],
-    'P % (Phosphorus)': ['pPercentMin', 'pPercentMax'],
-    'S % (Sulfur)': ['sPercentMin', 'sPercentMax'],
-    'Mg % (Magnesium)': ['mgPercentMin', 'mgPercentMax'],
-    'Cu % (Copper)': ['cuPercentMin', 'cuPercentMax'],
-    'Cr % (Chromium)': ['crPercentMin', 'crPercentMax'],
-    'Nodularity': 'nodularity',
-    'Nodule count': 'noduleCount',
-    'Graphite Type': ['graphiteTypeMin', 'graphiteTypeMax'],
-    'Pearlite': 'pearlite',
-    'Ferrite': 'ferrite',
-    'Hardness BHN': ['hardnessBHNMin', 'hardnessBHNMax'],
-    'TS (Tensile Strength)': 'tsValues',
-    'YS (Yield Strength)': 'ysValues',
-    'EL (Elongation)': 'elValues'
-  };
 
   const validationSetters = {
     'date': (val) => setValidation('date', val),
@@ -233,7 +105,7 @@ const QcProductionDetails = () => {
   };
 
   const addTsValue = () => {
-    if (formData.tsValues.length >= 4) return;
+    if (formData.tsValues.length >= TS_RULE.maxRows) return;
     setFormData(prev => ({
       ...prev,
       tsValues: [...prev.tsValues, { value: '' }]
@@ -270,7 +142,7 @@ const QcProductionDetails = () => {
   };
 
   const addYsValue = () => {
-    if (formData.ysValues.length >= 4) return;
+    if (formData.ysValues.length >= YS_RULE.maxRows) return;
     setFormData(prev => ({
       ...prev,
       ysValues: [...prev.ysValues, { min: '', max: '' }]
@@ -308,7 +180,7 @@ const QcProductionDetails = () => {
   };
 
   const addElValue = () => {
-    if (formData.elValues.length >= 4) return;
+    if (formData.elValues.length >= EL_RULE.maxRows) return;
     setFormData(prev => ({
       ...prev,
       elValues: [...prev.elValues, { min: '', max: '' }]
@@ -357,11 +229,6 @@ const QcProductionDetails = () => {
     return '';
   };
 
-  const isValidNumber = (value) => {
-    if (!value || value.trim() === '') return false;
-    return !isNaN(parseFloat(value)) && isFinite(value);
-  };
-
 
   useEffect(() => {
     const fetchPartNames = async () => {
@@ -395,29 +262,8 @@ const QcProductionDetails = () => {
       setSubmitErrorMessage('');
     }
 
-    const numericFields = [
-      'noOfMoulds',
-      'cPercentMin', 'cPercentMax',
-      'siPercentMin', 'siPercentMax',
-      'mnPercentMin', 'mnPercentMax',
-      'pPercentMin', 'pPercentMax',
-      'sPercentMin', 'sPercentMax',
-      'mgPercentMin', 'mgPercentMax',
-      'cuPercentMin', 'cuPercentMax',
-      'crPercentMin', 'crPercentMax',
-      'nodularity',
-      'noduleCount',
-      'graphiteTypeMin', 'graphiteTypeMax',
-      'pearlite',
-      'ferrite',
-      'hardnessBHNMin', 'hardnessBHNMax',
-      'ts',
-      'ysMin', 'ysMax',
-      'elMin', 'elMax'
-    ];
-
     let filteredValue = value;
-    if (numericFields.includes(name)) {
+    if (NUMERIC_FIELDS.includes(name)) {
       filteredValue = value.replace(/[^0-9.]/g, '');
       const parts = filteredValue.split('.');
       if (parts.length > 2) {
@@ -440,24 +286,9 @@ const QcProductionDetails = () => {
       }
     }
 
-    const minMaxPairs = {
-      'cPercentMin': 'cPercentMax', 'cPercentMax': 'cPercentMin',
-      'siPercentMin': 'siPercentMax', 'siPercentMax': 'siPercentMin',
-      'mnPercentMin': 'mnPercentMax', 'mnPercentMax': 'mnPercentMin',
-      'pPercentMin': 'pPercentMax', 'pPercentMax': 'pPercentMin',
-      'sPercentMin': 'sPercentMax', 'sPercentMax': 'sPercentMin',
-      'mgPercentMin': 'mgPercentMax', 'mgPercentMax': 'mgPercentMin',
-      'cuPercentMin': 'cuPercentMax', 'cuPercentMax': 'cuPercentMin',
-      'crPercentMin': 'crPercentMax', 'crPercentMax': 'crPercentMin',
-      'graphiteTypeMin': 'graphiteTypeMax', 'graphiteTypeMax': 'graphiteTypeMin',
-      'hardnessBHNMin': 'hardnessBHNMax', 'hardnessBHNMax': 'hardnessBHNMin',
-      'ysMin': 'ysMax', 'ysMax': 'ysMin',
-      'elMin': 'elMax', 'elMax': 'elMin'
-    };
-
     setValidation(name, null);
-    if (minMaxPairs[name]) {
-      setValidation(minMaxPairs[name], null);
+    if (MIN_MAX_PAIRS[name]) {
+      setValidation(MIN_MAX_PAIRS[name], null);
     }
 
     setFormData(prev => ({
@@ -571,7 +402,7 @@ const QcProductionDetails = () => {
     let missingRequired = !ok && message === MESSAGE_REQUIRED;
 
 
-    const tsRule = validationRanges.find(r => r.field === 'TS (Tensile Strength)');
+    const tsRule = TS_RULE;
     if (tsRule && formData.tsValues && Array.isArray(formData.tsValues)) {
       for (let i = 0; i < formData.tsValues.length; i++) {
         const item = formData.tsValues[i];
@@ -589,25 +420,20 @@ const QcProductionDetails = () => {
           continue;
         }
 
-        const numVal = parseFloat(item.value);
-        if (isNaN(numVal) || !isFinite(numVal)) {
+        if (!checkNumber({ type: 'Number' }, item.value, tsRule.field).isValid) {
           setValidation(fieldKey, false);
           hasErrors = true;
           if (!firstErrorField) firstErrorField = fieldKey;
           continue;
         }
 
-        if (tsRule.min !== undefined && numVal < tsRule.min) {
-          setValidation(fieldKey, false);
-          hasErrors = true;
-          if (!firstErrorField) firstErrorField = fieldKey;
-        } else {
-          setValidation(fieldKey, null);
-        }
+        // min is a QC target range, not a hard input limit — the real
+        // measured value must be accepted even outside spec.
+        setValidation(fieldKey, null);
       }
     }
 
-    const ysRule = validationRanges.find(r => r.field === 'YS (Yield Strength)');
+    const ysRule = YS_RULE;
     if (ysRule && formData.ysValues && Array.isArray(formData.ysValues)) {
       for (let i = 0; i < formData.ysValues.length; i++) {
         const item = formData.ysValues[i];
@@ -624,8 +450,7 @@ const QcProductionDetails = () => {
         let maxIsInvalid = false;
 
         if (item.min && item.min.trim() !== '') {
-          const minVal = parseFloat(item.min);
-          if (isNaN(minVal) || !isFinite(minVal) || (ysRule.min !== undefined && minVal < ysRule.min)) {
+          if (!checkNumber({ type: 'Number' }, item.min, ysRule.field).isValid) {
             minIsInvalid = true;
             setValidation(minKey, false);
             hasErrors = true;
@@ -633,7 +458,7 @@ const QcProductionDetails = () => {
           } else {
             setValidation(minKey, null);
           }
-        } else if (item.max && item.max.trim() !== '') {
+        } else if (ysRule.requireMinForMax && item.max && item.max.trim() !== '') {
           // Max entered without min — min is required.
           minIsInvalid = true;
           setValidation(minKey, false);
@@ -644,8 +469,7 @@ const QcProductionDetails = () => {
         }
 
         if (item.max && item.max.trim() !== '') {
-          const maxVal = parseFloat(item.max);
-          if (isNaN(maxVal) || !isFinite(maxVal) || (ysRule.min !== undefined && maxVal < ysRule.min)) {
+          if (!checkNumber({ type: 'Number' }, item.max, ysRule.field).isValid) {
             maxIsInvalid = true;
             setValidation(maxKey, false);
             hasErrors = true;
@@ -674,7 +498,7 @@ const QcProductionDetails = () => {
       }
     }
 
-    const elRule = validationRanges.find(r => r.field === 'EL (Elongation)');
+    const elRule = EL_RULE;
     if (elRule && formData.elValues && Array.isArray(formData.elValues)) {
       for (let i = 0; i < formData.elValues.length; i++) {
         const item = formData.elValues[i];
@@ -691,8 +515,7 @@ const QcProductionDetails = () => {
         let maxIsInvalid = false;
 
         if (item.min && item.min.trim() !== '') {
-          const minVal = parseFloat(item.min);
-          if (isNaN(minVal) || !isFinite(minVal) || (elRule.min !== undefined && minVal < elRule.min)) {
+          if (!checkNumber({ type: 'Number' }, item.min, elRule.field).isValid) {
             minIsInvalid = true;
             setValidation(minKey, false);
             hasErrors = true;
@@ -700,7 +523,7 @@ const QcProductionDetails = () => {
           } else {
             setValidation(minKey, null);
           }
-        } else if (item.max && item.max.trim() !== '') {
+        } else if (elRule.requireMinForMax && item.max && item.max.trim() !== '') {
           // Max entered without min — min is required.
           minIsInvalid = true;
           setValidation(minKey, false);
@@ -711,8 +534,7 @@ const QcProductionDetails = () => {
         }
 
         if (item.max && item.max.trim() !== '') {
-          const maxVal = parseFloat(item.max);
-          if (isNaN(maxVal) || !isFinite(maxVal) || (elRule.min !== undefined && maxVal < elRule.min)) {
+          if (!checkNumber({ type: 'Number' }, item.max, elRule.field).isValid) {
             maxIsInvalid = true;
             setValidation(maxKey, false);
             hasErrors = true;
@@ -828,14 +650,6 @@ const QcProductionDetails = () => {
       setSubmitErrorMessage(FALLBACK_SUBMIT_ERROR);
       toast.error(FALLBACK_SUBMIT_ERROR);
     }
-  };
-
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  const handleSakthiComplete = () => {
   };
 
   return (
@@ -1311,11 +1125,10 @@ const QcProductionDetails = () => {
               </div>
             </div>
 
-            {}
             <div className="qcproduction-form-group qcproduction-dynamic-group">
               <div className="qcproduction-dynamic-label">
                 <label>TS (Tensile Strength)</label>
-                <PlusButton onClick={addTsValue} title="Add TS value" disabled={formData.tsValues?.length >= 4} />
+                <PlusButton onClick={addTsValue} title="Add TS value" disabled={formData.tsValues?.length >= TS_RULE.maxRows} />
               </div>
               <div className="qcproduction-dynamic-inputs">
                 {formData.tsValues && formData.tsValues.map((item, index) => (
@@ -1337,11 +1150,10 @@ const QcProductionDetails = () => {
               </div>
             </div>
 
-            {}
             <div className="qcproduction-form-group qcproduction-dynamic-group">
               <div className="qcproduction-dynamic-label">
                 <label>YS (Yield Strength)</label>
-                <PlusButton onClick={addYsValue} title="Add YS value" disabled={formData.ysValues?.length >= 4} />
+                <PlusButton onClick={addYsValue} title="Add YS value" disabled={formData.ysValues?.length >= YS_RULE.maxRows} />
               </div>
               <div className="qcproduction-dynamic-inputs">
                 {formData.ysValues && formData.ysValues.map((item, index) => (
@@ -1373,11 +1185,10 @@ const QcProductionDetails = () => {
               </div>
             </div>
 
-            {}
             <div className="qcproduction-form-group qcproduction-dynamic-group">
               <div className="qcproduction-dynamic-label">
                 <label>EL (Elongation)</label>
-                <PlusButton onClick={addElValue} title="Add EL value" disabled={formData.elValues?.length >= 4} />
+                <PlusButton onClick={addElValue} title="Add EL value" disabled={formData.elValues?.length >= EL_RULE.maxRows} />
               </div>
               <div className="qcproduction-dynamic-inputs">
                 {formData.elValues && formData.elValues.map((item, index) => (
@@ -1411,7 +1222,6 @@ const QcProductionDetails = () => {
       </form>
 
       <div className="qcproduction-submit-container" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-        {}
         {submitErrorMessage && (
           <InlineLoader
             message={submitErrorMessage}

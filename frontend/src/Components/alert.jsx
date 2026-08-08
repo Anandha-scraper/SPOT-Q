@@ -1,14 +1,12 @@
-// Reusable UI library: MorphingPopover (spring-animated popover), ToastProvider/useToast, AlertDialog, and ExcelDownloadDialog — see frontend.md for usage.
+// Reusable UI library: ToastProvider/useToast, AlertDialog, and ExcelDownloadDialog — see frontend.md for usage.
 
 import {
   useState,
-  useId,
   useRef,
   useEffect,
   useCallback,
   createContext,
   useContext,
-  isValidElement,
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
@@ -31,9 +29,6 @@ const TRANSITION = {
   duration: 0.4,
 };
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-const MorphingPopoverContext = createContext(null);
-
 // ─── useClickOutside (inlined) ────────────────────────────────────────────────
 function useClickOutside(ref, handler) {
   useEffect(() => {
@@ -49,158 +44,6 @@ function useClickOutside(ref, handler) {
     };
   }, [ref, handler]);
 }
-
-// ─── Popover Logic Hook ───────────────────────────────────────────────────────
-function usePopoverLogic({
-  defaultOpen = false,
-  open: controlledOpen,
-  onOpenChange,
-} = {}) {
-  const uniqueId = useId();
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-
-  const isOpen = controlledOpen ?? uncontrolledOpen;
-
-  const open = () => {
-    if (controlledOpen === undefined) setUncontrolledOpen(true);
-    onOpenChange?.(true);
-  };
-
-  const close = () => {
-    if (controlledOpen === undefined) setUncontrolledOpen(false);
-    onOpenChange?.(false);
-  };
-
-  return { isOpen, open, close, uniqueId };
-}
-
-// ─── MorphingPopover ──────────────────────────────────────────────────────────
-function MorphingPopover({
-  children,
-  transition = TRANSITION,
-  defaultOpen,
-  open,
-  onOpenChange,
-  variants,
-  className = "",
-  ...props
-}) {
-  const popoverLogic = usePopoverLogic({ defaultOpen, open, onOpenChange });
-
-  return (
-    <MorphingPopoverContext.Provider value={{ ...popoverLogic, variants }}>
-      <MotionConfig transition={transition}>
-        <div
-          className={`morphing-popover-root ${className}`}
-          key={popoverLogic.uniqueId}
-          {...props}
-        >
-          {children}
-        </div>
-      </MotionConfig>
-    </MorphingPopoverContext.Provider>
-  );
-}
-
-// ─── MorphingPopoverTrigger ───────────────────────────────────────────────────
-function MorphingPopoverTrigger({
-  children,
-  className = "",
-  asChild = false,
-  ...props
-}) {
-  const context = useContext(MorphingPopoverContext);
-  if (!context) {
-    throw new Error(
-      "MorphingPopoverTrigger must be used within MorphingPopover",
-    );
-  }
-
-  if (asChild && isValidElement(children)) {
-    const MotionComponent = motion.create(children.type);
-    const childProps = children.props;
-
-    return (
-      <MotionComponent
-        {...childProps}
-        onClick={context.open}
-        layoutId={`popover-trigger-${context.uniqueId}`}
-        className={childProps.className}
-        key={context.uniqueId}
-        aria-expanded={context.isOpen}
-        aria-controls={`popover-content-${context.uniqueId}`}
-      />
-    );
-  }
-
-  return (
-    <motion.div
-      key={context.uniqueId}
-      layoutId={`popover-trigger-${context.uniqueId}`}
-      onClick={context.open}
-    >
-      <motion.button
-        {...props}
-        layoutId={`popover-label-${context.uniqueId}`}
-        key={context.uniqueId}
-        className={`morphing-popover-trigger-btn ${className}`}
-        aria-expanded={context.isOpen}
-        aria-controls={`popover-content-${context.uniqueId}`}
-      >
-        {children}
-      </motion.button>
-    </motion.div>
-  );
-}
-
-// ─── MorphingPopoverContent ───────────────────────────────────────────────────
-function MorphingPopoverContent({ children, className = "", ...props }) {
-  const context = useContext(MorphingPopoverContext);
-  if (!context) {
-    throw new Error(
-      "MorphingPopoverContent must be used within MorphingPopover",
-    );
-  }
-
-  const ref = useRef(null);
-  useClickOutside(ref, context.close);
-
-  useEffect(() => {
-    if (!context.isOpen) return;
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") context.close();
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [context.isOpen, context.close]);
-
-  return (
-    <AnimatePresence>
-      {context.isOpen && (
-        <motion.div
-          {...props}
-          ref={ref}
-          layoutId={`popover-trigger-${context.uniqueId}`}
-          key={context.uniqueId}
-          id={`popover-content-${context.uniqueId}`}
-          role="dialog"
-          aria-modal="true"
-          className={`morphing-popover-content ${className}`}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={context.variants}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-export { MorphingPopover, MorphingPopoverTrigger, MorphingPopoverContent };
 
 // ── TOAST SYSTEM ──
 

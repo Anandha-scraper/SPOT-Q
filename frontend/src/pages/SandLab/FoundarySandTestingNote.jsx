@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Save, RefreshCw, FileText, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { DisaDropdown, ShiftDropdown, SubmitButton } from '../../Components/Buttons';
+import { PlantDropdown, ShiftDropdown, SubmitButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { buildSubmitError } from '../../utils/submitError';
+import { validationRanges as foundrySandValidationRanges } from '../../deviations/DfoundrySandTestingNote';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 
 const initialFormData = {
@@ -90,6 +91,7 @@ const initialFormData = {
   remarks: ""
 };
 
+
 export default function FoundrySandTestingNote() {
   const navigate = useNavigate();
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
@@ -99,7 +101,7 @@ export default function FoundrySandTestingNote() {
   const [primaryData, setPrimaryData] = useState({
     date: "",
     shift: "",
-    sandPlant: "",
+    sandPlant: "Eirich",
     compactibilitySetting: "",
     shearStrengthSetting: ""
   });
@@ -476,6 +478,9 @@ export default function FoundrySandTestingNote() {
     additionalData: false,
     remarks: false
   });
+  // Inline save outcome per section, shown via InlineLoader instead of alert().
+  const [primaryMessage, setPrimaryMessage] = useState(null);
+  const [sectionMessages, setSectionMessages] = useState({});
 
   // Refs for submit buttons
   const primarySubmitRef = useRef(null);
@@ -545,9 +550,11 @@ export default function FoundrySandTestingNote() {
       return;
     }
 
+    setPrimaryMessage(null);
+
     try {
       setLoadingStates(prev => ({ ...prev, primary: true }));
-      
+
       const payload = {
         date: primaryData.date,
         shift: primaryData.shift,
@@ -576,11 +583,11 @@ export default function FoundrySandTestingNote() {
         });
         setIsPrimaryDataSaved(true);
       } else {
-        alert('Error: ' + response.message);
+        setPrimaryMessage({ text: response.message || 'Failed to save primary data.', variant: 'danger' });
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
-      alert(buildSubmitError(error.response?.data));
+      setPrimaryMessage({ text: buildSubmitError(error.response?.data), variant: 'danger' });
     } finally {
       setLoadingStates(prev => ({ ...prev, primary: false }));
     }
@@ -699,13 +706,15 @@ export default function FoundrySandTestingNote() {
   // Handle section-wise submissions - only send fields that have data
   const handleSectionSubmit = async (sectionName) => {
     if (!primaryData.date) {
-      alert('Please enter a date first.');
+      setSectionMessages(prev => ({ ...prev, [sectionName]: { text: 'Please enter a date first.', variant: 'danger' } }));
       return;
     }
 
+    setSectionMessages(prev => ({ ...prev, [sectionName]: null }));
+
     try {
       setLoadingStates(prev => ({ ...prev, [sectionName]: true }));
-      
+
       let sectionPayload = {};
       
       // Filter and include only fields with data
@@ -742,17 +751,32 @@ export default function FoundrySandTestingNote() {
       const response = await res.json();
       
       if (response.success) {
-        alert(`${sectionName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} saved successfully!`);
+        setSectionMessages(prev => ({
+          ...prev,
+          [sectionName]: {
+            text: `${sectionName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} saved successfully!`,
+            variant: 'success'
+          }
+        }));
+        setTimeout(() => {
+          setSectionMessages(prev => ({ ...prev, [sectionName]: null }));
+        }, 2000);
         // Refresh all locks from database
         if (primaryData.date && primaryData.shift && primaryData.sandPlant) {
           await fetchPrimaryData(primaryData.date, primaryData.shift, primaryData.sandPlant);
         }
       } else {
-        alert('Error: ' + response.message);
+        setSectionMessages(prev => ({ ...prev, [sectionName]: { text: response.message || 'Failed to save.', variant: 'danger' } }));
+        setTimeout(() => {
+          setSectionMessages(prev => ({ ...prev, [sectionName]: null }));
+        }, 2000);
       }
     } catch (error) {
       console.error(`Error saving ${sectionName}:`, error);
-      alert(buildSubmitError(error.response?.data));
+      setSectionMessages(prev => ({ ...prev, [sectionName]: { text: buildSubmitError(error.response?.data), variant: 'danger' } }));
+      setTimeout(() => {
+        setSectionMessages(prev => ({ ...prev, [sectionName]: null }));
+      }, 2000);
     } finally {
       setLoadingStates(prev => ({ ...prev, [sectionName]: false }));
     }
@@ -832,7 +856,12 @@ export default function FoundrySandTestingNote() {
               const solution = calculateClaySolution(param, testNum, "input1", val);
               handleInputChange("clayTests", testNum, solution, param, "solution");
             }}
-            style={{ width: '80px', padding: '0.375rem' }}
+            style={{
+              width: '80px',
+              padding: '0.375rem',
+              backgroundColor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)) ? '#f1f5f9' : '#ffffff',
+              cursor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)) ? 'not-allowed' : 'text'
+            }}
           />
           <span>{param === "activeClay" ? "x" : "-"}</span>
           <input
@@ -848,7 +877,12 @@ export default function FoundrySandTestingNote() {
               const solution = calculateClaySolution(param, testNum, "input2", val);
               handleInputChange("clayTests", testNum, solution, param, "solution");
             }}
-            style={{ width: '80px', padding: '0.375rem' }}
+            style={{
+              width: '80px',
+              padding: '0.375rem',
+              backgroundColor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)) ? '#f1f5f9' : '#ffffff',
+              cursor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)) ? 'not-allowed' : 'text'
+            }}
           />
           <span>=</span>
           <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' }}>
@@ -872,7 +906,12 @@ export default function FoundrySandTestingNote() {
             const solution = calculateClaySolution(param, testNum, "input1", val);
             handleInputChange("clayTests", testNum, solution, param, "solution");
           }}
-          style={{ width: '70px', padding: '0.375rem' }}
+          style={{
+            width: '70px',
+            padding: '0.375rem',
+            backgroundColor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input1`)) ? 'not-allowed' : 'text'
+          }}
         />
         <span>-</span>
         <input
@@ -888,7 +927,12 @@ export default function FoundrySandTestingNote() {
             const solution = calculateClaySolution(param, testNum, "input2", val);
             handleInputChange("clayTests", testNum, solution, param, "solution");
           }}
-          style={{ width: '70px', padding: '0.375rem' }}
+          style={{
+            width: '70px',
+            padding: '0.375rem',
+            backgroundColor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input2`)) ? 'not-allowed' : 'text'
+          }}
         />
         <span>/</span>
         <input
@@ -904,7 +948,12 @@ export default function FoundrySandTestingNote() {
             const solution = calculateClaySolution(param, testNum, "input3", val);
             handleInputChange("clayTests", testNum, solution, param, "solution");
           }}
-          style={{ width: '70px', padding: '0.375rem' }}
+          style={{
+            width: '70px',
+            padding: '0.375rem',
+            backgroundColor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input3`)) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || isFieldLocked('clayTests', `${testNum}.${param}.input3`)) ? 'not-allowed' : 'text'
+          }}
         />
         <span>x 100 =</span>
         <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' }}>
@@ -967,8 +1016,8 @@ export default function FoundrySandTestingNote() {
           readOnly={locked}
           ref={rowIndex === 0 ? sieveTestingFirstInputRef : null}
           style={{
-            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
-            cursor: locked ? 'not-allowed' : 'text'
+            backgroundColor: (!isPrimaryDataSaved || locked) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || locked) ? 'not-allowed' : 'text'
           }}
         />
       );
@@ -986,8 +1035,8 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || locked}
           readOnly={locked}
           style={{
-            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
-            cursor: locked ? 'not-allowed' : 'text'
+            backgroundColor: (!isPrimaryDataSaved || locked) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || locked) ? 'not-allowed' : 'text'
           }}
         />
       );
@@ -1005,8 +1054,8 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || locked}
           readOnly={locked}
           style={{
-            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
-            cursor: locked ? 'not-allowed' : 'text'
+            backgroundColor: (!isPrimaryDataSaved || locked) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || locked) ? 'not-allowed' : 'text'
           }}
         />
       );
@@ -1024,8 +1073,8 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || locked}
           readOnly={locked}
           style={{
-            backgroundColor: locked ? '#f1f5f9' : '#ffffff',
-            cursor: locked ? 'not-allowed' : 'text'
+            backgroundColor: (!isPrimaryDataSaved || locked) ? '#f1f5f9' : '#ffffff',
+            cursor: (!isPrimaryDataSaved || locked) ? 'not-allowed' : 'text'
           }}
         />
       );
@@ -1065,8 +1114,8 @@ export default function FoundrySandTestingNote() {
         readOnly={isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)}
         ref={paramConfig.key === "compactability" && testNum === "test1" ? testParametersFirstInputRef : null}
         style={{
-          backgroundColor: isFieldLocked('parameters', `${testNum}.${paramConfig.key}`) ? '#f1f5f9' : '#ffffff',
-          cursor: isFieldLocked('parameters', `${testNum}.${paramConfig.key}`) ? 'not-allowed' : 'text'
+          backgroundColor: (!isPrimaryDataSaved || isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)) ? '#f1f5f9' : '#ffffff',
+          cursor: (!isPrimaryDataSaved || isFieldLocked('parameters', `${testNum}.${paramConfig.key}`)) ? 'not-allowed' : 'text'
         }}
       />
     );
@@ -1093,55 +1142,14 @@ export default function FoundrySandTestingNote() {
         readOnly={isFieldLocked('additionalData', `${testNum}.${param}`)}
         ref={param === "afsNo" && testNum === "test1" ? additionalDataFirstInputRef : null}
         style={{
-          backgroundColor: isFieldLocked('additionalData', `${testNum}.${param}`) ? '#f1f5f9' : '#ffffff',
-          cursor: isFieldLocked('additionalData', `${testNum}.${param}`) ? 'not-allowed' : 'text'
+          backgroundColor: (!isPrimaryDataSaved || isFieldLocked('additionalData', `${testNum}.${param}`)) ? '#f1f5f9' : '#ffffff',
+          cursor: (!isPrimaryDataSaved || isFieldLocked('additionalData', `${testNum}.${param}`)) ? 'not-allowed' : 'text'
         }}
       />
     );
   };
 
   // Validation ranges for the Foundry Sand Testing Note info modal
-  const foundrySandValidationRanges = [
-    { field: 'Date', required: true, type: 'Date' },
-    { field: 'Shift', required: true, type: 'Select', allowedValues: ['Shift I', 'Shift II', 'Shift III'] },
-    { field: 'Sand Plant', required: true, type: 'Select', description: 'Select the Disa sand plant' },
-    { field: 'Compactability Setting', required: false, type: 'Text', pattern: 'e.g. J.C. mode', description: 'Enter the compactability machine setting' },
-    { field: 'Shear/Mould Strength Setting', required: false, type: 'Text', pattern: 'e.g. MP.VOX', description: 'Enter the shear/mould strength machine setting' },
-    // Clay Parameters
-    { field: 'Total Clay — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
-    { field: 'Total Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 11.0, max: 14.5 },
-    { field: 'Active Clay — Input 1 & 2', required: false, type: 'Number', description: 'Formula: Input1 × Input2 = Solution %' },
-    { field: 'Active Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 8.5, max: 11.0 },
-    { field: 'Dead Clay — Input 1 & 2', required: false, type: 'Number', description: 'Formula: Input1 − Input2 = Solution %' },
-    { field: 'Dead Clay (Solution %)', required: false, type: 'Number', unit: '%', min: 2.0, max: 4.0 },
-    { field: 'VCM — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
-    { field: 'VCM (Solution %)', required: false, type: 'Number', unit: '%', min: 2.0, max: 3.2 },
-    { field: 'LOI — Input 1 & 2 & 3', required: false, type: 'Number', description: 'Formula: (Input1 − Input2) / Input3 × 100 = Solution %' },
-    { field: 'LOI (Solution %)', required: false, type: 'Number', unit: '%', min: 4.5, max: 6.0 },
-    // Sieve Testing
-    { field: 'Sieve Size — % Wt Retained (TEST-1 & TEST-2)', required: false, type: 'Number', unit: '%', description: 'Enter % weight retained on each sieve size' },
-    { field: 'Sieve Total', required: false, type: 'Number', description: 'Auto-computed as the numeric sum of the sieve column; not editable' },
-    { field: 'MF Product (TEST-1 & TEST-2)', required: false, type: 'Number', description: 'Enter the product value for each MF sieve row' },
-    // Test Parameters
-    { field: 'Compactability', required: false, type: 'Number', unit: '%', min: 33, max: 40 },
-    { field: 'Permeability', required: false, type: 'Number', min: 90, max: 160 },
-    { field: 'GCS', required: false, type: 'Number', unit: 'Gm/cm²', description: 'Green Compressive Strength' },
-    { field: 'WTS', required: false, type: 'Number', unit: 'N/cm²', min: 0.15, description: 'Minimum 0.15' },
-    { field: 'Moisture', required: false, type: 'Number', unit: '%', min: 3.0, max: 4.0 },
-    { field: 'Bentonite', required: false, type: 'Number', description: 'Bentonite addition quantity' },
-    { field: 'CoalDust', required: false, type: 'Number', description: 'Coal dust addition quantity' },
-    { field: 'Hopper Level', required: false, type: 'Text', description: 'Return sand hopper level reading' },
-    { field: 'Shear Strength', required: false, type: 'Number', unit: 'N/cm²' },
-    { field: 'Dust Collector Settings', required: false, type: 'Text', description: 'Dust collector machine settings' },
-    { field: 'Return Sand Moisture', required: false, type: 'Number', unit: '%' },
-    // Additional Data
-    { field: 'AFS No.', required: false, type: 'Number', min: 48, description: 'Minimum 48' },
-    { field: 'Fines', required: false, type: 'Number', unit: '%', max: 10, description: 'Maximum 10%' },
-    { field: 'GD', required: false, type: 'Number', description: 'Green Density value' },
-    // Remarks
-    { field: 'Remarks', required: false, type: 'Text', maxLength: 80, description: 'Any additional observations or notes' }
-  ];
-
   return (
     <div className="page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       {/* Header */}
@@ -1169,12 +1177,9 @@ export default function FoundrySandTestingNote() {
       />
 
       {/* Primary Section */}
-      <div ref={primarySectionRef} className="primary-header-container" style={{ marginBottom: '0.5rem' }}>
         <h3 className="foundry-section-title">Primary</h3>
-      </div>
-
       <div className={`foundry-form-grid${highlightPrimaryFields ? ' primary-highlight' : ''}`} >
-        <div className="foundry-form-group">
+        <div className="foundry-form-group foundry-form-group--narrow">
           <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
           <CustomDatePicker
             value={primaryData.date}
@@ -1182,53 +1187,21 @@ export default function FoundrySandTestingNote() {
             max={new Date().toISOString().split('T')[0]}
           />
         </div>
-        <div className="foundry-form-group">
+        <div className="foundry-form-group foundry-form-group--narrow">
           <label>Shift <span style={{ color: '#ef4444' }}>*</span></label>
           <ShiftDropdown
             value={primaryData.shift}
             onChange={(e) => handlePrimaryChange("shift", e.target.value)}
           />
         </div>
-        <div className="foundry-form-group">
+        <div className="foundry-form-group foundry-form-group--narrow">
           <label>Sand Plant <span style={{ color: '#ef4444' }}>*</span></label>
-          <DisaDropdown
+          <PlantDropdown
             value={primaryData.sandPlant}
             onChange={(e) => handlePrimaryChange("sandPlant", e.target.value)}
             name="sandPlant"
             disabled={!primaryData.date || !primaryData.shift}
           />
-          {(savePrimaryLoading || showCombinationFound || showCombinationAdded || showPrimaryWarning) && (
-            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'flex-start' }}>
-              {savePrimaryLoading && (
-                <InlineLoader
-                  message="Fetching Date, Shift, Plant"
-                  size="medium"
-                  variant="primary"
-                />
-              )}
-              {showCombinationFound && (
-                <InlineLoader
-                  message="Combination found"
-                  size="medium"
-                  variant="success"
-                />
-              )}
-              {showCombinationAdded && (
-                <InlineLoader
-                  message="Combination Added"
-                  size="medium"
-                  variant="success"
-                />
-              )}
-              {showPrimaryWarning && (
-                <InlineLoader
-                  message="Save Date, Shift, Plant"
-                  size="medium"
-                  variant="danger"
-                />
-              )}
-            </div>
-          )}
         </div>
         <div className="foundry-form-group">
           <label>
@@ -1258,25 +1231,35 @@ export default function FoundrySandTestingNote() {
             style={{ opacity: lockedFields.shearStrengthSetting ? 0.6 : 1 }}
           />
         </div>
-      </div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-        {showPrimaryWarning ? (
-          <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>
-            ⚠ Save Primary Data first
-          </span>
-        ) : <span />}
-        {checkingData ? (
-          <div style={{ padding: '0.75rem 1.5rem', color: '#64748b', fontWeight: 500 }}>
-            Loading...
+        <div className="foundry-form-group">
+          <label>&nbsp;</label>
+          <div className="primary-save-btn-scope">
+            <SubmitButton
+              onClick={handlePrimarySubmit}
+              disabled={
+                checkingData || savePrimaryLoading || showCombinationFound || loadingStates.primary || showCombinationAdded ||
+                !primaryData.date || !primaryData.shift || !primaryData.sandPlant ||
+                (lockedFields.compactibilitySetting && lockedFields.shearStrengthSetting)
+              }
+            >
+              {(checkingData || savePrimaryLoading) ? 'Fetching Date, Shift, Plant'
+                : showCombinationFound ? 'Combination found'
+                : loadingStates.primary ? 'Saving...'
+                : showCombinationAdded ? 'Combination Added'
+                : (isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary')}
+            </SubmitButton>
           </div>
-        ) : (
-          <SubmitButton
-            onClick={handlePrimarySubmit}
-            disabled={!primaryData.date || !primaryData.shift || !primaryData.sandPlant || (lockedFields.compactibilitySetting && lockedFields.shearStrengthSetting)}
-          >
-            {isPrimaryDataSaved ? "Update Primary Data" : "Save Primary"}
-          </SubmitButton>
-        )}
+          {(showPrimaryWarning || primaryMessage) && (
+            <div style={{ marginTop: '0.5rem' }}>
+              {showPrimaryWarning && (
+                <InlineLoader message="Save Date, Shift, Plant first" size="medium" variant="danger" />
+              )}
+              {primaryMessage && (
+                <InlineLoader message={primaryMessage.text} variant={primaryMessage.variant} size="medium" />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Clay Parameters */}
@@ -1290,7 +1273,10 @@ export default function FoundrySandTestingNote() {
           columns={clayColumns}
           renderCell={renderClayCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+        {sectionMessages.clayParameters && (
+          <InlineLoader message={sectionMessages.clayParameters.text} variant={sectionMessages.clayParameters.variant} size="medium" />
+        )}
         <button
           ref={clayParametersSubmitRef}
           type="button"
@@ -1316,7 +1302,10 @@ export default function FoundrySandTestingNote() {
           columns={sieveColumns}
           renderCell={renderSieveCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+        {sectionMessages.sieveTesting && (
+          <InlineLoader message={sectionMessages.sieveTesting.text} variant={sectionMessages.sieveTesting.variant} size="medium" />
+        )}
         <button
           ref={sieveTestingSubmitRef}
           type="button"
@@ -1342,7 +1331,10 @@ export default function FoundrySandTestingNote() {
           columns={testParamColumns}
           renderCell={renderTestParamCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+        {sectionMessages.testParameters && (
+          <InlineLoader message={sectionMessages.testParameters.text} variant={sectionMessages.testParameters.variant} size="medium" />
+        )}
         <button
           ref={testParametersSubmitRef}
           type="button"
@@ -1368,7 +1360,10 @@ export default function FoundrySandTestingNote() {
           columns={additionalColumns}
           renderCell={renderAdditionalCell}
         />
-      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+        {sectionMessages.additionalData && (
+          <InlineLoader message={sectionMessages.additionalData.text} variant={sectionMessages.additionalData.variant} size="medium" />
+        )}
         <button
           ref={additionalDataSubmitRef}
           type="button"
@@ -1387,7 +1382,6 @@ export default function FoundrySandTestingNote() {
       <div className="foundry-section">
         <h3 className="foundry-section-title">Remarks {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         <div className="foundry-form-group">
-          <label>Remarks</label>
           <input
             type="text"
             ref={remarksFirstInputRef}
@@ -1402,12 +1396,15 @@ export default function FoundrySandTestingNote() {
               width: '100%',
               maxWidth: '500px',
               resize: 'none',
-              backgroundColor: fieldLocks.remarks ? '#f1f5f9' : '#ffffff',
-              cursor: fieldLocks.remarks ? 'not-allowed' : 'text'
+              backgroundColor: (!isPrimaryDataSaved || fieldLocks.remarks) ? '#f1f5f9' : '#ffffff',
+              cursor: (!isPrimaryDataSaved || fieldLocks.remarks) ? 'not-allowed' : 'text'
             }}
           />
         </div>
-        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+          {sectionMessages.remarks && (
+            <InlineLoader message={sectionMessages.remarks.text} variant={sectionMessages.remarks.variant} size="medium" />
+          )}
           <button
             ref={remarksSubmitRef}
             type="button"

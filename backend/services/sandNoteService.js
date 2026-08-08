@@ -45,6 +45,9 @@ function toWireEntry(entry, date) {
         compactibilitySetting: entry.compactibilitySetting,
         shearStrengthSetting: entry.shearStrengthSetting,
         remarks: entry.remarks,
+        // Report-page inline edit/delete permission gating (EntryActions.jsx-style).
+        createdBy: entry.createdBy,
+        createdAt: entry.createdAt,
         ...sections,
     };
 }
@@ -54,23 +57,10 @@ async function listEntries({ startDate, endDate }) {
     return entries.map((entry) => toWireEntry(entry, entry.day.date));
 }
 
-async function createEntry(body) {
-    const { date, shift, section, sandPlant, ...otherData } = body ?? {};
-    if (!date || !shift) throw new AppError(400, 'Date and Shift are required.');
-
-    const day = await sandNoteRepository.ensureDateRow(String(date).trim());
-    const trimmedShift = String(shift).trim();
-    const trimmedPlant = String(sandPlant || '').trim();
-
-    const existing = await sandNoteRepository.findEntry(day.id, trimmedShift, trimmedPlant);
-    let entryId;
-    if (existing) {
-        entryId = existing.id;
-    } else {
-        if (!sandPlant) throw new AppError(400, 'Sand Plant is required for new entries.');
-        entryId = await sandNoteRepository.ensureEntryId(day.id, trimmedShift, trimmedPlant);
-    }
-
+// Shared by createEntry and updateEntry — dispatch is driven by which data
+// keys are present, not by the `section` string, matching the original
+// controller exactly.
+async function applySectionData(entryId, section, sandPlant, otherData) {
     if (section === 'primary') {
         const patch = {};
         if (sandPlant) patch.sandPlant = sandPlant;
@@ -82,8 +72,6 @@ async function createEntry(body) {
             await sandNoteRepository.updateEntryFields(entryId, { remarks: otherData.remarks });
         }
     } else {
-        // Dispatch is driven by which data keys are present, not by the
-        // `section` string — matches the original controller exactly.
         const upserts = [];
         for (const sectionName of MERGE_SECTIONS) {
             if (!otherData[sectionName]) continue;
@@ -97,12 +85,79 @@ async function createEntry(body) {
         }
         await Promise.all(upserts);
     }
+}
+
+async function createEntry(body, userId) {
+    const { date, shift, section, sandPlant, ...otherData } = body ?? {};
+    if (!date || !shift) throw new AppError(400, 'Date and Shift are required.');
+
+    const day = await sandNoteRepository.ensureDateRow(String(date).trim());
+    const trimmedShift = String(shift).trim();
+    const trimmedPlant = String(sandPlant || '').trim();
+
+    const existing = await sandNoteRepository.findEntry(day.id, trimmedShift, trimmedPlant);
+    let entryId;
+    if (existing) {
+        entryId = existing.id;
+    } else {
+        if (!sandPlant) throw new AppError(400, 'Sand Plant is required for new entries.');
+        entryId = await sandNoteRepository.ensureEntryId(day.id, trimmedShift, trimmedPlant, userId);
+    }
+
+    await applySectionData(entryId, section, sandPlant, otherData);
 
     const entry = await sandNoteRepository.findEntryWithFields(entryId);
-    return toWireEntry(entry, day.date);
+    return toWireEntry(entry, entry.day.date);
+}
+
+// Unlike applySectionData (mutually exclusive by `section`, matching the
+// original one-section-per-POST controller), a report-page inline edit can
+// touch the scalar entry fields AND a merge-section in the same PUT — there's
+// no per-click "which section" concept once every field is visible at once.
+// Both halves run independently based on which keys are present.
+async function applyEditPatch(entryId, body) {
+    const { sandPlant, compactibilitySetting, shearStrengthSetting, remarks, ...sectionData } = body ?? {};
+
+    const patch = {};
+    if (sandPlant !== undefined) patch.sandPlant = sandPlant;
+    if (compactibilitySetting !== undefined) patch.compactibilitySetting = compactibilitySetting;
+    if (shearStrengthSetting !== undefined) patch.shearStrengthSetting = shearStrengthSetting;
+    if (remarks !== undefined) patch.remarks = remarks;
+    if (Object.keys(patch).length) await sandNoteRepository.updateEntryFields(entryId, patch);
+
+    const upserts = [];
+    for (const sectionName of MERGE_SECTIONS) {
+        if (!sectionData[sectionName]) continue;
+        for (const [testKey, testValue] of Object.entries(sectionData[sectionName])) {
+            const testNo = parseInt(String(testKey).replace('test', ''), 10);
+            if (!Number.isFinite(testNo)) continue;
+            walkLeaves(testValue, '', (fieldPath, value) => {
+                upserts.push(sandNoteRepository.upsertLeaf(entryId, sectionName, testNo, fieldPath, value));
+            });
+        }
+    }
+    await Promise.all(upserts);
+}
+
+async function updateEntry(entryId, body) {
+    await applyEditPatch(entryId, body);
+
+    const entry = await sandNoteRepository.findEntryWithFields(entryId);
+    return toWireEntry(entry, entry.day.date);
+}
+
+function deleteEntry(entryId) {
+    return sandNoteRepository.deleteEntry(entryId);
+}
+
+function loadEntryForAuth(id) {
+    return sandNoteRepository.findEntryAuthInfo(id);
 }
 
 module.exports = {
     listEntries,
     createEntry,
+    updateEntry,
+    deleteEntry,
+    loadEntryForAuth,
 };

@@ -1,53 +1,8 @@
 /* ──────────────────────────────────────────────────────────────────────────────
    alert.css
-   Styles for MorphingPopover + Toast components.
+   Styles for the Toast, AlertDialog, and ExcelDownloadDialog components.
    Usage: auto-imported by alert.jsx
    ────────────────────────────────────────────────────────────────────────────── */
-
-/* Root wrapper — positions the trigger and content relative to each other */
-.morphing-popover-root {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ─── Trigger Button ──────────────────────────────────────────────────────── */
-.morphing-popover-trigger-btn {
-  /* Reset */
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-
-.morphing-popover-trigger-btn:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* ─── Popover Content Panel ───────────────────────────────────────────────── */
-.morphing-popover-content {
-  position: absolute;
-  z-index: 50;
-  overflow: hidden;
-  border-radius: 12px;
-
-  /* White theme, matching site palette */
-  background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%);
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-
-  padding: 8px;
-  box-shadow:
-    0 12px 28px rgba(102, 126, 234, 0.12),
-    0 4px 10px rgba(15, 23, 42, 0.08);
-}
 
 /* ════════════════════════════════════════════════════════════════════════════
    TOAST SYSTEM

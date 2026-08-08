@@ -1,9 +1,9 @@
 const { prisma } = require('../database/prisma');
 
-function ensureDayRow(date, plant) {
+function ensureDayRow(date, plant, createdBy) {
     return prisma.sandRecordDay.upsert({
         where: { date_plant: { date, plant } },
-        create: { date, plant },
+        create: { date, plant, createdBy },
         update: {},
     });
 }
@@ -43,6 +43,32 @@ async function appendArrayValues(recordId, section, shiftKey, field, values) {
     });
 }
 
+// Edit path: writes an already-saved OR brand-new leaf at a specific
+// position — scalar or array, both address the same (recordId, section,
+// shiftKey, field, position) unique key, scalars always at position 0. An
+// upsert (not a strict update) because the report page's inline edit can
+// target a position that never existed before: Plus-adding a new array
+// element, or switching Table 1b's radio to whichever of coalDust/premix
+// wasn't previously saved.
+function updateValueAtPosition(recordId, section, shiftKey, field, position, value) {
+    return prisma.sandRecordValue.upsert({
+        where: { recordId_section_shiftKey_field_position: { recordId, section, shiftKey, field, position } },
+        create: { recordId, section, shiftKey, field, position, value },
+        update: { value },
+    });
+}
+
+// Paired with updateValueAtPosition for the report page's array-resync edit:
+// after upserting positions 0..values.length-1, anything still on record at
+// or beyond that length is a leftover from before the array was shortened
+// (Minus) and must go, or it would reappear as trailing stale values on the
+// next read.
+function deleteValuesFromPosition(recordId, section, shiftKey, field, fromPosition) {
+    return prisma.sandRecordValue.deleteMany({
+        where: { recordId, section, shiftKey, field, position: { gte: fromPosition } },
+    });
+}
+
 function findValues(recordId) {
     return prisma.sandRecordValue.findMany({
         where: { recordId },
@@ -56,6 +82,23 @@ function createTestParameter(recordId, data) {
 
 function findTestParameters(recordId) {
     return prisma.sandRecordTestParameter.findMany({ where: { recordId }, orderBy: { createdAt: 'asc' } });
+}
+
+// Table 5 rows have their own PK (unlike the generic path/value leaves above),
+// so editing one already-saved row is a plain update by id.
+function updateTestParameterRow(id, data) {
+    return prisma.sandRecordTestParameter.update({ where: { id }, data });
+}
+
+function findDayAuthInfo(id) {
+    return prisma.sandRecordDay.findUnique({
+        where: { id },
+        select: { id: true, createdBy: true, createdAt: true },
+    });
+}
+
+function deleteDay(id) {
+    return prisma.sandRecordDay.delete({ where: { id } });
 }
 
 async function findDayWithEverything(recordId) {
@@ -107,10 +150,15 @@ module.exports = {
     findDayRow,
     updateDayFields,
     upsertScalarValue,
+    updateValueAtPosition,
+    deleteValuesFromPosition,
     appendArrayValues,
     findValues,
     createTestParameter,
     findTestParameters,
+    updateTestParameterRow,
+    findDayAuthInfo,
+    deleteDay,
     findDayWithEverything,
     findDaysPage,
     aggregateStats,

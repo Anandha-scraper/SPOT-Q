@@ -21,20 +21,16 @@ const invalid = (message, fields) => ({ isValid: false, isMissing: false, messag
 const missing = (message, fields) => ({ isValid: false, isMissing: true, message, fields });
 const valid = () => ({ isValid: true, isMissing: false, message: '' });
 
-const checkNumber = (rule, value, label) => {
+// min/max/exclusiveMin are QC target ranges, not hard input limits — the real
+// measured value must be accepted even outside spec, so only type-shape is
+// enforced here. See isDeviant() for the informational (admin-only) range check.
+export const checkNumber = (rule, value, label) => {
   const s = String(value).trim();
   if (INVALID_NUMBER.test(s) || TRAILING_JUNK.test(s)) return invalid(`${label} must be a valid number`);
 
   const num = Number(s); // not parseFloat, so "12abc" is rejected rather than silently parsed to 12
   if (isNaN(num) || !isFinite(num)) return invalid(`${label} must be a valid number`);
 
-  if (rule.min !== undefined && rule.exclusiveMin && num <= rule.min) {
-    return invalid(`${label} must be greater than ${rule.min}`);
-  }
-  if (rule.min !== undefined && !rule.exclusiveMin && num < rule.min) {
-    return invalid(`${label} must be at least ${rule.min}`);
-  }
-  if (rule.max !== undefined && num > rule.max) return invalid(`${label} must be no more than ${rule.max}`);
   if (rule.type === 'Integer' && !Number.isInteger(num)) return invalid(`${label} must be a whole number`);
 
   return valid();
@@ -105,15 +101,10 @@ export const validateField = (rule, mapped, formData, inputRefs) => {
       break;
     }
 
-    case 'Text': {
-      const text = String(value).trim();
-      const format = rule.format && FORMATS[rule.format];
-      if (format && !format.re.test(text)) return invalid(format.message(label));
-      if (rule.maxLength && text.length > rule.maxLength) {
-        return invalid(`${label} must be no more than ${rule.maxLength} characters`);
-      }
+    case 'Text':
+      // format/maxLength are QC spec hints, not hard limits — any string is
+      // accepted; see isDeviant() for the informational (admin-only) check.
       break;
-    }
 
     case 'Select':
       if (rule.allowedValues && !rule.allowedValues.includes(value)) {
@@ -181,3 +172,36 @@ export const getRequiredFields = (validationRanges, fieldMapping) => {
 
 export const RequiredMark = () =>
   createElement('span', { 'aria-hidden': 'true', style: { color: '#ef4444', marginLeft: '0.15rem' } }, '*');
+
+// Informational-only counterpart to the range/pattern checks checkNumber/validateField
+// stopped blocking on — used by report pages to flag (admin-only) a value that's
+// outside its department's declared QC spec, without ever rejecting the value itself.
+// Blank values are never "deviant" — nothing entered is a missing-data concern, not a spec one.
+export const isDeviant = (rule, value) => {
+  if (isBlank(value)) return false;
+
+  if (rule.type === 'Number' || rule.type === 'Integer') {
+    const num = Number(String(value).trim());
+    if (isNaN(num) || !isFinite(num)) return false; // malformed data, not a spec deviation
+    if (rule.min !== undefined) {
+      if (rule.exclusiveMin ? num <= rule.min : num < rule.min) return true;
+    }
+    if (rule.max !== undefined && num > rule.max) return true;
+    return false;
+  }
+
+  if (rule.type === 'NumberArray') {
+    const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [];
+    return arr.some((v) => isDeviant({ ...rule, type: 'Number' }, v));
+  }
+
+  if (rule.type === 'Text') {
+    const text = String(value).trim();
+    const format = rule.format && FORMATS[rule.format];
+    if (format && !format.re.test(text)) return true;
+    if (rule.maxLength && text.length > rule.maxLength) return true;
+    return false;
+  }
+
+  return false;
+};

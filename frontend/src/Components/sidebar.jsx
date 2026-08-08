@@ -100,6 +100,10 @@ const Sidebar = () => {
         'Foundry Sand Testing Note': {
           'Entry': '/sand-lab/foundry-sand-testing-note',
           'Report': '/sand-lab/foundry-sand-testing-note/report'
+        },
+        'Return Sand Foundry Sand Testing Note': {
+          'Entry': '/sand-lab/return-sand-foundry-sand-testing-note',
+          'Report': '/sand-lab/return-sand-foundry-sand-testing-note/report'
         }
       },
       'Melting': {
@@ -153,6 +157,10 @@ const Sidebar = () => {
         'Foundry Sand Testing Note': {
           'Entry': '/sand-lab/foundry-sand-testing-note',
           'Report': '/sand-lab/foundry-sand-testing-note/report'
+        },
+        'Return Sand Foundry Sand Testing Note': {
+          'Entry': '/sand-lab/return-sand-foundry-sand-testing-note',
+          'Report': '/sand-lab/return-sand-foundry-sand-testing-note/report'
         }
       },
       'Melting': {
@@ -326,9 +334,18 @@ const Sidebar = () => {
             { name: 'Report', key: 'Report' }
           ]
         },
-        { 
-          name: 'Foundry Sand Testing Note', 
+        {
+          name: 'Foundry Sand Testing Note',
           key: 'Foundry Sand Testing Note',
+          hasSubmenu: true,
+          submenuItems: [
+            { name: 'Entry', key: 'Entry' },
+            { name: 'Report', key: 'Report' }
+          ]
+        },
+        {
+          name: 'Return Sand Foundry Sand Testing Note',
+          key: 'Return Sand Foundry Sand Testing Note',
           hasSubmenu: true,
           submenuItems: [
             { name: 'Entry', key: 'Entry' },
@@ -337,9 +354,9 @@ const Sidebar = () => {
         }
       ]
     },
-    { 
-      id: 9, 
-      name: 'Melting', 
+    {
+      id: 9,
+      name: 'Melting',
       icon: <GiMeltingMetal />, 
       hasSubmenu: true, 
       department: 'Melting',

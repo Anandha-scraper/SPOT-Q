@@ -1,16 +1,31 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { microTensileEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/DmicroTensile';
 import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const MicroTensileReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const devClass = (fieldName, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const rule = ruleByField[fieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
 
   const formatDateLocal = (d) => {
     if (!d) return '';
@@ -297,6 +312,12 @@ const MicroTensileReport = () => {
           />
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ClearButton onClick={handleClear} />
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
@@ -369,15 +390,15 @@ const MicroTensileReport = () => {
                         </td>
                       ) : null}
                       <td>{renderItem(item)}</td>
-                      <td>{item.dateCode || '-'}</td>
+                      <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
                       <td>{item.heatCode || '-'}</td>
-                      <td>{item.barDia ?? '-'}</td>
-                      <td>{item.gaugeLength ?? '-'}</td>
-                      <td>{item.maxLoad ?? '-'}</td>
-                      <td>{item.yieldLoad ?? '-'}</td>
-                      <td>{item.tensileStrength ?? '-'}</td>
-                      <td>{item.yieldStrength ?? '-'}</td>
-                      <td>{item.elongation ?? '-'}</td>
+                      <td className={devClass('Bar Dia', item.barDia)}>{item.barDia ?? '-'}</td>
+                      <td className={devClass('Gauge Length', item.gaugeLength)}>{item.gaugeLength ?? '-'}</td>
+                      <td className={devClass('Max Load', item.maxLoad)}>{item.maxLoad ?? '-'}</td>
+                      <td className={devClass('Yield Load', item.yieldLoad)}>{item.yieldLoad ?? '-'}</td>
+                      <td className={devClass('Tensile Strength', item.tensileStrength)}>{item.tensileStrength ?? '-'}</td>
+                      <td className={devClass('Yield Strength', item.yieldStrength)}>{item.yieldStrength ?? '-'}</td>
+                      <td className={devClass('Elongation', item.elongation)}>{item.elongation ?? '-'}</td>
                       <td>{item.testedBy || '-'}</td>
                       <td
                         className={`mt-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}

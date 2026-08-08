@@ -71,6 +71,31 @@
 	opacity: 0.6;
 }
 
+/* Deviation Toggle Button Styling */
+.deviation-toggle-btn {
+	background-color: #eab308 !important;
+	color: white !important;
+}
+
+.deviation-toggle-btn:hover:not(:disabled) {
+	background-color: #ca8a04 !important;
+	transform: translateY(-1px);
+}
+
+.deviation-toggle-btn.active {
+	background-color: #a16207 !important;
+}
+
+.deviation-toggle-btn.active:hover:not(:disabled) {
+	background-color: #854d0e !important;
+}
+
+.deviation-toggle-btn:disabled {
+	background-color: #fde68a !important;
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
 /* ==================== DISA Dropdown Styles ==================== */
 .disa-dropdown-wrapper,
 .shift-dropdown-wrapper {
@@ -702,12 +727,11 @@
 
 /* ==================== Lock Primary Button Styles ==================== */
 .lock-primary-button-wrapper {
-	display: block;
-	width: 100%;
+	display: inline-block;
+	width: auto;
 }
 
 .lock-primary-button-wrapper button {
-	width: 100%;
 	padding: 0.625rem 0.875rem;
 	border: 2px solid #5B9AA9;
 	border-radius: 8px;
@@ -742,6 +766,30 @@
 	cursor: not-allowed;
 	box-shadow: none;
 	opacity: 0.6;
+}
+
+/* Status states — button shows a live Combination status in place of "Save Primary"
+   instead of a separate InlineLoader swapping in/out, so the layout never jumps.
+   Colors match InlineLoader.jsx's VARIANT_COLORS for visual consistency. */
+.lock-primary-button-wrapper button.status-primary:disabled {
+	background: #eff6ff;
+	border-color: #bfdbfe;
+	color: #1d4ed8;
+	opacity: 1;
+}
+
+.lock-primary-button-wrapper button.status-success:disabled {
+	background: #f0fdf4;
+	border-color: #bbf7d0;
+	color: #15803d;
+	opacity: 1;
+}
+
+.lock-primary-button-wrapper button.status-danger:disabled {
+	background: #fef2f2;
+	border-color: #fecaca;
+	color: #b91c1c;
+	opacity: 1;
 }
 
 

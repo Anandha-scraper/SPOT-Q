@@ -2,16 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
-
 const { assertCookieConfig } = require('./utils/cookie');
 const { describePrismaError } = require('./utils/prismaError');
 const { connect, disconnect, ping } = require('./database/prisma');
-
 const app = express();
-
 // Fail fast on misconfiguration rather than surfacing it as a 500 on someone's first login.
 const REQUIRED_ENV = ['PORT', 'DATABASE_URL', 'JWT_SECRET', 'JWT_EXPIRE'];
-const OPTIONAL_ENV = ['DIRECT_URL', 'EDIT_TIME', 'FRONTEND_URL'];
+const OPTIONAL_ENV = ['DIRECT_URL', 'EDIT_TIME', 'FRONTEND_URL', 'DLOG'];
 
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length) {
@@ -21,9 +18,7 @@ if (missingEnv.length) {
 OPTIONAL_ENV.filter((key) => !process.env[key]).forEach((key) =>
   console.warn(`env ${key} is not set — using default / dev behaviour.`)
 );
-
 const PORT = process.env.PORT;
-
 // A misconfigured auth cookie fails silently in the browser, so refuse to boot.
 let cookieConfig;
 try {
@@ -45,7 +40,6 @@ app.use(cors({
   origin: (origin, callback) => {
     // No origin covers mobile apps, Postman, and same-origin requests.
     if (!origin) return callback(null, true);
-
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -60,10 +54,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
-
 const { protect } = require('./middleware/auth');
 const { checkDepartmentAccess } = require('./middleware/access');
-
 const authRoutes = require('./routes/auth');
 const processRoutes = require('./routes/Process');
 const tensileRoutes = require('./routes/Tensile');
@@ -76,11 +68,11 @@ const cupolaLogRoutes = require('./routes/Melting-CupolaHolderLog');
 const disaReportRoutes = require('./routes/Moulding-DismaticProductReportDISA');
 const dmmLogRoutes = require('./routes/Moulding-DmmSettingParameters');
 const sandNoteRoutes = require('./routes/SandLab-FoundrySandTestingNote');
+const returnSandNoteRoutes = require('./routes/SandLab-ReturnSandFoundrySandTestingNote');
 const sandRecordRoutes = require('./routes/SandLab-SandTestingRecord');
 const downloadLogRoutes = require('./routes/DownloadLog');
-
+const statsRoutes = require('./routes/stats');
 app.use('/api/v1/auth', authRoutes);
-
 app.use('/api/v1/process', protect, checkDepartmentAccess('Process'), processRoutes);
 app.use('/api/v1/tensile', protect, checkDepartmentAccess('Tensile'), tensileRoutes);
 app.use('/api/v1/impact-tests', protect, checkDepartmentAccess('Impact'), impactRoutes);
@@ -93,12 +85,13 @@ app.use('/api/v1/moulding-disa', protect, checkDepartmentAccess('Moulding'), dis
 app.use('/api/v1/moulding-dmm', protect, checkDepartmentAccess('Moulding'), dmmLogRoutes);
 app.use('/api/v1/sand-testing-records', protect, checkDepartmentAccess('Sand Lab'), sandRecordRoutes);
 app.use('/api/v1/foundry-sand-testing-notes', protect, checkDepartmentAccess('Sand Lab'), sandNoteRoutes);
+app.use('/api/v1/return-sand-foundry-sand-testing-notes', protect, checkDepartmentAccess('Sand Lab'), returnSandNoteRoutes);
 
 // No department gate — any logged-in user sees their own history; checkAdminAccess gates /all.
 app.use('/api/v1/download-logs', protect, downloadLogRoutes);
+app.use('/api/v1/entry-stats', protect, statsRoutes);
 
-app.get('/', (req, res) => {
-  res.json({
+app.get('/', (req, res) => {  res.json({
     success: true,
     message: 'SPOT-Q Backend API is running',
     version: '1.0.0',

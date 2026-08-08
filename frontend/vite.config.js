@@ -14,6 +14,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    // No sourcemaps in dist/ — nginx serves it verbatim to every LAN client.
+    sourcemap: false
   }
 });

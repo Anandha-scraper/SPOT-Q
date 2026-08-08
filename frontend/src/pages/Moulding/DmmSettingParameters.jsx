@@ -220,8 +220,7 @@ const DmmSettingParameters = () => {
           method: 'GET',
           credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           }
         }
       );
@@ -324,8 +323,7 @@ const DmmSettingParameters = () => {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(opPayload)
       });
@@ -587,8 +585,7 @@ const DmmSettingParameters = () => {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(opPayload)
       });
@@ -612,8 +609,7 @@ const DmmSettingParameters = () => {
           method: 'POST',
           credentials: 'include',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(paramsPayload)
         });

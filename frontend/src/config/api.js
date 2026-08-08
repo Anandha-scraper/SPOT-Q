@@ -1,9 +1,11 @@
-// Relative by default so the Vite proxy forwards requests; set VITE_API_BASE for an absolute production URL.
+// Relative URLs, resolved against whatever origin served the page. In dev the Vite proxy
+// forwards /api to :5000; in production nginx proxies /api to 127.0.0.1:5000 on the same
+// origin. Leave VITE_API_BASE UNSET — it is substituted at build time, so setting it bakes an
+// absolute host into the bundle and moves every call cross-origin (CORS + a preflight each).
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
-// Helper to build URLs — works in both dev (proxy) and production (absolute)
-export const buildApiUrl = (path) => `${API_BASE}${path}`;
-
 export const API_ENDPOINTS = {
+  // Health — mounted at /api/health, deliberately outside the /api/v1 prefix.
+  health:           `${API_BASE}/api/health`,
   // Auth
   login:            `${API_BASE}/api/v1/auth/login`,
   logout:           `${API_BASE}/api/v1/auth/logout`,
@@ -33,5 +35,3 @@ export const API_ENDPOINTS = {
   meltingLogs:             `${API_BASE}/api/v1/melting-logs`,
   cupolaLogs:              `${API_BASE}/api/v1/cupola-logs`,
 };
-
-export default API_BASE;

@@ -9,7 +9,8 @@ module.exports = defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    // Migrations need a real session, not the :6543 transaction pooler — see backend.md.
-    url: process.env.DIRECT_URL || env('DATABASE_URL'),
+    // SQL Server has no pooler/session split, so the CLI and the runtime adapter share one
+    // connection string. (Supabase needed a separate DIRECT_URL here; that no longer applies.)
+    url: env('DATABASE_URL'),
   },
 });

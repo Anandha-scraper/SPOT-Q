@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
+const { PrismaMssql } = require('@prisma/adapter-mssql');
 const buildClient = () => {
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaMssql(process.env.DATABASE_URL);
 
     return new PrismaClient({
         adapter,

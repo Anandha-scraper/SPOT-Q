@@ -168,8 +168,7 @@ const MeltingLogSheetReport = () => {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+          'Content-Type': 'application/json'
         }
       });
       const data = await resp.json();

@@ -8,7 +8,7 @@ const { connect, disconnect, ping } = require('./database/prisma');
 const app = express();
 // Fail fast on misconfiguration rather than surfacing it as a 500 on someone's first login.
 const REQUIRED_ENV = ['PORT', 'DATABASE_URL', 'JWT_SECRET', 'JWT_EXPIRE'];
-const OPTIONAL_ENV = ['DIRECT_URL', 'EDIT_TIME', 'FRONTEND_URL', 'DLOG'];
+const OPTIONAL_ENV = ['HOST', 'EDIT_TIME', 'FRONTEND_URL', 'DLOG'];
 
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length) {
@@ -19,6 +19,9 @@ OPTIONAL_ENV.filter((key) => !process.env[key]).forEach((key) =>
   console.warn(`env ${key} is not set — using default / dev behaviour.`)
 );
 const PORT = process.env.PORT;
+// Loopback by default: nginx is the only thing that should reach the API. Set HOST=0.0.0.0
+// to expose it on the LAN (e.g. to reach a dev backend from another machine).
+const HOST = process.env.HOST ;
 // A misconfigured auth cookie fails silently in the browser, so refuse to boot.
 let cookieConfig;
 try {
@@ -45,7 +48,11 @@ app.use(cors({
     } else {
       console.log('CORS blocked origin:', origin);
       console.log('Allowed origins:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
+      // Without an explicit status this falls through to describePrismaError as a generic 500.
+      const err = new Error('Origin not allowed.');
+      err.status = 403;
+      err.expected = true;
+      callback(err);
     }
   },
   credentials: true,
@@ -117,9 +124,10 @@ app.get('/api/health', async (req, res) => {
     }
   }
 
-  // Always 200 — Login.jsx only checks response.ok; callers needing DB state read the database field.
-  res.status(200).json({
-    status: 'ok',
+  // 503 when the database is unreachable so response.ok is a truthful readiness signal —
+  // Login.jsx's badge and any nginx/systemd healthcheck both key off the status code.
+  res.status(dbHealth.ok ? 200 : 503).json({
+    status: dbHealth.ok ? 'ok' : 'degraded',
     database: dbHealth.ok ? 'connected' : 'disconnected',
     timestamp: new Date()
   });
@@ -156,8 +164,8 @@ connect()
   .then(() => {
     console.log('SPOT-Q Database Connected (Prisma)');
 
-    server = app.listen(PORT, () => {
-      console.log(`Server active on port ${PORT}`);
+    server = app.listen(PORT, HOST, () => {
+      console.log(`Server active on ${HOST}:${PORT}`);
       console.log(`Auth cookie: secure=${cookieConfig.secure}, sameSite=${cookieConfig.sameSite}`);
     });
 

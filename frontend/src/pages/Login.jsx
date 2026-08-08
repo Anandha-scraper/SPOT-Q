@@ -22,43 +22,47 @@ const Login = () => {
   // Server connection status
   const [serverStatus, setServerStatus] = useState("connecting");
 
-  // Check server health on component mount - simple polling until connected
+  // Check server health on component mount - poll until connected.
+  // /api/health answers 503 while the database is unreachable, so response.ok is the whole test.
   useEffect(() => {
     let isMounted = true;
-    let pollInterval;
-    
+    let timer;
+    // Back off 3s -> 30s instead of every open tab polling every 3s forever.
+    let delay = 3000;
+    const MAX_DELAY = 30000;
+
     const checkServerHealth = async () => {
       if (!isMounted) return;
-      
+
       try {
-        const response = await fetch('/api/health', {
+        const response = await fetch(API_ENDPOINTS.health, {
           method: 'GET',
           cache: 'no-cache',
         });
-        
+
         if (response.ok && isMounted) {
           setServerStatus("connected");
-          // Clear polling
-          if (pollInterval) clearInterval(pollInterval);
           // Hide after 3 seconds
           setTimeout(() => {
             if (isMounted) setServerStatus(null);
           }, 3000);
+          return;
         }
       } catch (err) {
         // Keep polling - server not ready yet
       }
+
+      if (!isMounted) return;
+      timer = setTimeout(checkServerHealth, delay);
+      delay = Math.min(delay * 2, MAX_DELAY);
     };
-    
+
     // Initial check
     checkServerHealth();
-    
-    // Poll every 3 seconds until connected
-    pollInterval = setInterval(checkServerHealth, 3000);
-    
+
     return () => {
       isMounted = false;
-      if (pollInterval) clearInterval(pollInterval);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 

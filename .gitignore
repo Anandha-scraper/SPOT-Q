@@ -4,17 +4,22 @@ node_modules/
 # Production
 build/
 dist/
+dist-release/
 package-lock.json
 
 # Environment variables
 .env
+.env.local
+.env.production
 
 # markdown
+# CLAUDE.md is deliberately NOT ignored on this branch — it carries the production
+# invariants and the merge-from-sql procedure, which must travel with the branch.
 .claude/
-CLAUDE.md
-command.md
 INFO.md
 README.md
+CLAUDE.md
+command.md
 backend.md
 frontend.md
 

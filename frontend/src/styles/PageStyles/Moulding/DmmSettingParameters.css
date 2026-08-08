@@ -75,20 +75,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #5B9AA9;
-  margin-bottom: 1.25rem;
 }
 
 .primary-section-title {
   font-size: 1.125rem;
   font-weight: 700;
   color: #1e293b;
-  margin: 0;
-  padding: 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: none;
 }
 
 .primary-fields-row {

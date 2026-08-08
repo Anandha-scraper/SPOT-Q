@@ -1,46 +1,103 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { BookOpenCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { BookOpenCheck, ChevronLeft, ChevronRight, Table2, PencilLine, Save, Trash2, X } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
-import { FilterButton, ClearButton, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, ExcelDownloadButton, FilterDisaDropdown } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges as foundrySandValidationRanges } from '../../deviations/DfoundrySandTestingNote';
+import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Sandlab/FoundrySandTestingReport.css';
 
+// paramConfig/additionalParamKeys keys -> Info.jsx rule display name, for the
+// parameters that actually declare a min/max worth flagging as a deviation.
+const TEST_PARAM_KEY_TO_RULE_FIELD = {
+  compactability: 'Compactability',
+  permeability: 'Permeability',
+  wts: 'WTS',
+  moisture: 'Moisture'
+};
+const ADDITIONAL_KEY_TO_RULE_FIELD = {
+  afsNo: 'AFS No.',
+  fines: 'Fines'
+};
+const CLAY_PARAM_TO_RULE_FIELD = {
+  totalClay: 'Total Clay (Solution %)',
+  activeClay: 'Active Clay (Solution %)',
+  deadClay: 'Dead Clay (Solution %)',
+  vcm: 'VCM (Solution %)',
+  loi: 'LOI (Solution %)'
+};
+
+const SHIFT_OPTIONS = ['Shift 1', 'Shift 2', 'Shift 3'];
+const PLANT_OPTIONS = ['Eirich', 'Disa', 'Foundry-A'];
+
+const navButtonStyle = (disabled) => ({
+  display: 'flex', alignItems: 'center', gap: '0.25rem',
+  padding: '0.5rem 0.75rem', borderRadius: '8px', border: '2px solid #5B9AA9',
+  background: '#fff', color: disabled ? '#94a3b8' : '#5B9AA9', borderColor: disabled ? '#cbd5e1' : '#5B9AA9',
+  cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem'
+});
+
 const FoundrySandTestingReport = () => {
+  const { isAdmin, user, editWindowMs } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    foundrySandValidationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const isFieldDeviant = (ruleFieldName, value) => {
+    if (!showDeviations || !isAdmin || !ruleFieldName) return false;
+    const rule = ruleByField[ruleFieldName];
+    return Boolean(rule && isDeviant(rule, value));
+  };
   const getCurrentDate = () => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   };
 
   const [entries, setEntries] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showEntryTable, setShowEntryTable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isRangeMode, setIsRangeMode] = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
 
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState(getCurrentDate());
   const [isFiltered, setIsFiltered] = useState(false);        // true once a range filter runs
+  const [shiftFilter, setShiftFilter] = useState('All');
+  const [plantFilter, setPlantFilter] = useState('All');
   const [isDownloading, setIsDownloading] = useState(false);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
 
   // In-memory cache (per session) of single-date fetches, keyed by YYYY-MM-DD
   const cacheRef = useRef({});
 
+  const applyEntryFilters = (list) => list.filter((e) =>
+    (shiftFilter === 'All' || e.shift === shiftFilter) &&
+    (plantFilter === 'All' || e.sandPlant === plantFilter)
+  );
 
+  const sortEntries = (list) => [...list].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.shift !== b.shift) return String(a.shift).localeCompare(String(b.shift));
+    return String(a.sandPlant).localeCompare(String(b.sandPlant));
+  });
 
   useEffect(() => { fetchSingleDate(getCurrentDate()); }, []);
 
   // Fetch a single date's records (uses the in-memory cache for instant re-view)
   const fetchSingleDate = async (date) => {
     setError('');
-    setExpandedId(null);
-    setIsRangeMode(false);
+    setCurrentIndex(0);
+    setShowEntryTable(false);
 
     if (cacheRef.current[date] !== undefined) {
-      setEntries(cacheRef.current[date]);
+      setEntries(applyEntryFilters(cacheRef.current[date]));
       return;
     }
 
@@ -50,9 +107,9 @@ const FoundrySandTestingReport = () => {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
+      const list = sortEntries((data.success && Array.isArray(data.data)) ? data.data : []);
       cacheRef.current[date] = list;
-      setEntries(list);
+      setEntries(applyEntryFilters(list));
     } catch (err) {
       console.error('Error fetching data:', err);
       setEntries([]);
@@ -62,20 +119,21 @@ const FoundrySandTestingReport = () => {
     }
   };
 
-  // Fetch a date range (summary/expandable view)
+  // Fetch a date range
   const fetchRange = async (from, to) => {
     setLoading(true);
     setError('');
-    setExpandedId(null);
+    setCurrentIndex(0);
+    setShowEntryTable(false);
     try {
       const url = `${API_ENDPOINTS.foundrySandTestingNotes}?startDate=${encodeURIComponent(from)}&endDate=${encodeURIComponent(to)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      const list = (data.success && Array.isArray(data.data)) ? data.data : [];
-      setEntries(list);
-      setIsRangeMode(true);
-      if (list.length === 0) setError('No data found for the selected filters');
+      const list = sortEntries((data.success && Array.isArray(data.data)) ? data.data : []);
+      const filtered = applyEntryFilters(list);
+      setEntries(filtered);
+      if (filtered.length === 0) setError('No data found for the selected filters');
     } catch (err) {
       console.error('Error fetching data:', err);
       setEntries([]);
@@ -103,10 +161,10 @@ const FoundrySandTestingReport = () => {
     setFromDate('');
     setToDate(today);
     setIsFiltered(false);
+    setShiftFilter('All');
+    setPlantFilter('All');
     fetchSingleDate(today);
   };
-
-
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -181,6 +239,195 @@ const FoundrySandTestingReport = () => {
   const additionalParamKeys = ["afsNo", "fines", "gd"];
   const additionalParamLabels = ["AFSNO", "FINES", "GD"];
 
+  // ─── Inline edit (report page, not the entry-form's popup EditEntryModal) ───
+  const [editMode, setEditMode] = useState(false);
+  const [edits, setEdits] = useState({}); // `${section}|${testNum}|${fieldPath}` -> pending value
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Navigating to a different entry (or back to the combinations table) must
+  // never carry stale pending edits over to whatever's shown next.
+  useEffect(() => {
+    setEditMode(false);
+    setEdits({});
+  }, [currentIndex, showEntryTable]);
+
+  const editKey = (section, testNum, fieldPath) => `${section}|${testNum}|${fieldPath}`;
+  const getEditValue = (section, testNum, fieldPath, fallback) => {
+    const key = editKey(section, testNum, fieldPath);
+    return edits[key] !== undefined ? edits[key] : (fallback ?? '');
+  };
+  const setEditValue = (section, testNum, fieldPath, value) => {
+    setEdits((prev) => ({ ...prev, [editKey(section, testNum, fieldPath)]: value }));
+  };
+
+  // A single-value cell (sieve/test-parameter/additional-data): plain text in
+  // read mode, a text input wired to the pending-edits map in edit mode.
+  const editableCell = (section, testNum, fieldPath, currentValue, extraStyle) => {
+    if (editMode) {
+      return (
+        <input
+          type="text"
+          value={getEditValue(section, testNum, fieldPath, currentValue)}
+          onChange={(e) => setEditValue(section, testNum, fieldPath, e.target.value)}
+          style={{ width: '70px', padding: '0.3rem', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', ...extraStyle }}
+        />
+      );
+    }
+    return <span style={{ color: '#475569', ...extraStyle }}>{currentValue || '-'}</span>;
+  };
+
+  // Not every editable field is test1/test2-scoped — Compactability/Shear
+  // Strength Setting are flat entry-level columns. `section: 'top'` is a
+  // sentinel buildEditsPayload recognizes to assign straight onto the body
+  // instead of nesting under body[section][testNum].
+  const editableTopCell = (fieldName, currentValue, extraStyle) => editableCell('top', fieldName, '', currentValue, extraStyle);
+
+  function setNestedPath(target, path, value) {
+    const parts = path.split('.');
+    let node = target;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      if (!node[parts[i]] || typeof node[parts[i]] !== 'object') node[parts[i]] = {};
+      node = node[parts[i]];
+    }
+    node[parts[parts.length - 1]] = value;
+  }
+
+  // Sieve Testing's Total row is always derived, never typed — matches the
+  // entry form's sumSieveColumn, reading the *current* (edited-or-original)
+  // value of each of the 11 sieve rows rather than what was last saved.
+  const computeSieveTotal = (record, testNum, group) => {
+    let sum = 0;
+    let hasAny = false;
+    sieveData.forEach((r) => {
+      const key = group === 'mf' ? r.mf : r.size;
+      const original = record.sieveTesting?.[testNum]?.[group]?.[key];
+      const current = getEditValue('sieveTesting', testNum, `${group}.${key}`, original);
+      const n = parseFloat(current);
+      if (!isNaN(n)) { sum += n; hasAny = true; }
+    });
+    if (!hasAny) return '';
+    return Number.isInteger(sum) ? String(sum) : String(parseFloat(sum.toFixed(2)));
+  };
+
+  const buildEditsPayload = () => {
+    const body = {};
+    Object.entries(edits).forEach(([key, value]) => {
+      const [section, testNum, fieldPath] = key.split('|');
+      if (section === 'top') { body[testNum] = value; return; }
+      body[section] = body[section] || {};
+      body[section][testNum] = body[section][testNum] || {};
+      setNestedPath(body[section][testNum], fieldPath, value);
+    });
+
+    // Total is derived — recompute and include it whenever any row feeding
+    // into that column actually changed, same as the entry form's submit.
+    ['test1', 'test2'].forEach((testNum) => {
+      ['sieveSize', 'mf'].forEach((group) => {
+        const touched = sieveData.some((r) => {
+          const key = group === 'mf' ? r.mf : r.size;
+          return edits[editKey('sieveTesting', testNum, `${group}.${key}`)] !== undefined;
+        });
+        if (!touched || !currentEntry) return;
+        const total = computeSieveTotal(currentEntry, testNum, group);
+        body.sieveTesting = body.sieveTesting || {};
+        body.sieveTesting[testNum] = body.sieveTesting[testNum] || {};
+        setNestedPath(body.sieveTesting[testNum], `${group}.total`, total);
+      });
+    });
+
+    // Clay solution is derived — recompute and include it whenever any of its
+    // inputs changed, same as the entry form storing `solution` alongside inputs.
+    ['test1', 'test2'].forEach((testNum) => {
+      clayParamKeys.forEach((param) => {
+        const touched = ['input1', 'input2', 'input3'].some((inputKey) => (
+          edits[editKey('clayTests', testNum, `${param}.${inputKey}`)] !== undefined
+        ));
+        if (!touched || !currentEntry) return;
+        const original = currentEntry.clayTests?.[testNum]?.[param];
+        const liveValues = {
+          input1: getEditValue('clayTests', testNum, `${param}.input1`, original?.input1),
+          input2: getEditValue('clayTests', testNum, `${param}.input2`, original?.input2),
+          input3: getEditValue('clayTests', testNum, `${param}.input3`, original?.input3),
+        };
+        const solution = computeSolution(param, liveValues);
+        body.clayTests = body.clayTests || {};
+        body.clayTests[testNum] = body.clayTests[testNum] || {};
+        setNestedPath(body.clayTests[testNum], `${param}.solution`, solution);
+      });
+    });
+
+    return body;
+  };
+
+  // Same rule as EntryActions.jsx: admin bypasses entirely; otherwise the
+  // creator, within editWindowMs of createdAt.
+  const canEditEntry = (entry) => {
+    if (!entry) return false;
+    if (isAdmin) return true;
+    const isOwner = entry.createdBy && user?.id && String(entry.createdBy) === String(user.id);
+    const createdMs = entry.createdAt ? new Date(entry.createdAt).getTime() : null;
+    if (!isOwner || !createdMs) return false;
+    return (editWindowMs - (Date.now() - createdMs)) > 0;
+  };
+  const canDeleteEntry = () => isAdmin;
+
+  const handleSaveEdits = async () => {
+    if (!currentEntry?._id) return;
+    if (Object.keys(edits).length === 0) { setEditMode(false); return; }
+    setSaving(true);
+    try {
+      const body = buildEditsPayload();
+      const res = await fetch(`${API_ENDPOINTS.foundrySandTestingNotes}/${currentEntry._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setEntries((prev) => prev.map((e, i) => (i === currentIndex ? data.data : e)));
+        setEdits({});
+        setEditMode(false);
+      } else {
+        alert(data.message || 'Failed to save changes.');
+      }
+    } catch (err) {
+      alert('Network error while saving. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdits = () => {
+    setEdits({});
+    setEditMode(false);
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!currentEntry?._id) return;
+    if (!window.confirm('Delete this entry? This action cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_ENDPOINTS.foundrySandTestingNotes}/${currentEntry._id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const remaining = entries.filter((_, i) => i !== currentIndex);
+        setEntries(remaining);
+        setCurrentIndex((i) => Math.max(0, Math.min(i, remaining.length - 1)));
+      } else {
+        alert(data.message || 'Failed to delete entry.');
+      }
+    } catch (err) {
+      alert('Network error while deleting. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ─── Render cell functions for read-only display ───
   const computeSolution = (param, data) => {
     if (!data) return '';
@@ -204,11 +451,39 @@ const FoundrySandTestingReport = () => {
     }
     const testNum = colKey;
     const data = record.clayTests?.[testNum]?.[param];
-    if (!data) return <span style={{ color: '#94a3b8' }}>-</span>;
-
     const isSimple = param === "activeClay" || param === "deadClay";
     const operator = param === "activeClay" ? "x" : "-";
+
+    if (editMode) {
+      const inputStyle = { width: '55px', padding: '0.3rem', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px' };
+      const liveValues = {
+        input1: getEditValue('clayTests', testNum, `${param}.input1`, data?.input1),
+        input2: getEditValue('clayTests', testNum, `${param}.input2`, data?.input2),
+        input3: getEditValue('clayTests', testNum, `${param}.input3`, data?.input3),
+      };
+      const liveSolution = computeSolution(param, liveValues);
+      return (
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <input type="number" step="0.01" value={liveValues.input1} onChange={(e) => setEditValue('clayTests', testNum, `${param}.input1`, e.target.value)} style={inputStyle} />
+          <span>{operator}</span>
+          <input type="number" step="0.01" value={liveValues.input2} onChange={(e) => setEditValue('clayTests', testNum, `${param}.input2`, e.target.value)} style={inputStyle} />
+          {!isSimple && (
+            <>
+              <span>/</span>
+              <input type="number" step="0.01" value={liveValues.input3} onChange={(e) => setEditValue('clayTests', testNum, `${param}.input3`, e.target.value)} style={inputStyle} />
+            </>
+          )}
+          <span>=</span>
+          <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' }}>{liveSolution || '0'}%</span>
+        </div>
+      );
+    }
+
+    if (!data) return <span style={{ color: '#94a3b8' }}>-</span>;
+
     const solution = computeSolution(param, data) || data.solution || '0';
+    const solutionDeviant = isFieldDeviant(CLAY_PARAM_TO_RULE_FIELD[param], solution);
+    const solutionStyle = { color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' };
 
     if (isSimple) {
       return (
@@ -217,7 +492,7 @@ const FoundrySandTestingReport = () => {
           <span>{operator}</span>
           <span style={{ minWidth: '50px', textAlign: 'center', color: '#475569' }}>{data.input2 || '-'}</span>
           <span>=</span>
-          <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' }}>{solution}%</span>
+          <span className={solutionDeviant ? 'deviation-flag' : undefined} style={solutionStyle}>{solution}%</span>
         </div>
       );
     }
@@ -229,7 +504,7 @@ const FoundrySandTestingReport = () => {
         <span>/</span>
         <span style={{ minWidth: '40px', textAlign: 'center', color: '#475569' }}>{data.input3 || '-'}</span>
         <span>x 100 =</span>
-        <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.9375rem' }}>{solution}%</span>
+        <span className={solutionDeviant ? 'deviation-flag' : undefined} style={solutionStyle}>{solution}%</span>
       </div>
     );
   };
@@ -243,10 +518,19 @@ const FoundrySandTestingReport = () => {
 
     if (colKey === 'sieveSize') return <strong style={{ fontWeight: isTotal ? 700 : 600, color: '#1e293b' }}>{isTotal ? 'Total' : row.size}</strong>;
     if (colKey === 'mf') return <strong style={{ fontWeight: isTotal ? 700 : 600, color: '#1e293b' }}>{isTotal ? 'Total' : row.mf}</strong>;
-    if (colKey === 'wtTest1') return <span style={cellStyle}>{record.sieveTesting?.test1?.sieveSize?.[sizeKey] || '-'}</span>;
-    if (colKey === 'wtTest2') return <span style={cellStyle}>{record.sieveTesting?.test2?.sieveSize?.[sizeKey] || '-'}</span>;
-    if (colKey === 'prodTest1') return <span style={cellStyle}>{record.sieveTesting?.test1?.mf?.[mfKey] || '-'}</span>;
-    if (colKey === 'prodTest2') return <span style={cellStyle}>{record.sieveTesting?.test2?.mf?.[mfKey] || '-'}</span>;
+
+    if (isTotal) {
+      const group = (colKey === 'wtTest1' || colKey === 'wtTest2') ? 'sieveSize' : 'mf';
+      const testNum = (colKey === 'wtTest1' || colKey === 'prodTest1') ? 'test1' : 'test2';
+      if (colKey === 'wtTest1' || colKey === 'wtTest2' || colKey === 'prodTest1' || colKey === 'prodTest2') {
+        return <span style={{ ...cellStyle, fontWeight: 700 }}>{computeSieveTotal(record, testNum, group) || '-'}</span>;
+      }
+    }
+
+    if (colKey === 'wtTest1') return editableCell('sieveTesting', 'test1', `sieveSize.${sizeKey}`, record.sieveTesting?.test1?.sieveSize?.[sizeKey], cellStyle);
+    if (colKey === 'wtTest2') return editableCell('sieveTesting', 'test2', `sieveSize.${sizeKey}`, record.sieveTesting?.test2?.sieveSize?.[sizeKey], cellStyle);
+    if (colKey === 'prodTest1') return editableCell('sieveTesting', 'test1', `mf.${mfKey}`, record.sieveTesting?.test1?.mf?.[mfKey], cellStyle);
+    if (colKey === 'prodTest2') return editableCell('sieveTesting', 'test2', `mf.${mfKey}`, record.sieveTesting?.test2?.mf?.[mfKey], cellStyle);
     return null;
   };
 
@@ -256,7 +540,9 @@ const FoundrySandTestingReport = () => {
       return <strong style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#1e293b' }}>{paramConfig.label}</strong>;
     }
     const val = record.parameters?.[colKey]?.[paramConfig.key];
-    return <span style={{ color: '#475569' }}>{val || '-'}</span>;
+    if (editMode) return editableCell('parameters', colKey, paramConfig.key, val);
+    const deviant = isFieldDeviant(TEST_PARAM_KEY_TO_RULE_FIELD[paramConfig.key], val);
+    return <span className={deviant ? 'deviation-flag' : undefined} style={{ color: '#475569' }}>{val || '-'}</span>;
   };
 
   const renderAdditionalCell = (record) => (rowIndex, colIndex, colKey) => {
@@ -265,33 +551,38 @@ const FoundrySandTestingReport = () => {
       return <strong style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#1e293b' }}>{additionalParamLabels[rowIndex]}</strong>;
     }
     const val = record.additionalData?.[colKey]?.[param];
-    return <span style={{ color: '#475569' }}>{val || '-'}</span>;
+    if (editMode) return editableCell('additionalData', colKey, param, val);
+    const deviant = isFieldDeviant(ADDITIONAL_KEY_TO_RULE_FIELD[param], val);
+    return <span className={deviant ? 'deviation-flag' : undefined} style={{ color: '#475569' }}>{val || '-'}</span>;
   };
 
-  // ─── Detail view for a single record ───
-  const renderDetail = (record, idx, total) => (
-    <div key={record._id || idx} style={{ marginBottom: '2.5rem', borderBottom: idx < total - 1 ? '3px solid #e2e8f0' : 'none', paddingBottom: idx < total - 1 ? '2rem' : 0 }}>
-      {/* Primary Info */}
-      <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-        <div>
-          <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Sand Plant</span>
-          <div style={{ fontWeight: 500, color: '#1e293b' }}>{record.sandPlant || '-'}</div>
+  // ─── Detail view for a single record — always exactly one at a time ───
+  const renderDetail = (record) => (
+    <div>
+      {/* Info box — Date/Shift/Sand Plant already shown in the header, only the
+          settings/remarks fields (with no other home) render here. */}
+      {(editMode || record.compactibilitySetting || record.shearStrengthSetting || record.remarks) && (
+        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+          {(editMode || record.compactibilitySetting) && (
+            <div>
+              <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Compactability Setting</span>
+              <div style={{ fontWeight: 500, color: '#1e293b' }}>{editableTopCell('compactibilitySetting', record.compactibilitySetting)}</div>
+            </div>
+          )}
+          {(editMode || record.shearStrengthSetting) && (
+            <div>
+              <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Shear/Mould Strength Setting</span>
+              <div style={{ fontWeight: 500, color: '#1e293b' }}>{editableTopCell('shearStrengthSetting', record.shearStrengthSetting)}</div>
+            </div>
+          )}
+          {record.remarks && (
+            <div>
+              <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Remarks</span>
+              <div style={{ fontWeight: 500, color: '#1e293b' }}>{record.remarks}</div>
+            </div>
+          )}
         </div>
-        <div>
-          <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Compactability Setting</span>
-          <div style={{ fontWeight: 500, color: '#1e293b' }}>{record.compactibilitySetting || '-'}</div>
-        </div>
-        <div>
-          <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Shear/Mould Strength Setting</span>
-          <div style={{ fontWeight: 500, color: '#1e293b' }}>{record.shearStrengthSetting || '-'}</div>
-        </div>
-        {record.remarks && (
-          <div>
-            <span style={{ fontWeight: 600, color: '#64748b', fontSize: '0.8rem' }}>Remarks</span>
-            <div style={{ fontWeight: 500, color: '#1e293b' }}>{record.remarks}</div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Clay Parameters */}
       <div className="foundry-section-header" style={{ marginTop: '1.5rem' }}><h3>Clay Parameters</h3></div>
@@ -311,23 +602,13 @@ const FoundrySandTestingReport = () => {
     </div>
   );
 
-  // ─── Summary table columns for range mode ───
+  // ─── Combination table columns (the "Table" nav button's view) ───
   const summaryColumns = [
     { key: 'sno', label: 'S.No', width: '70px', align: 'center' },
     { key: 'date', label: 'Date', width: '150px', align: 'center' },
     { key: 'shift', label: 'Shift', width: '100px', align: 'center' },
-    { key: 'sandPlant', label: 'Sand Plant', width: '150px', align: 'center' },
-    { key: 'action', label: 'Action', width: '100px', align: 'center' }
+    { key: 'sandPlant', label: 'Sand Plant', width: '150px', align: 'center' }
   ];
-
-  const summaryData = entries.map((e, i) => ({
-    sno: i + 1,
-    date: formatDate(e.date),
-    shift: e.shift || '-',
-    sandPlant: e.sandPlant || '-',
-    action: e._id,
-    _id: e._id
-  }));
 
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
@@ -345,7 +626,8 @@ const FoundrySandTestingReport = () => {
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      const records = (data.success && Array.isArray(data.data)) ? data.data : [];
+      let records = (data.success && Array.isArray(data.data)) ? data.data : [];
+      records = applyEntryFilters(records);
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
       if (records.length === 0) { alert('No data to export for the selected range.'); return; }
 
@@ -451,6 +733,8 @@ const FoundrySandTestingReport = () => {
     }
   };
 
+  const currentEntry = entries[currentIndex];
+
   return (
     <div className="foundry-sand-testing-report-container">
       {/* Header */}
@@ -461,16 +745,17 @@ const FoundrySandTestingReport = () => {
             Foundry Sand Testing Note - Report
           </h2>
         </div>
-        {!isRangeMode && (
+        {currentEntry && !showEntryTable && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', fontWeight: 600, color: '#1e293b' }}>
-            {entries.length === 1 && entries[0].shift && <span>{entries[0].shift}</span>}
-            {entries.length === 1 && entries[0].sandPlant && <span>Sand Plant: {entries[0].sandPlant}</span>}
+            <span>{formatDate(currentEntry.date)}</span>
+            {currentEntry.shift && <span>{currentEntry.shift}</span>}
+            {currentEntry.sandPlant && <span>Sand Plant: {currentEntry.sandPlant}</span>}
           </div>
         )}
       </div>
 
       {/* Filter Section */}
-      <div className="foundry-sand-testing-filter-container"> 
+      <div className="foundry-sand-testing-filter-container">
         <div className="foundry-sand-testing-filter-group">
           <label style={{ fontWeight: 600 }}>From</label>
           <CustomDatePicker
@@ -488,9 +773,64 @@ const FoundrySandTestingReport = () => {
             max={getCurrentDate()}
           />
         </div>
+        <div className="foundry-sand-testing-filter-group">
+          <label style={{ fontWeight: 600 }}>Shift</label>
+          <FilterDisaDropdown
+            value={shiftFilter}
+            onChange={(e) => setShiftFilter(e.target.value)}
+            options={SHIFT_OPTIONS}
+          />
+        </div>
+        <div className="foundry-sand-testing-filter-group">
+          <label style={{ fontWeight: 600 }}>Sand Plant</label>
+          <FilterDisaDropdown
+            value={plantFilter}
+            onChange={(e) => setPlantFilter(e.target.value)}
+            options={PLANT_OPTIONS}
+          />
+        </div>
         <div className="foundry-sand-testing-filter-actions">
           <FilterButton onClick={handleFilter} disabled={loading} />
-          {isFiltered && <ClearButton onClick={handleClear} disabled={loading} />}
+          <ClearButton onClick={handleClear} disabled={loading} />
+          {isAdmin && (
+            <DeviationToggleButton
+              active={showDeviations}
+              onClick={() => setShowDeviations((prev) => !prev)}
+            />
+          )}
+          {entries.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                disabled={showEntryTable || currentIndex === 0}
+                style={navButtonStyle(showEntryTable || currentIndex === 0)}
+                title="Previous"
+              >
+                <ChevronLeft size={16} /> Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEntryTable((v) => !v)}
+                style={{ ...navButtonStyle(false), ...(showEntryTable ? { background: '#5B9AA9', color: '#fff' } : {}) }}
+                title="Show combinations table"
+              >
+                <Table2 size={16} /> Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentIndex((i) => Math.min(entries.length - 1, i + 1))}
+                disabled={showEntryTable || currentIndex === entries.length - 1}
+                style={navButtonStyle(showEntryTable || currentIndex === entries.length - 1)}
+                title="Next"
+              >
+                Next <ChevronRight size={16} />
+              </button>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                {currentIndex + 1} / {entries.length}
+              </span>
+            </div>
+          )}
           <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
           <ExcelDownloadDialog
             open={showDownloadDialog}
@@ -500,6 +840,26 @@ const FoundrySandTestingReport = () => {
             loading={isDownloading}
             onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
           />
+          {currentEntry && !showEntryTable && !editMode && canEditEntry(currentEntry) && (
+            <button type="button" onClick={() => setEditMode(true)} style={navButtonStyle(false)} title="Edit this entry">
+              <PencilLine size={16} /> Edit
+            </button>
+          )}
+          {editMode && (
+            <>
+              <button type="button" onClick={handleSaveEdits} disabled={saving} style={navButtonStyle(saving)} title="Save changes">
+                <Save size={16} /> {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button type="button" onClick={handleCancelEdits} disabled={saving} style={{ ...navButtonStyle(false), borderColor: '#cbd5e1', color: '#64748b' }} title="Discard changes">
+                <X size={16} /> Cancel
+              </button>
+            </>
+          )}
+          {currentEntry && !showEntryTable && !editMode && canDeleteEntry() && (
+            <button type="button" onClick={handleDeleteEntry} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
+              <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          )}
         </div>
 
       </div>
@@ -514,69 +874,45 @@ const FoundrySandTestingReport = () => {
         <div style={{ textAlign: 'center', padding: '20px', color: '#5B9AA9' }}>Loading data...</div>
       )}
 
-      {/* === RANGE MODE: Summary table with expandable rows === */}
-      {!loading && isRangeMode && entries.length > 0 && (
-        <>
-          <h3 className="foundry-section-header" style={{ marginTop: '1.5rem' }}>
-            Entries ({entries.length})
-          </h3>
-          <div className="reusable-table-container">
-            <table className="reusable-table table-bordered" style={{ minWidth: '600px' }}>
-              <thead>
-                <tr>
-                  {summaryColumns.map((col) => (
-                    <th key={col.key} style={{ width: col.width, textAlign: col.align }}>{col.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((record, idx) => (
-                  <React.Fragment key={record._id || idx}>
-                    <tr
-                      onClick={() => setExpandedId(expandedId === record._id ? null : record._id)}
-                      style={{ cursor: 'pointer', backgroundColor: expandedId === record._id ? '#f0f9ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc', transition: 'background-color 0.15s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e0f2fe'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = expandedId === record._id ? '#f0f9ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
-                    >
-                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{idx + 1}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{formatDate(record.date)}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{record.shift || '-'}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 500 }}>{record.sandPlant || '-'}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        {expandedId === record._id
-                          ? <ChevronUp size={18} style={{ color: '#5B9AA9' }} />
-                          : <ChevronDown size={18} style={{ color: '#5B9AA9' }} />
-                        }
-                      </td>
-                    </tr>
-                    {expandedId === record._id && (
-                      <tr>
-                        <td colSpan={summaryColumns.length} style={{ padding: '1rem', backgroundColor: '#fafbfc' }}>
-                          {renderDetail(record, 0, 1)}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* === SINGLE DATE MODE: Show detail directly === */}
-      {!loading && !isRangeMode && (
-        (entries.length > 0 ? entries : [{}]).map((record, idx) =>
-          renderDetail(record, idx, entries.length || 1)
-        )
-      )}
-
-      {/* Range mode with no entries */}
-      {!loading && isRangeMode && entries.length === 0 && !error && (
+      {!loading && entries.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '1rem' }}>
-          No entries found for the selected date range
+          No entries found for the selected {isFiltered ? 'date range' : 'date'}{(shiftFilter !== 'All' || plantFilter !== 'All') ? ' and filters' : ''}.
         </div>
       )}
+
+      {/* Combination table — pick a Date/Shift/Sand Plant directly */}
+      {!loading && showEntryTable && entries.length > 0 && (
+        <div className="reusable-table-container">
+          <table className="reusable-table table-bordered" style={{ minWidth: '600px' }}>
+            <thead>
+              <tr>
+                {summaryColumns.map((col) => (
+                  <th key={col.key} style={{ width: col.width, textAlign: col.align }}>{col.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((record, idx) => (
+                <tr
+                  key={record._id || idx}
+                  onClick={() => { setCurrentIndex(idx); setShowEntryTable(false); }}
+                  style={{ cursor: 'pointer', backgroundColor: idx === currentIndex ? '#f0f9ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc', transition: 'background-color 0.15s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = idx === currentIndex ? '#f0f9ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
+                >
+                  <td style={{ textAlign: 'center', fontWeight: 500 }}>{idx + 1}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 500 }}>{formatDate(record.date)}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 500 }}>{record.shift || '-'}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 500 }}>{record.sandPlant || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Detail view — exactly one record's data at a time */}
+      {!loading && !showEntryTable && currentEntry && renderDetail(currentEntry)}
 
     </div>
   );

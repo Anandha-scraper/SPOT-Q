@@ -1,15 +1,8 @@
-// Builds the message shown in the inline banner beside Submit when a save fails.
-//
-// The backend reports schema keys ('quantityOfMoulds'); operators read form labels
-// ('Qty. Of Moulds'). Every department page already declares a `fieldMapping` of
-// label -> formData key, so we reverse it to translate.
-
+// Reverses each form's label->key fieldMapping so backend schema-key errors can be shown as operator-facing labels.
 export const FALLBACK_SUBMIT_ERROR =
     'Could not save this entry. Please check your entries and try again.';
 
-// Matches the phrasing produced by backend/utils/mongooseError.js. Only messages in
-// this family get relabelled — a message like 'A record for this date already
-// exists.' is already user-facing and must pass through untouched.
+// Matches backend/utils/fieldValidation.js's message family; anything else (e.g. 'A record for this date already exists.') is already user-facing and passes through untouched.
 const INVALID_INPUT_PREFIX = 'Invalid input for:';
 
 // fieldMapping values are either a formData key or a [minKey, maxKey] pair.

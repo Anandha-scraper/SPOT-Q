@@ -47,7 +47,6 @@ const Login = () => {
         }
       } catch (err) {
         // Keep polling - server not ready yet
-        console.log('Server still starting...');
       }
     };
     

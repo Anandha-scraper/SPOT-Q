@@ -1,8 +1,3 @@
-/* Hover tooltip for the per-row edit icon (remaining edit-window time).
-   Portaled to <body> and positioned `fixed`: the report table clips its cells
-   (`.reusable-table td { overflow: hidden }`), so an in-cell tooltip is invisible.
-   `left`/`top` are set inline from the icon's bounding rect. */
-
 .entry-action-tooltip-wrapper {
   position: relative;
   display: inline-flex;

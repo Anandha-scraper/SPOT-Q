@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton, PlusButton, MinusButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
@@ -7,135 +7,39 @@ import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
+import { runValidation, getRequiredFields, RequiredMark, checkNumber } from '../../utils/formValidation';
 import { buildSubmitError } from '../../utils/submitError';
 import { API_ENDPOINTS } from '../../config/api';
+import { validationRanges, fieldMapping } from '../../deviations/Dimpact';
 import '../../styles/PageStyles/Impact/Impact.css';
+
+const getCurrentDate = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
 
 const Impact = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
   const { toast } = useToast();
-
-  const validationRanges = [
-    {
-      field: 'Date',
-      required: true,
-      type: 'Date',
-      pattern: 'DD/MM/YYYY'
-    },
-    {
-      field: 'Part Name',
-      required: true,
-      type: 'Text',
-      pattern: 'Alphanumeric'
-    },
-    {
-      field: 'Date Code',
-      required: true,
-      type: 'Text',
-      format: 'dateCode',
-      pattern: 'e.g., 6F25'
-    },
-    {
-      field: 'Specification',
-      type: 'Text',
-      pattern: 'e.g., 12.5 J, 30° unnotch'
-    },
-    {
-      field: 'Observed Value',
-      type: 'NumberArray',
-      pattern: 'Individual number inputs (e.g., 12.5 each)',
-      min: 0,
-    },
-    {
-      field: 'Remarks',
-      type: 'Text',
-      maxLength: 200
-    }
-  ];
-
-  const fieldMapping = {
-    'Date': 'date',
-    'Part Name': 'partName',
-    'Date Code': 'dateCode',
-    'Specification': 'specification',
-    'Observed Value': 'observedValues',
-    'Remarks': 'remarks'
-  };
-
-  const getCurrentDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
 
   const {
     formData,
     setFormData,
     validationStates,
     setValidation,
-    resetValidation,
     submitErrorMessage,
     setSubmitErrorMessage,
     resetFormData
   } = useDepartmentForm('impact');
 
-  const isDateSelected = formData.date && formData.date.trim() !== '';
-
   const [submitLoading, setSubmitLoading] = useState(false);
-
 
   const submitButtonRef = useRef(null);
   const inputRefs = useRef({});
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
-  const [observedValues, setObservedValues] = useState([{ id: 1, value: '' }]);
-
-  const addObservedValue = () => {
-    const newId = observedValues.length > 0 ? Math.max(...observedValues.map(ov => ov.id)) + 1 : 1;
-    const newValues = [...observedValues, { id: newId, value: '' }];
-    setObservedValues(newValues);
-    setFormData(prev => ({
-      ...prev,
-      observedValues: newValues.map(ov => ov.value)
-    }));
-  };
-
-  const removeObservedValue = (id) => {
-    const filtered = observedValues.filter(ov => ov.id !== id);
-    const finalValues = filtered.length > 0 ? filtered : [{ id: 1, value: '' }];
-
-    setObservedValues(finalValues);
-    setFormData(prev => ({
-      ...prev,
-      observedValues: finalValues.map(ov => ov.value)
-    }));
-  };
-
-  const updateObservedValue = (id, value) => {
-    const updatedValues = observedValues.map(ov => ov.id === id ? { ...ov, value } : ov);
-
-    setObservedValues(updatedValues);
-    setFormData(prev => ({
-      ...prev,
-      observedValues: updatedValues.map(ov => ov.value)
-    }));
-  };
-
-  useEffect(() => {
-    if (formData.observedValues && Array.isArray(formData.observedValues)) {
-      if (formData.observedValues.length === 0) {
-        setObservedValues([{ id: 1, value: '' }]);
-      } else {
-        if (formData.observedValues.length !== observedValues.length) {
-          const syncedValues = formData.observedValues.map((val, index) => ({
-            id: index + 1,
-            value: val || ''
-          }));
-          setObservedValues(syncedValues);
-        }
-      }
-    }
-  }, [formData.observedValues, observedValues.length]);
+  const observedValueRule = validationRanges.find(r => r.field === 'Observed Value');
+  const maxObservedRows = observedValueRule?.maxRows ?? Infinity;
 
   const validationSetters = {
     'date': (val) => setValidation('date', val),
@@ -146,7 +50,6 @@ const Impact = () => {
     'remarks': (val) => setValidation('remarks', val)
   };
 
-
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
 
@@ -156,19 +59,15 @@ const Impact = () => {
   };
 
   const isObservedValueInvalid = (val) => {
-    const rule = validationRanges.find(r => r.field === 'Observed Value');
-    if (!rule) return false;
+    if (!observedValueRule) return false;
 
     if (val === undefined || val === null || String(val).trim() === '') {
-      return rule.required ? true : false;
+      return observedValueRule.required ? true : false;
     }
 
-    const num = parseFloat(val);
-    if (isNaN(num) || !isFinite(num)) return true;
-    if (rule.min !== undefined && num < rule.min) return true;
-    if (rule.max !== undefined && num > rule.max) return true;
-
-    return false;
+    // min/max are QC target ranges, not hard input limits — the real
+    // measured value must be accepted (and not red-bordered) even outside spec.
+    return !checkNumber({ type: 'Number' }, val, observedValueRule.field).isValid;
   };
 
   const formatDisplayDate = (iso) => {
@@ -190,10 +89,26 @@ const Impact = () => {
     }));
   };
 
-  const handleObservedValueChange = (id, value) => {
-    setValidation('observedValues', null);
+  const addObservedValue = () => {
+    setFormData(prev => {
+      if (prev.observedValues.length >= maxObservedRows) return prev;
+      return { ...prev, observedValues: [...prev.observedValues, ''] };
+    });
+  };
 
-    updateObservedValue(id, value);
+  const removeObservedValue = (index) => {
+    setFormData(prev => {
+      const filtered = prev.observedValues.filter((_, i) => i !== index);
+      return { ...prev, observedValues: filtered.length > 0 ? filtered : [''] };
+    });
+  };
+
+  const handleObservedValueChange = (index, value) => {
+    setValidation('observedValues', null);
+    setFormData(prev => ({
+      ...prev,
+      observedValues: prev.observedValues.map((v, i) => (i === index ? value : v))
+    }));
   };
 
   const handleKeyDown = (e) => {
@@ -233,9 +148,9 @@ const Impact = () => {
       setSubmitErrorMessage(message);
       toast.error(message);
 
-      // The observed-value inputs are keyed by row id, not by the field name.
-      if (firstErrorField === 'observedValues' && observedValues.length > 0) {
-        inputRefs.current[`observedValue_${observedValues[0].id}`]?.focus();
+      // The observed-value inputs are keyed by row index, not by the field name.
+      if (firstErrorField === 'observedValues') {
+        inputRefs.current['observedValue_0']?.focus();
       } else {
         inputRefs.current[firstErrorField]?.focus();
       }
@@ -250,8 +165,7 @@ const Impact = () => {
       const payload = { ...formData };
 
       // Backend stores observedValue as a single comma-separated string (e.g. "12.5, 34.6").
-      payload.observedValue = observedValues
-        .map(ov => ov.value)
+      payload.observedValue = formData.observedValues
         .filter(val => val !== null && val !== undefined && String(val).trim() !== '')
         .join(', ');
       delete payload.observedValues;
@@ -289,8 +203,9 @@ const Impact = () => {
         toast.success('Entry saved successfully.');
 
         resetFormData();
-
-        setObservedValues([{ id: 1, value: '' }]);
+        // Re-default the date to today after the reset (still changeable) —
+        // initialFormData.date was computed once at app load, not "now".
+        setFormData(prev => ({ ...prev, date: getCurrentDate() }));
 
         setTimeout(() => {
           inputRefs.current.date?.focus();
@@ -318,7 +233,6 @@ const Impact = () => {
         </div>
       </div>
 
-      {}
       <InfoCard
         isOpen={isOpen}
         onClose={closeModal}
@@ -328,7 +242,6 @@ const Impact = () => {
 
       <form className="impact-form-grid" ref={gridRef} onKeyDown={handleArrowKeyDown}>
 
-        {}
         <div className="impact-form-group">
           <label>Date{mark('date')}</label>
 
@@ -350,7 +263,6 @@ const Impact = () => {
           />
         </div>
 
-        {}
         <div className="impact-form-group">
           <label>Part Name{mark('partName')}</label>
           <input
@@ -366,7 +278,6 @@ const Impact = () => {
           />
         </div>
 
-        {}
         <div className="impact-form-group">
           <label>Date Code{mark('dateCode')}</label>
           <input
@@ -382,7 +293,6 @@ const Impact = () => {
           />
         </div>
 
-        {}
         <div className="impact-form-group">
           <label>Specification{mark('specification')}</label>
           <input
@@ -398,7 +308,6 @@ const Impact = () => {
           />
         </div>
 
-        {}
         <div className="impact-form-group" style={{ gridColumn: 'span 2' }}>
           <label>Observed Values{mark('observedValues')}</label>
           <div style={{
@@ -408,9 +317,9 @@ const Impact = () => {
             alignItems: 'center',
             width: '100%'
           }}>
-            {observedValues.map((observedValue, index) => (
+            {formData.observedValues.map((value, index) => (
               <div
-                key={observedValue.id}
+                key={index}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -418,20 +327,19 @@ const Impact = () => {
                 }}
               >
                 <input
-                  ref={(el) => inputRefs.current[`observedValue_${observedValue.id}`] = el}
+                  ref={(el) => inputRefs.current[`observedValue_${index}`] = el}
                   type="number"
                   step="0.01"
                   min="0"
-                  max="100"
-                  value={observedValue.value}
-                  onChange={(e) => handleObservedValueChange(observedValue.id, e.target.value)}
+                  value={value}
+                  onChange={(e) => handleObservedValueChange(index, e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={`Value ${index + 1}`}
                   autoComplete="off"
                   style={{
                     width: '100px',
                     padding: '0.5rem 0.75rem',
-                    border: (validationStates.observedValues === false && isObservedValueInvalid(observedValue.value))
+                    border: (validationStates.observedValues === false && isObservedValueInvalid(value))
                               ? '2px solid #ef4444'
                               : '2px solid #cbd5e1',
                     borderRadius: '8px',
@@ -445,15 +353,16 @@ const Impact = () => {
                   gap: '0.2rem',
                   alignItems: 'center'
                 }}>
-                  {observedValues.length > 1 && (
+                  {formData.observedValues.length > 1 && (
                     <MinusButton
-                      onClick={() => removeObservedValue(observedValue.id)}
+                      onClick={() => removeObservedValue(index)}
                       title={`Remove value ${index + 1}`}
                     />
                   )}
-                  {index === observedValues.length - 1 && (
+                  {index === formData.observedValues.length - 1 && (
                     <PlusButton
                       onClick={addObservedValue}
+                      disabled={formData.observedValues.length >= maxObservedRows}
                       title="Add another value"
                     />
                   )}
@@ -463,7 +372,6 @@ const Impact = () => {
           </div>
         </div>
 
-        {}
         <div className="impact-form-group" style={{ gridColumn: '1 / -1' }}>
           <label>Remarks{mark('remarks')}</label>
           <input
@@ -474,7 +382,7 @@ const Impact = () => {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Enter any additional notes or observations..."
-            maxLength={80}
+            maxLength={200}
             autoComplete="off"
             className={getInputClassName(validationStates.remarks)}
           />
@@ -501,8 +409,6 @@ const Impact = () => {
           </SubmitButton>
         </div>
       </div>
-
-      {}
     </>
   );
 };

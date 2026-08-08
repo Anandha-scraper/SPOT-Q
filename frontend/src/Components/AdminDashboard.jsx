@@ -61,7 +61,7 @@ const CreatingEmployeeStatus = () => (
 
 const AdminDashboard = () => {
   // Hooks and Context
-  const { user, isAdmin } = useContext(AuthContext);
+  const { isAdmin } = useContext(AuthContext);
   const navigate = useNavigate();
 
   // Data States

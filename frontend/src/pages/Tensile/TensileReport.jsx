@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
@@ -8,9 +8,34 @@ import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { tensileEditConfig } from '../../utils/editFieldConfigs';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from '../../deviations/Dtensile';
+import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Tensile/TensileReport.css';
 
+// Report-column key -> Info.jsx rule display name, for the columns that
+// actually declare a min/max/format/maxLength worth flagging as a deviation.
+const KEY_TO_RULE_FIELD = {
+  dateCode: 'Date Code',
+  dia: 'Dia',
+  lo: 'Lo',
+  li: 'Li',
+  breakingLoad: 'Breaking Load',
+  yieldLoad: 'Yield Load',
+  uts: 'UTS',
+  ys: 'YS',
+  elongation: 'Elongation'
+};
+
 const TensileReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
   const formatDateLocal = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -171,6 +196,24 @@ const TensileReport = () => {
     )
   };
 
+  // On-screen only — exportColumns below is built from the untouched
+  // tableColumns, since col.render there also doubles as the Excel cell
+  // value function and must keep returning plain values, not JSX.
+  const displayColumns = tableColumns.map((col) => {
+    const ruleFieldName = KEY_TO_RULE_FIELD[col.key];
+    if (!ruleFieldName) return col;
+    return {
+      ...col,
+      // deviation-flag goes on the <td> itself (via cellClassName) so the
+      // highlight fills the whole cell, matching every hand-rolled report
+      // table's `td.deviation-flag` — not just a pill around the text.
+      cellClassName: (item) => {
+        const rule = ruleByField[ruleFieldName];
+        return (showDeviations && isAdmin && rule && isDeviant(rule, item[col.key])) ? 'deviation-flag' : undefined;
+      }
+    };
+  });
+
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
     if (from > to) { alert('From date cannot be after To date.'); return; }
@@ -250,6 +293,12 @@ const TensileReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -267,7 +316,7 @@ const TensileReport = () => {
         </div>
       ) : (
         <Table
-          columns={[...tableColumns, actionsColumn]}
+          columns={[...displayColumns, actionsColumn]}
           data={paginatedEntries}
           groupByColumn="date"
           noDataMessage="No records found"

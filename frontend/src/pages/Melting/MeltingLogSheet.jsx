@@ -6,6 +6,8 @@ import { InlineLoader } from '../../Components/InlineLoader';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { checkNumber } from '../../utils/formValidation';
+import { validationRanges, fieldMapping } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
@@ -294,347 +296,6 @@ const MeltingLogSheet = () => {
   const [validationErrorMessage, setValidationErrorMessage] = useState('');
 
   // =====================================================================================
-  // VALIDATION RULE CONFIGURATION MATRIX FOR MELTING LOG SHEETS
-  // =====================================================================================
-  //
-  // RULE SCHEMA: Each validation rule defines constraints for a field including:
-  // - field: UI label (acts as primary key for field mapping)
-  // - required: Boolean flag for mandatory field validation
-  // - type: Validation strategy selector (Text, Number, Integer, Time, etc.)
-  // - min/max: Boundary constraints for numeric fields
-  // - pattern: User-facing example/regex pattern (documentation)
-  const validationRanges = [
-    // TABLE 1 - Charging Composition
-    {
-      field: 'Heat No',
-      type: 'Text',
-      pattern: 'e.g., A-001'
-    },
-    {
-      field: 'Grade',
-      type: 'Text',
-      allowedValues:['SG','FG']
-    },
-    {
-      field: 'Charging Time',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'IF Bath',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Liquid Metal - Press & Pour',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Liquid Metal - Holder',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'SG MS Steel',
-      type: 'Number',
-      min: 400,
-      max:2500,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Grey MS Steel',
-      type: 'Number',
-      min: 400,
-      max: 2500,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Returns (SG)',
-      type: 'Number',
-      min: 500,
-      max:2500,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Pig Iron',
-      type: 'Number',
-      min: 0,
-      max:350,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Borings',
-      type: 'Number',
-      min: 0,
-      max:1900,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Final Bath',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    // TABLE 2 - Fuel & Additives
-    {
-      field: 'Char Coal',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'CPC (Furnace)',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'CPC (L/C)',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Silicon Carbide (Furnace)',
-      type: 'Number',
-      min: 3,
-      max: 9,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Ferrosilicon (Furnace)',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Ferrosilicon (L/C)',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Ferromanganese (Furnace)',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Ferromanganese (L/C)',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Cu',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Cr',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Pure Mg',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Iron Pyrite',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    // TABLE 3 - Lab Analysis
-    {
-      field: 'Lab Coin Time',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Lab Coin Temp (C)',
-      type: 'Number',
-      min: 0,
-      unit: '°C'
-    },
-    {
-      field: 'Deslag Time From',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Deslag Time To',                       
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Metal Ready Time',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Waiting for Tapping From',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Waiting for Tapping To',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Reason',
-      type: 'Text',
-      pattern: 'e.g., Maintenance delay'
-    },
-    // TABLE 4 - Temperature Monitoring
-    {
-      field: 'Temp Time',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Temp C - SG',
-      type: 'Number',
-      min: 1440,
-      max:1550,
-      unit: '°C'
-    },
-    {
-      field: 'Direct Furnace',
-      type: 'Number',
-      min: 0,
-      unit: '°C'
-    },
-    {
-      field: 'Holder to Furnace',
-      type: 'Number',
-      min: 0,
-      unit: '°C'
-    },
-    {
-      field: 'Furnace to Holder',
-      type: 'Number',
-      min: 0,
-      unit: '°C'
-    },
-    {
-      field: 'DISA No',
-      type: 'Text',
-      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
-    },
-    {
-      field: 'Item',
-      type: 'Text',
-      pattern: 'e.g., Item-001'
-    },
-    // TABLE 5 - Furnace Power
-    {
-      field: 'Furnace 1 KW',
-      type: 'Number',
-      min: 0,
-      unit: 'KW'
-    },
-    {
-      field: 'Furnace 1 A',
-      type: 'Number',
-      min: 2000,
-      max:3500,
-      unit: 'Amps'
-    },
-    {
-      field: 'Furnace 1 V',
-      type: 'Number',
-      min: 500,
-      max:1000,
-      unit: 'Volts'
-    },
-    {
-      field: 'Furnace 4 Hz',
-      type: 'Number',
-      min: 0,
-      unit: 'Hz'
-    },
-    {
-      field: 'Furnace 4 Gld',
-      type: 'Number',
-      min: 0.6,
-      max: 95,
-      unit: 'Amps'
-    },
-    {
-      field: 'Furnace 4 KW/Hr',
-      type: 'Number',
-      min: 0,
-      unit: 'KW/Hr'
-    }
-  ];
-
-  // =====================================================================================
-  // FIELD MAPPING RESOLUTION MATRIX - UI LABEL TO FORM DATA BINDING
-  // =====================================================================================
-  //
-  // Maps UI labels in validationRanges to actual form data property names across
-  // the five table states (table1, table2, table3, table4, table5).
-  const fieldMapping = {
-    // TABLE 1
-    'Heat No': 'heatNo',
-    'Grade': 'grade',
-    'Charging Time': ['chargingTimeHour', 'chargingTimeMinute'],
-    'IF Bath': 'ifBath',
-    'Liquid Metal - Press & Pour': 'liquidMetalPressPour',
-    'Liquid Metal - Holder': 'liquidMetalHolder',
-    'SG MS Steel': 'sgMsSteel',
-    'Grey MS Steel': 'greyMsSteel',
-    'Returns (SG)': 'returnsSg',
-    'Pig Iron': 'pigIron',
-    'Borings': 'borings',
-    'Final Bath': 'finalBath',
-    // TABLE 2
-    'Char Coal': 'charCoal',
-    'CPC (Furnace)': 'cpcFur',
-    'CPC (L/C)': 'cpcLc',
-    'Silicon Carbide (Furnace)': 'siliconCarbideFur',
-    'Ferrosilicon (Furnace)': 'ferrosiliconFur',
-    'Ferrosilicon (L/C)': 'ferrosiliconLc',
-    'Ferromanganese (Furnace)': 'ferroManganeseFur',
-    'Ferromanganese (L/C)': 'ferroManganeseLc',
-    'Cu': 'cu',
-    'Cr': 'cr',
-    'Pure Mg': 'pureMg',
-    'Iron Pyrite': 'ironPyrite',
-    // TABLE 3
-    'Lab Coin Time': ['labCoinTimeHour', 'labCoinTimeMinute'],
-    'Lab Coin Temp (C)': 'labCoinTempC',
-    'Deslag Time From': ['deslagingTimeFromHour', 'deslagingTimeFromMinute'],
-    'Deslag Time To': ['deslagingTimeToHour', 'deslagingTimeToMinute'],
-    'Metal Ready Time': ['metalReadyTimeHour', 'metalReadyTimeMinute'],
-    'Waiting for Tapping From': ['waitingForTappingFromHour', 'waitingForTappingFromMinute'],
-    'Waiting for Tapping To': ['waitingForTappingToHour', 'waitingForTappingToMinute'],
-    'Reason': 'reason',
-    // TABLE 4
-    'Temp Time': ['timeHour', 'timeMinute'],
-    'Temp C - SG': 'tempCSg',
-    'Direct Furnace': 'directFurnace',
-    'Holder to Furnace': 'holderToFurnace',
-    'Furnace to Holder': 'furnaceToHolder',
-    'DISA No': 'disaNo',
-    'Item': 'item',
-    // TABLE 5
-    'Furnace 1 KW': 'furnace1Kw',
-    'Furnace 1 A': 'furnace1A',
-    'Furnace 1 V': 'furnace1V',
-    'Furnace 4 Hz': 'furnace4Hz',
-    'Furnace 4 Gld': 'furnace4Gld',
-    'Furnace 4 KW/Hr': 'furnace4KwHr'
-  };
-
-  // =====================================================================================
   // VALIDATION SETTERS DEPENDENCY INJECTION MAP
   // =====================================================================================
   //
@@ -694,28 +355,31 @@ const MeltingLogSheet = () => {
   };
 
   // =====================================================================================
-  // FIELD VALIDATION STRATEGY ENGINE
+  // FIELD VALIDATION DISPATCH
   // =====================================================================================
   //
-  // Validates individual fields based on their validation rule type and constraints.
-  // Returns { isValid: boolean, message?: string } for each field.
+  // Validates one field against its rule for one of the 5 table state objects.
+  // Number/Integer format checking defers to the shared checkNumber() from
+  // utils/formValidation.js instead of re-hardcoding the same regexes —
+  // required-check and the hour/minute Time range stay local since neither
+  // has a shared equivalent (validateField() in formValidation.js has no
+  // Time-range concept, and Melting's tables are 5 separate state objects,
+  // not one flat formData, so the generic runValidation() can't be used
+  // directly here). Returns { isValid: boolean, message?: string }.
   const validateField = (rule, mappedFields, tableData) => {
-    // Handle time fields (arrays with hour/minute)
+    // Time fields (hour/minute pair)
     if (Array.isArray(mappedFields)) {
       const [hourField, minuteField] = mappedFields;
       const hour = tableData[hourField];
       const minute = tableData[minuteField];
 
-      if (rule.required) {
-        if (!hour || !minute) {
-          return { isValid: false, message: `${rule.field} is required` };
-        }
+      if (rule.required && (!hour || !minute)) {
+        return { isValid: false, message: `${rule.field} is required` };
       }
 
-      // If both values exist, validate as proper time
       if (hour && minute) {
-        const h = parseInt(hour);
-        const m = parseInt(minute);
+        const h = parseInt(hour, 10);
+        const m = parseInt(minute, 10);
 
         if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
           return { isValid: false, message: `${rule.field} must be valid time (HH:MM)` };
@@ -725,66 +389,21 @@ const MeltingLogSheet = () => {
       return { isValid: true };
     }
 
-    // Handle single fields
+    // Single fields
     const fieldName = mappedFields;
     const value = tableData[fieldName];
 
-    // Check required fields
-    if (rule.required) {
-      if (!value || (typeof value === 'string' && value.trim() === '')) {
-        return { isValid: false, message: `${rule.field} is required` };
-      }
+    if (rule.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      return { isValid: false, message: `${rule.field} is required` };
     }
 
-    // If field is empty and not required, it's valid
     if (!value || (typeof value === 'string' && value.trim() === '')) {
       return { isValid: true };
     }
 
-    // Type-specific validation
-    switch (rule.type) {
-      case 'Number':
-      case 'Integer':
-        const stringValue = String(value).trim();
-
-        // Check for invalid number patterns
-        const invalidNumberPattern = /[eE+]|\..*\.|--|\+\+/;
-        if (invalidNumberPattern.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        if (/[eE.+-]$/.test(stringValue)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        const num = parseFloat(value);
-        if (isNaN(num) || !isFinite(num)) {
-          return { isValid: false, message: `${rule.field} must be a valid number` };
-        }
-
-        // Check min/max constraints
-        if (rule.min !== undefined && num < rule.min) {
-          return { isValid: false, message: `${rule.field} must be at least ${rule.min}` };
-        }
-        if (rule.max !== undefined && num > rule.max) {
-          return { isValid: false, message: `${rule.field} must be no more than ${rule.max}` };
-        }
-
-        // For Integer type, check if it's actually an integer
-        if (rule.type === 'Integer' && !Number.isInteger(num)) {
-          return { isValid: false, message: `${rule.field} must be a whole number` };
-        }
-        break;
-
-      case 'Text':
-        const textValue = String(value).trim();
-        if (textValue === '') {
-          return rule.required ? { isValid: false, message: `${rule.field} is required` } : { isValid: true };
-        }
-        break;
-
-      default:
-        break;
+    if (rule.type === 'Number' || rule.type === 'Integer') {
+      const result = checkNumber(rule, value, rule.field);
+      return result.isValid ? { isValid: true } : { isValid: false, message: result.message };
     }
 
     return { isValid: true };
@@ -2053,33 +1672,7 @@ const MeltingLogSheet = () => {
           </div>
         </div>
 
-        {/* ============================================================================
-         * SUBMIT BUTTON — SHOW / HIDE LOGIC WITH ALERT MESSAGES
-         * ============================================================================
-         * 
-         * BUTTON 1: "Save Primary" (first-time save)
-         * ─────────────────────────────────────────────
-         * VISIBLE WHEN (ALL must be true):
-         *   1. All 4 key fields are filled (date, shift, furnaceNo, panel)
-         *   2. AND one of these is true:
-         *      - fetchingPrimary = true  → shows "Fetching Primary..." loader instead of button
-         *      - showCombinationFound    → shows "Combination found" message instead of button
-         *      - showCombinationSaved    → shows "Combination saved" message instead of button
-         *      - !isPrimaryDataSaved     → shows the actual "Save Primary" button
-         * 
-         * HIDDEN WHEN:
-         *   - Any key field is empty (date/shift/furnaceNo/panel)
-         *   - OR primary data is already saved AND none of the loader/message states are active
-         *
-         * CSS: .melting-primary-btn-wrapper.show → max-height: 100px, opacity: 1 (smooth slide-in)
-         *      .melting-primary-btn-wrapper.hide → max-height: 0, opacity: 0 (smooth slide-out)
-         *
-         * ALERT FLOW INSIDE BUTTON 1:
-         *   fetchingPrimary → InlineLoader "Fetching Primary..." (while API runs)
-         *   showCombinationFound → InlineLoader "Combination found" (3s, then fades with closing class)
-         *   showCombinationSaved → InlineLoader "Combination saved" (3s, then fades)
-         *   else → actual <button> "Save Primary" / "Saving..." with spinner
-         * ============================================================================ */}
+        {/* Button 1 "Save Primary" — visible when all 4 key fields are filled and one of fetchingPrimary/showCombinationFound/showCombinationSaved/!isPrimaryDataSaved holds; see frontend.md. */}
         {primaryData.date && primaryData.shift && primaryData.furnaceNo && primaryData.panel && (fetchingPrimary || showCombinationFound || showCombinationSaved || !isPrimaryDataSaved) && (
           <div className="melting-primary-btn-wrapper show">
             <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
@@ -2112,19 +1705,7 @@ const MeltingLogSheet = () => {
           </div>
         )}
 
-        {/* ============================================================================
-         * BUTTON 2: "Update Primary Data" (re-save after editing)
-         * ─────────────────────────────────────────────
-         * VISIBLE WHEN (ALL must be true):
-         *   1. isPrimaryDataSaved = true  → data was already saved once
-         *   2. isPrimaryDirty() = true    → user changed a value field from its saved state
-         *   3. !hasInvalidNumericInput()  → no red-bordered invalid numbers
-         *
-         * HIDDEN WHEN:
-         *   - Data hasn't been saved yet (Button 1 handles that)
-         *   - OR no changes made (values match the saved snapshot)
-         *   - OR any numeric input is invalid (red border present)
-         * ============================================================================ */}
+        {/* Button 2 "Update Primary Data" — visible once saved, dirty, and no invalid numeric input; see frontend.md. */}
         {isPrimaryDataSaved && isPrimaryDirty() && !hasInvalidNumericInput() && (
           <div className="melting-primary-btn-wrapper show">
             <div className="melting-log-submit-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderTop: 'none', paddingTop: '0.5rem' }}>
@@ -2144,11 +1725,7 @@ const MeltingLogSheet = () => {
             </div>
           </div>
         )}
-        {/* ── ALERT 1: "Save Primary Data first" ──
-         * SHOWN WHEN: User clicks on Table 1-5 sections WITHOUT saving primary data first.
-         * Triggered by onClickCapture on each table's wrapper div (see Table 1 below).
-         * Auto-dismisses after 3s via setTimeout(() => setShowPrimaryWarning(false), 3000)
-         */}
+        {/* Shown when a table section is clicked before the primary is saved; auto-dismisses after 3s. */}
         {showPrimaryWarning && (
           <div style={{ marginTop: '0.5rem' }}>
             <InlineLoader 
@@ -2158,13 +1735,7 @@ const MeltingLogSheet = () => {
             />
           </div>
         )}
-        {/* ── ALERT 2: Missing prerequisite field message ──
-         * SHOWN WHEN: User clicks a dependent field or value field without filling
-         *             a prerequisite (e.g., clicks Shift without selecting Date).
-         * Triggered by showFieldMessage() which sets primaryFieldMessage state.
-         * Auto-dismisses after 3s via fieldMessageTimer.
-         * Message examples: "Select Date first", "Select Shift first", etc.
-         */}
+        {/* Shown when a dependent field is clicked before its prerequisite (e.g. Shift before Date); auto-dismisses after 3s. */}
         {primaryFieldMessage && (
           <div style={{ marginTop: '0.5rem' }}>
             <InlineLoader 
@@ -2307,8 +1878,6 @@ const MeltingLogSheet = () => {
               onFocus={() => setFocusedField('table1.sgMsSteel')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
-              min="400"
-              max="2500"
               step="0.01"
               className={getValidationClass('table1.sgMsSteel', sgMsSteelValid)}
               disabled={!isPrimaryDataSaved}
@@ -2332,8 +1901,6 @@ const MeltingLogSheet = () => {
               onFocus={() => setFocusedField('table1.greyMsSteel')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
-              min="400"
-              max="2500"
               step="0.01"
               className={getValidationClass('table1.greyMsSteel', greyMsSteelValid)}
               disabled={!isPrimaryDataSaved}
@@ -2357,8 +1924,6 @@ const MeltingLogSheet = () => {
               onFocus={() => setFocusedField('table1.returnsSg')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
-              min="500"
-              max="2500"
               step="0.01"
               className={getValidationClass('table1.returnsSg', returnsSgValid)}
               disabled={!isPrimaryDataSaved}
@@ -2382,8 +1947,6 @@ const MeltingLogSheet = () => {
               onFocus={() => setFocusedField('table1.pigIron')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
-              min="0"
-              max="350"
               step="0.01"
               className={getValidationClass('table1.pigIron', pigIronValid)}
               disabled={!isPrimaryDataSaved}
@@ -2407,8 +1970,6 @@ const MeltingLogSheet = () => {
               onFocus={() => setFocusedField('table1.borings')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
-              min="0"
-              max="1900"
               step="0.01"
               className={getValidationClass('table1.borings', boringsValid)}
               disabled={!isPrimaryDataSaved}
@@ -2534,9 +2095,7 @@ const MeltingLogSheet = () => {
               onKeyDown={(e) => handleTableEnterKey(e, ferrosiliconFurRef)}
               onFocus={() => setFocusedField('table2.siliconCarbideFur')}
               onBlur={() => setFocusedField(null)}
-              placeholder="Enter value (0.03 to 0.09)"
-              min="0.03"
-              max="0.09"
+              placeholder="Enter value"
               step="0.01"
               className={getValidationClass('table2.siliconCarbideFur', siliconCarbideFurValid)}
               disabled={!isPrimaryDataSaved}

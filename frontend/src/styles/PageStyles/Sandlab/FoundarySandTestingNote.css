@@ -152,8 +152,6 @@
   font-weight: 700;
   color: #1e293b;
   margin: 0 0 1.25rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e2e8f0;
   background: transparent;
 }
 
@@ -200,10 +198,13 @@
   font-size: 1rem;
 }
 
-/* Form Grid — aligned with SandTestingRecord's form conventions */
+/* Form Grid — aligned with SandTestingRecord's form conventions.
+   Flexbox instead of CSS grid: grid's auto-fit forces every column to the
+   same track width, so a narrower field (see --narrow below) just leaves
+   empty space in its own track instead of letting neighbors reclaim it. */
 .foundry-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.25rem;
   margin-bottom: 1.25rem;
   align-items: start;
@@ -221,12 +222,34 @@
   transition: all 0.3s ease;
 }
 
+/* Shrink this page's primary Save/Update button (a SubmitButton, kept instead of
+   LockPrimaryButton so it can stay clickable to update the two lockable settings
+   fields after Primary is saved) down to LockPrimaryButton's footprint, so all
+   three Sand Lab pages' primary buttons read as the same size. Scoped to this
+   wrapper only — .submit-button-wrapper itself is shared with unrelated pages
+   (e.g. Login) and must not shrink globally. */
+.primary-save-btn-scope .submit-button-wrapper button {
+  padding: 0.625rem 0.875rem;
+  min-height: 42px;
+  font-size: 0.875rem;
+}
+
 /* Form Group — uniform height so labels + inputs line up across the row */
 .foundry-form-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   min-height: 78px;
+  flex: 1 1 220px;
+  min-width: 220px;
+}
+
+/* Narrower variant for Date/Shift/Sand Plant in the Primary row — those
+   fields hold short values and don't need as much width as the rest. */
+.foundry-form-group--narrow {
+  flex: 0 0 180px;
+  min-width: 180px;
+  max-width: 180px;
 }
 
 .foundry-form-group label {
@@ -261,6 +284,17 @@
 .foundry-form-group input::placeholder,
 .foundry-form-group textarea::placeholder {
   color: #94a3b8;
+}
+
+/* Disabled fields — Primary not yet saved/found, or a locked section — get a
+   clear "not-allowed" cursor everywhere, not just on the Save buttons. */
+.foundry-form-grid input:disabled,
+.foundry-form-grid select:disabled,
+.foundry-section input:disabled,
+.foundry-section select:disabled,
+.foundry-section textarea:disabled {
+  cursor: not-allowed;
+  background-color: #f1f5f9;
 }
 
 /* Textarea */
@@ -374,22 +408,15 @@
 
 /* ─── Media Queries ─── */
 
-@media (min-width: 1921px) {
-  .foundry-form-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 1280px) {
-  .foundry-form-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  }
-}
-
 @media (max-width: 1024px) {
   .foundry-form-grid {
-    grid-template-columns: 1fr 1fr;
     gap: 0.875rem;
+  }
+  .foundry-form-group,
+  .foundry-form-group--narrow {
+    flex: 1 1 45%;
+    min-width: 160px;
+    max-width: none;
   }
   .foundry-header {
     flex-direction: column;

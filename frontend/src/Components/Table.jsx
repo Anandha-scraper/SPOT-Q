@@ -1,32 +1,10 @@
 import React from 'react';
 import '../styles/ComponentStyles/Table.css';
 
-/**
- * Reusable Table Component
- * 
- * Modes:
- * - Report Mode (default): For displaying data in reports
- * - Template Mode: For empty form tables used in SandLab and similar pages
- * 
- * Props:
- * - columns: Array of column definitions { key, label, width, align, bold, render, rowSpan, colSpan }
- * - data: Array of row data objects
- * - rows: Number of empty rows for template mode
- * - renderActions: Function to render action buttons
- * - noDataMessage: Message when no data
- * - minWidth: Minimum table width
- * - striped: Enable striped rows
- * - headerGradient: Enable gradient header
- * - defaultAlign: Default text alignment
- * - template: Enable template/form mode
- * - showHeader: Show/hide table header (default: true)
- * - bordered: Show all cell borders (default: true in template mode)
- * - renderCell: Custom cell renderer for template mode (rowIndex, colIndex, colKey) => ReactNode
- * - groupByColumn: Column key to group by (e.g., 'date')
- */
-const Table = ({ 
-  columns = [], 
-  data = [], 
+// Report mode (default) renders data against columns; template mode renders `rows` blank rows via renderCell — see frontend.md.
+const Table = ({
+  columns = [],
+  data = [],
   rows = 0,
   renderActions = null,
   noDataMessage = 'No records found',
@@ -40,39 +18,34 @@ const Table = ({
   renderCell = null,
   groupByColumn = null
 }) => {
-  // Calculate rowspans for grouped column
   const calculateRowspans = () => {
     if (!groupByColumn) return {};
-    
+
     const rowspans = {};
     let currentGroup = null;
     let groupStart = 0;
-    
+
     data.forEach((item, index) => {
       const groupValue = item[groupByColumn];
-      
+
       if (groupValue !== currentGroup) {
-        // New group started
         if (currentGroup !== null) {
-          // Set rowspan for previous group
           rowspans[groupStart] = index - groupStart;
         }
         currentGroup = groupValue;
         groupStart = index;
       }
-      
-      // Handle last group
+
       if (index === data.length - 1) {
         rowspans[groupStart] = index - groupStart + 1;
       }
     });
-    
+
     return rowspans;
   };
 
   const rowspans = calculateRowspans();
 
-  // Build class names for table
   const tableClasses = [
     'reusable-table',
     striped && 'table-striped',
@@ -81,8 +54,7 @@ const Table = ({
     bordered && 'table-bordered'
   ].filter(Boolean).join(' ');
 
-  // Determine data to render (template mode or report mode)
-  const templateData = template && rows > 0 
+  const templateData = template && rows > 0
     ? Array.from({ length: rows }, (_, i) => ({ _id: `empty-${i}` }))
     : data;
 
@@ -90,14 +62,14 @@ const Table = ({
 
   return (
     <div className="reusable-table-container">
-      <table 
+      <table
         className={tableClasses}
         style={{ minWidth: `${minWidth}px` }}
       >
         <thead>
           <tr>
             {columns.map((col, index) => (
-              <th 
+              <th
                 key={col.key || index}
                 style={{
                   width: col.width || 'auto',
@@ -113,8 +85,8 @@ const Table = ({
         <tbody>
           {(template ? templateData : data).length === 0 ? (
             <tr>
-              <td 
-                colSpan={columnsArray.length + (renderActions ? 1 : 0)} 
+              <td
+                colSpan={columnsArray.length + (renderActions ? 1 : 0)}
                 className="reusable-table-no-records"
               >
                 {noDataMessage}
@@ -124,12 +96,11 @@ const Table = ({
             (template ? templateData : data).map((item, rowIndex) => (
               <tr key={item._id || item.id || rowIndex}>
                 {columns.map((col, colIndex) => {
-                  // Check if this column should be grouped and if this row should be skipped
                   const isGroupedColumn = groupByColumn && col.key === groupByColumn;
                   const shouldSkip = isGroupedColumn && !rowspans[rowIndex];
-                  
+
                   if (shouldSkip) {
-                    return null; // Skip this cell (merged with cell above)
+                    return null;
                   }
 
                   let value;
@@ -140,13 +111,14 @@ const Table = ({
                   } else {
                     value = item[col.key];
                   }
-                  
+
                   const rowSpan = isGroupedColumn ? rowspans[rowIndex] : 1;
-                  
+
                   return (
-                    <td 
+                    <td
                       key={col.key || colIndex}
                       rowSpan={rowSpan}
+                      className={col.cellClassName ? col.cellClassName(item, rowIndex) : undefined}
                       style={{
                         width: col.width || 'auto',
                         textAlign: col.align || defaultAlign,

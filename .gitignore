@@ -9,16 +9,14 @@ package-lock.json
 # Environment variables
 .env
 
-# Logs
-*.log
-
-#ClaudE
+# markdown
 .claude/
 CLAUDE.md
 command.md
 INFO.md
 README.md
-
+backend.md
+frontend.md
 
 # OS
 .DS_Store

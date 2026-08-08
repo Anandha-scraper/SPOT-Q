@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { PlusButton, MinusButton } from './Buttons';
+import { useArrowNavigation } from '../utils/arrowNavigation';
+import { useToast } from './alert';
+import { checkNumber } from '../utils/formValidation';
 
 // Read/write helpers for dotted field names like 'item.it1'.
 const getByPath = (obj, path) =>
@@ -23,10 +26,7 @@ const isListField = (f) => LIST_TYPES.includes(f.type);
 // A blank max collapses the range to a single value — same rule the entry forms use.
 const formatRange = (min, max) => (Number(max) ? `${min} - ${max}` : `${min}`);
 
-// Turn the stored value into the modal's row model.
-// numberList: ['1','2'] rows of a single value. With serialize:'csv' the value
-//   arrives as one comma-separated string (Impact's observedValue).
-// rangeList: [{min,max}] parsed out of 'min - max' strings (QC Production ys/el).
+// numberList: single values (CSV-serialized for Impact's observedValue); rangeList: {min,max} parsed from 'min - max' (QC Production ys/el).
 const hydrateList = (field, raw) => {
     if (field.type === 'numberList') {
         const values =
@@ -85,6 +85,12 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
     const [form, setForm] = useState({});
     const [initialForm, setInitialForm] = useState({});
     const [saving, setSaving] = useState(false);
+    // Same baseline as entry forms — required + valid-number, never a QC
+    // target range/pattern (those are informational only, see formValidation.js).
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [submitError, setSubmitError] = useState('');
+    const { containerRef, handleArrowKeyDown } = useArrowNavigation();
+    const { toast } = useToast();
 
     useEffect(() => {
         if (open && entry && config) {
@@ -99,13 +105,33 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
             });
             setForm(initial);
             setInitialForm(initial);
+            setFieldErrors({});
+            setSubmitError('');
         }
     }, [open, entry, config]);
 
     if (!open || !config || !entry) return null;
 
-    const handleChange = (name, value) => {
+    const handleChange = (name, rawValue) => {
+        const field = config.fields.find(f => f.name === name);
+        const value = field?.uppercase ? rawValue.toUpperCase() : rawValue;
         setForm(prev => ({ ...prev, [name]: value }));
+        if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: false }));
+        if (submitError) setSubmitError('');
+    };
+
+    // Required-blank, a Number field that isn't a valid number (same
+    // regex-based checkNumber entry forms use, not just Number.isNaN), or a
+    // Date field that doesn't parse — the same checks entry forms still
+    // block on. Never min/max/pattern/maxLength (informational-only there too).
+    const isFieldInvalid = (f) => {
+        const value = form[f.name];
+        const blank = value === undefined || value === null || String(value).trim() === '';
+        if (f.required && blank) return true;
+        if (blank) return false;
+        if (f.type === 'number') return !checkNumber({ type: 'Number' }, value, f.label).isValid;
+        if (f.type === 'date') return Number.isNaN(new Date(value).getTime());
+        return false;
     };
 
     const updateRow = (field, index, value) => {
@@ -132,7 +158,7 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
 
         for (const f of config.fields.filter(isListField)) {
             const error = validateList(f, form[f.name] || []);
-            if (error) { alert(error); return; }
+            if (error) { toast.error(error); return; }
         }
 
         // Only send fields the user actually changed (smaller payload, fewer writes).
@@ -143,7 +169,7 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
         );
 
         if (changed.length === 0) {
-            alert('No changes to save.');
+            toast.info('No changes to save.');
             onClose && onClose();
             return;
         }
@@ -159,6 +185,21 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
             }
         });
         const fieldsToSend = config.fields.filter(f => namesToSend.has(f.name));
+
+        // Same baseline entry forms enforce — required + valid-number — checked
+        // only on the fields actually being sent, so an already-blank required
+        // field the user never touched doesn't block an unrelated save.
+        const newFieldErrors = {};
+        fieldsToSend.filter(f => !isListField(f)).forEach(f => {
+            if (isFieldInvalid(f)) newFieldErrors[f.name] = true;
+        });
+        if (Object.keys(newFieldErrors).length > 0) {
+            setFieldErrors(newFieldErrors);
+            setSubmitError('Fill required fields in the correct format.');
+            return;
+        }
+        setFieldErrors({});
+        setSubmitError('');
 
         setSaving(true);
         try {
@@ -183,14 +224,14 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok && data.success) {
-                alert(data.message || 'Entry updated successfully.');
+                toast.success(data.message || 'Entry updated successfully.');
                 onSaved && onSaved();
                 onClose && onClose();
             } else {
-                alert(data.message || 'Failed to update entry.');
+                toast.error(data.message || 'Failed to update entry.');
             }
         } catch (err) {
-            alert('Network error while updating. Please try again.');
+            toast.error('Network error while updating. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -258,7 +299,7 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} ref={containerRef} onKeyDown={handleArrowKeyDown}>
                     <div style={gridStyle}>
                         {config.fields.map(f => (
                             <div
@@ -269,14 +310,17 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                                     ...(isListField(f) ? { gridColumn: '1 / -1' } : {})
                                 }}
                             >
-                                <label style={labelStyle}>{f.label}</label>
+                                <label style={labelStyle}>
+                                    {f.label}
+                                    {f.required && <span style={{ color: '#ef4444', marginLeft: '0.15rem' }}>*</span>}
+                                </label>
                                 {isListField(f) ? (
                                     renderList(f)
                                 ) : f.type === 'select' ? (
                                     <select
                                         value={form[f.name] ?? ''}
                                         onChange={e => handleChange(f.name, e.target.value)}
-                                        style={inputStyle}
+                                        style={fieldErrors[f.name] ? errorInputStyle : inputStyle}
                                     >
                                         <option value="">-- Select --</option>
                                         {(f.options || []).map(opt => (
@@ -288,15 +332,18 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                                         value={form[f.name] ?? ''}
                                         onChange={e => handleChange(f.name, e.target.value)}
                                         rows={2}
-                                        style={{ ...inputStyle, height: 'auto', minHeight: '64px', resize: 'vertical' }}
+                                        style={{
+                                            ...(fieldErrors[f.name] ? errorInputStyle : inputStyle),
+                                            height: 'auto', minHeight: '64px', resize: 'vertical'
+                                        }}
                                     />
                                 ) : (
                                     <input
-                                        type={f.type === 'number' ? 'number' : 'text'}
+                                        type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
                                         step={f.step || 'any'}
                                         value={form[f.name] ?? ''}
                                         onChange={e => handleChange(f.name, e.target.value)}
-                                        style={inputStyle}
+                                        style={fieldErrors[f.name] ? errorInputStyle : inputStyle}
                                     />
                                 )}
                             </div>
@@ -304,6 +351,7 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                     </div>
 
                     <div style={footerStyle}>
+                        {submitError && <span style={submitErrorStyle}>{submitError}</span>}
                         <button type="button" onClick={onClose} style={cancelBtnStyle} disabled={saving}>
                             Cancel
                         </button>
@@ -341,6 +389,8 @@ const inputStyle = {
     border: '2px solid #cbd5e1', borderRadius: '8px', padding: '0.6rem 0.8rem',
     fontSize: '0.85rem', lineHeight: 1.4, height: '40px', width: '100%', boxSizing: 'border-box'
 };
+const errorInputStyle = { ...inputStyle, border: '2px solid #ef4444', backgroundColor: '#fef2f2' };
+const submitErrorStyle = { color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, marginRight: 'auto' };
 const listRowsStyle = { display: 'flex', flexWrap: 'wrap', gap: '0.75rem 1.5rem' };
 const listRowStyle = { display: 'flex', alignItems: 'center', gap: '0.4rem' };
 const footerStyle = {

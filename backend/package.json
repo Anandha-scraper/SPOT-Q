@@ -3,25 +3,41 @@
   "version": "1.0.0",
   "main": "server.js",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.20.4"
+    "pg": "^8.22.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "create-admin": "node utils/createAdmin.js"
+    "postinstall": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "create-admin": "node prisma/seed.js"
   },
-  "keywords": ["quality-control", "manufacturing", "api", "express", "mongoose"],
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": [
+    "quality-control",
+    "manufacturing",
+    "api",
+    "express",
+    "prisma"
+  ],
   "author": "Sakthi Auto",
   "license": "MIT",
   "description": "SPOT-Q Backend - Quality Control and Process Management API",
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "prisma": "^7.9.1"
   }
 }

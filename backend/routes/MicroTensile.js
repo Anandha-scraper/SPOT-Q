@@ -1,22 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const microTensileController = require('../controllers/MicroTensile');
-const MicroTensile = require('../models/MicroTensile');
-const { resolveAndAuthorize } = require('../middleware/editWindow');
-router.get('/current-date', microTensileController.getCurrentDate);
-router.get('/check', microTensileController.checkDateDisaEntries);
-router.get('/grouped', microTensileController.getGroupedByDate);
-router.get('/by-date', microTensileController.getEntriesByDate);
-router.get('/filter', microTensileController.filterEntries);
+const {
+    getAllEntries,
+    filterEntries,
+    checkDateDisaEntries,
+    savePrimary,
+    createEntry,
+    updateEntry,
+    deleteEntry
+} = require('../controllers/MicroTensile');
+const { authorizeEntry } = require('../middleware/entryAccess');
+const { loadEntryForAuth } = require('../services/microTensileService');
+
+// `protect` and checkDepartmentAccess('Micro Tensile') are applied at the mount
+// site in server.js, not here.
 
 router.route('/')
-    .get(microTensileController.getAllEntries)
-    .post(microTensileController.createEntry);
+    .get(getAllEntries)
+    .post(createEntry);
 
-router.post('/save-primary', microTensileController.savePrimary);
+router.route('/filter')
+    .get(filterEntries);
 
+router.route('/check')
+    .get(checkDateDisaEntries);
+
+router.route('/save-primary')
+    .post(savePrimary);
+
+// Declared after the static paths so they aren't swallowed by ':id'.
 router.route('/:id')
-    .put(resolveAndAuthorize(MicroTensile, { mode: 'nested', action: 'edit' }), microTensileController.updateEntry)
-    .delete(resolveAndAuthorize(MicroTensile, { mode: 'nested', action: 'delete' }), microTensileController.deleteEntry);
+    .put(authorizeEntry({ loadEntry: loadEntryForAuth, action: 'edit' }), updateEntry)
+    .delete(authorizeEntry({ loadEntry: loadEntryForAuth, action: 'delete' }), deleteEntry);
 
 module.exports = router;

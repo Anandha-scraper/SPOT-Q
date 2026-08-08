@@ -1,19 +1,11 @@
-// Auth cookie flags, deliberately decoupled from NODE_ENV.
-//
-// The browser only cares about two facts, both properties of the deployment
-// rather than the build mode:
-//   - `Secure` cookies are silently dropped over plain HTTP.
-//   - `SameSite=None` is silently rejected unless `Secure` is also set.
-// Both failures look like "login succeeded, then bounced back to the login
-// screen", so the config is validated at startup rather than at first login.
+// Cookie flags are deliberately decoupled from NODE_ENV; a bad combo looks like a silent login bounce, so this is validated at startup — see backend.md.
 
 const VALID_SAME_SITE = ['lax', 'strict', 'none'];
 
 const readSecure = () => process.env.COOKIE_SECURE === 'true';
 const readSameSite = () => (process.env.COOKIE_SAMESITE || 'lax').toLowerCase();
 
-// Must be spread into both res.cookie and res.clearCookie: a cookie is only
-// cleared by a Set-Cookie whose flags match the one that set it.
+// Must be spread into both res.cookie and res.clearCookie — a cookie only clears via matching flags.
 function getAuthCookieOptions() {
     return {
         httpOnly: true,
@@ -38,8 +30,7 @@ function assertCookieConfig() {
         );
     }
 
-    // Guard the migration: NODE_ENV used to drive these flags, so a deployment
-    // carrying NODE_ENV=production without the new vars would silently downgrade.
+    // NODE_ENV=production no longer implies secure cookies — COOKIE_SECURE must be set explicitly.
     if (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE === undefined) {
         throw new Error(
             'NODE_ENV=production no longer implies secure cookies. Set COOKIE_SECURE explicitly ' +

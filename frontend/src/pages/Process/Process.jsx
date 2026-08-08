@@ -12,6 +12,8 @@ import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
 import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
 import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
 import { useDepartmentForm } from '../../context/DepartmentContext';
+import { validationRanges, fieldMapping } from '../../deviations/Dprocess';
+import ComponentShowcase from './ComponentShowcase';
 import '../../styles/PageStyles/Process/Process.css';
 
 // Number in backend/models/Process.js — a '-' placeholder fails the cast.
@@ -37,258 +39,11 @@ export default function ProcessControl() {
     setEntryCount
   } = useDepartmentForm('process');
 
-  const validationRanges = [
-    {
-      field: 'Date',
-      required: true,
-      type: 'Date',
-      pattern: 'DD/MM/YYYY'
-    },
-    {
-      field: 'DISA',
-      required: true,
-      type: 'Select',
-      allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4']
-    },
-    {
-      field: 'Part Name',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., ABC-123'
-    },
-    {
-      field: 'Date Code',
-      required: true,
-      type: 'Text',
-      pattern: 'e.g., 6F25'
-    },
-    {
-      field: 'Heat Code',
-      required: true,
-      type: 'Number'
-    },
-    {
-      field: 'Qty. Of Moulds',
-      type: 'Number',
-      min: 0
-    },
-    {
-      field: 'Metal Composition - C',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - Si',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - Mn',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - P',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - S',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - Mg F/L',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - Cu',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Metal Composition - Cr',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Time of Pouring (Range)',
-      type: 'Time Range',
-      max:'60min',
-      pattern: 'HH:MM - HH:MM'
-    },
-    {
-      field: 'Pouring Temp',
-      type: 'Number Range',
-      min: 0,
-      unit: '°C',
-      pattern: 'Min - Max (e.g., 1400 - 1500)'
-    },
-    {
-      field: 'PP Code',
-      type: 'Integer'
-    },
-    {
-      field: 'Treatment No',
-      type: 'Integer'
-    },
-    {
-      field: 'F/C No.',
-      type: 'Select',
-      allowedValues: ['1', '2', '3', '4','H1','H2']
-    },
-    {
-      field: 'Heat No',
-      type:'Number',
-      min:0
-    },
-    {
-      field: 'Con No',
-      type: 'Number'
-    },
-    {
-      field: 'Tapping Time',
-      type: 'Time',
-      pattern: 'HH:MM'
-    },
-    {
-      field: 'Corrective Addition - C',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - Si',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - Mn',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - S',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - Cr',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - Cu',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Corrective Addition - Sn',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Tapping Wt',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Mg',
-      type: 'Number',
-      min: 0,
-      unit: 'Kgs'
-    },
-    {
-      field: 'Res. Mg. Convertor',
-      type: 'Number',
-      min: 0,
-      max: 100,
-      unit: '%'
-    },
-    {
-      field: 'Rec. Of Mg',
-      type: 'Number',
-      min: 0,
-      unit: '%'
-    },
-    {
-      field: 'Stream Inoculant',
-      type: 'Number',
-      min: 0,
-      unit: 'gm/Sec',
-      pattern: 'e.g., 5.5'
-    },
-    {
-      field: 'P.Time',
-      type: 'Number',
-      min: 0,
-      unit: 'sec',
-      pattern: 'e.g., 120'
-    },
-    {
-      field: 'Remarks',
-      type: 'Text',
-      maxLength: 200
-    }
-  ];
-
-  const fieldMapping = {
-    'Date': 'date',
-    'DISA': 'disa',
-    'Part Name': 'partName',
-    'Date Code': 'datecode',
-    'Heat Code': 'heatcode',
-    'Qty. Of Moulds': 'quantityOfMoulds',
-    'Metal Composition - C': 'metalCompositionC',
-    'Metal Composition - Si': 'metalCompositionSi',
-    'Metal Composition - Mn': 'metalCompositionMn',
-    'Metal Composition - P': 'metalCompositionP',
-    'Metal Composition - S': 'metalCompositionS',
-    'Metal Composition - Mg F/L': 'metalCompositionMgFL',
-    'Metal Composition - Cu': 'metalCompositionCu',
-    'Metal Composition - Cr': 'metalCompositionCr',
-    'Pouring Temp': ['pouringTemperatureMin', 'pouringTemperatureMax'],
-    'PP Code': 'ppCode',
-    'Treatment No': 'treatmentNo',
-    'F/C No.': 'fcNo',
-    'Heat No': 'heatNo',
-    'Con No': 'conNo',
-    'Corrective Addition - C': 'correctiveAdditionC',
-    'Corrective Addition - Si': 'correctiveAdditionSi',
-    'Corrective Addition - Mn': 'correctiveAdditionMn',
-    'Corrective Addition - S': 'correctiveAdditionS',
-    'Corrective Addition - Cr': 'correctiveAdditionCr',
-    'Corrective Addition - Cu': 'correctiveAdditionCu',
-    'Corrective Addition - Sn': 'correctiveAdditionSn',
-    'Tapping Wt': 'tappingWt',
-    'Mg': 'mg',
-    'Res. Mg. Convertor': 'resMgConvertor',
-    'Rec. Of Mg': 'recOfMg',
-    'Stream Inoculant': 'streamInoculant',
-    'P.Time': 'pTime',
-    'Remarks': 'remarks'
-  };
-
   const inputRefs = useRef({});
   const primarySectionRef = useRef(null);
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [showComponentShowcase, setShowComponentShowcase] = useState(false);
 
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
@@ -299,6 +54,7 @@ export default function ProcessControl() {
   const [datecodeValid, setDatecodeValid] = useState(null);
   const [heatcodeValid, setHeatcodeValid] = useState(null);
   const [quantityOfMouldsValid, setQuantityOfMouldsValid] = useState(null);
+  const [qtyMouldsRangeValid, setQtyMouldsRangeValid] = useState(null);
   const [ppCodeValid, setPpCodeValid] = useState(null);
   const [treatmentNoValid, setTreatmentNoValid] = useState(null);
   const [fcNoValid, setFcNoValid] = useState(null);
@@ -457,7 +213,7 @@ export default function ProcessControl() {
   }, [tappingTime]);
 
 
-  const fieldOrder = ['date', 'disa', 'partName', 'datecode', 'heatcode', 'quantityOfMoulds', 'metalCompositionC', 'metalCompositionSi',
+  const fieldOrder = ['date', 'disa', 'partName', 'datecode', 'heatcode', 'quantityOfMouldsFrom', 'quantityOfMouldsTo', 'metalCompositionC', 'metalCompositionSi',
     'metalCompositionMn', 'metalCompositionP', 'metalCompositionS', 'metalCompositionMgFL', 'metalCompositionCu',
     'metalCompositionCr', 'pouringTemperatureMin', 'pouringTemperatureMax', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'tappingTime',
     'correctiveAdditionC', 'correctiveAdditionSi', 'correctiveAdditionMn', 'correctiveAdditionS',
@@ -476,6 +232,7 @@ export default function ProcessControl() {
           date: name === 'date' ? value : prev.date,
           disa: name === 'disa' ? value : prev.disa,
           partName: '', datecode: '', heatcode: '', quantityOfMoulds: '',
+          quantityOfMouldsFrom: '', quantityOfMouldsTo: '',
           metalCompositionC: '', metalCompositionSi: '', metalCompositionMn: '',
           metalCompositionP: '', metalCompositionS: '', metalCompositionMgFL: '',
           metalCompositionCr: '', metalCompositionCu: '',
@@ -495,6 +252,7 @@ export default function ProcessControl() {
         setDatecodeValid(null);
         setHeatcodeValid(null);
         setQuantityOfMouldsValid(null);
+        setQtyMouldsRangeValid(null);
         setMetalCValid(null);
         setMetalSiValid(null);
         setMetalMnValid(null);
@@ -536,8 +294,10 @@ export default function ProcessControl() {
       case 'heatcode':
         setHeatcodeValid(null);
         break;
-      case 'quantityOfMoulds':
+      case 'quantityOfMouldsFrom':
+      case 'quantityOfMouldsTo':
         setQuantityOfMouldsValid(null);
+        setQtyMouldsRangeValid(null);
         break;
       case 'metalCompositionC':
         setMetalCValid(null);
@@ -633,8 +393,27 @@ export default function ProcessControl() {
       return;
     }
 
+    if (name === 'quantityOfMouldsFrom' || name === 'quantityOfMouldsTo') {
+      const nextFrom = name === 'quantityOfMouldsFrom' ? value : formData.quantityOfMouldsFrom;
+      const nextTo = name === 'quantityOfMouldsTo' ? value : formData.quantityOfMouldsTo;
+      const hasFrom = nextFrom !== '' && nextFrom != null;
+      const hasTo = nextTo !== '' && nextTo != null;
+
+      // From-To -> the difference; To alone -> To itself; From alone (no To)
+      // is a validation error caught at submit, so the calculated box stays blank.
+      let computedQty = '';
+      if (hasFrom && hasTo) {
+        computedQty = String(Number(nextTo) - Number(nextFrom));
+      } else if (!hasFrom && hasTo) {
+        computedQty = String(nextTo);
+      }
+
+      setFormData({ ...formData, [name]: value, quantityOfMoulds: computedQty });
+      return;
+    }
+
     if (name === 'partName') {
-      const sanitizedValue = value.toUpperCase().replace(/[^A-Z0-9\-_ ]/g, '');
+      const sanitizedValue = value.toUpperCase();
       setFormData({...formData, [name]: sanitizedValue});
       if (sanitizedValue) {
         const filtered = partNameSuggestions.filter(pn =>
@@ -713,15 +492,33 @@ export default function ProcessControl() {
   // {hour, minute} objects, not formData strings), so they are checked here and
   // then folded into the shared required-wins result.
   const validateTimes = () => {
+    const rule = validationRanges.find(r => r.field === 'Time of Pouring (Range)');
     if (!pouringFromTime || !pouringToTime) {
-      const rule = validationRanges.find(r => r.field === 'Time of Pouring (Range)');
       if (rule?.required) return { missing: true };
       return {};
     }
+    // Parses the declared "60min" into 60 rather than hardcoding it, so this
+    // check always matches whatever Dprocess.js's rule.max actually says.
+    const maxMinutes = parseInt(rule?.max, 10) || 60;
     const fromMinutes = pouringFromTime.hour * 60 + pouringFromTime.minute;
     const toMinutes = pouringToTime.hour * 60 + pouringToTime.minute;
     if (fromMinutes >= toMinutes) return { message: 'Time of Pouring: Start time must be less than end time' };
-    if (toMinutes - fromMinutes > 60) return { message: 'Time of Pouring: Maximum allowed difference is 1 hour' };
+    if (toMinutes - fromMinutes > maxMinutes) return { message: `Time of Pouring: Maximum allowed difference is ${maxMinutes} minutes` };
+    return {};
+  };
+
+  // Qty. Of Moulds lives outside fieldMapping as two UI-only boxes (From/To);
+  // the generic min:0 rule already covers the computed value, but "From
+  // entered, To blank" and "From greater than To" have no computed value to
+  // validate against (the calculated box just stays blank/negative), so
+  // they're checked here instead.
+  const validateQtyMouldsRange = () => {
+    const hasFrom = formData.quantityOfMouldsFrom !== '' && formData.quantityOfMouldsFrom != null;
+    const hasTo = formData.quantityOfMouldsTo !== '' && formData.quantityOfMouldsTo != null;
+    if (hasFrom && !hasTo) return { missing: true };
+    if (hasFrom && hasTo && Number(formData.quantityOfMouldsFrom) > Number(formData.quantityOfMouldsTo)) {
+      return { message: 'Qty. Of Moulds: From cannot be greater than To' };
+    }
     return {};
   };
 
@@ -731,9 +528,11 @@ export default function ProcessControl() {
     const time = validateTimes();
     const tappingRule = validationRanges.find(r => r.field === 'Tapping Time');
     const tappingMissing = Boolean(tappingRule?.required && !tappingTime);
+    const qtyRange = validateQtyMouldsRange();
 
     setPouringTimeValid(time.missing || time.message ? false : null);
     setTappingTimeValid(tappingMissing ? false : null);
+    setQtyMouldsRangeValid(qtyRange.missing || qtyRange.message ? false : null);
 
     const { ok, message, firstErrorField, fieldStates } = runValidation({
       validationRanges,
@@ -754,17 +553,19 @@ export default function ProcessControl() {
       setPouringTempValid(null);
     }
 
-    const anyMissing = time.missing || tappingMissing || (!ok && message === MESSAGE_REQUIRED);
-    const hasErrors = anyMissing || Boolean(time.message) || !ok;
+    const anyMissing = time.missing || tappingMissing || qtyRange.missing || (!ok && message === MESSAGE_REQUIRED);
+    const hasErrors = anyMissing || Boolean(time.message) || Boolean(qtyRange.message) || !ok;
 
     if (hasErrors) {
-      // Required-wins; otherwise prefer the specific time message over the generic one.
-      const finalMessage = anyMissing ? MESSAGE_REQUIRED : (time.message || MESSAGE_FORMAT);
+      // Required-wins; otherwise prefer the specific time/qty message over the generic one.
+      const finalMessage = anyMissing ? MESSAGE_REQUIRED : (time.message || qtyRange.message || MESSAGE_FORMAT);
       setSubmitErrorMessage(finalMessage);
       toast.error(finalMessage);
 
       const focusField = (time.missing || time.message) ? 'pouringFromTime'
         : tappingMissing ? 'tappingTime'
+        : qtyRange.missing ? 'quantityOfMouldsTo'
+        : qtyRange.message ? 'quantityOfMouldsFrom'
         : firstErrorField;
       inputRefs.current[focusField]?.focus();
       return;
@@ -793,6 +594,11 @@ export default function ProcessControl() {
       }
 
       const payload = { ...formData };
+
+      // UI-only inputs the "Qty. Of Moulds" range is built from — the
+      // backend only ever sees the computed quantityOfMoulds value.
+      delete payload.quantityOfMouldsFrom;
+      delete payload.quantityOfMouldsTo;
 
       payload.timeOfPouring = timeOfPouring || '-';
       payload.tappingTime = tappingTimeStr || '-';
@@ -876,6 +682,7 @@ export default function ProcessControl() {
         setDatecodeValid(null);
         setHeatcodeValid(null);
         setQuantityOfMouldsValid(null);
+        setQtyMouldsRangeValid(null);
         setMetalCValid(null);
         setMetalSiValid(null);
         setMetalMnValid(null);
@@ -941,6 +748,7 @@ export default function ProcessControl() {
 
   return (
     <>
+      <ComponentShowcase open={showComponentShowcase} onClose={() => setShowComponentShowcase(false)} />
       <div className="process-header">
         <div className="process-header-text">
           <h2>
@@ -949,6 +757,16 @@ export default function ProcessControl() {
             <InfoIcon onClick={openModal} />
           </h2>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowComponentShowcase(true)}
+          style={{
+            padding: '0.5rem 0.9rem', borderRadius: '8px', border: '2px solid #5B9AA9',
+            background: '#fff', color: '#5B9AA9', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem',
+          }}
+        >
+          Component Showcase
+        </button>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
           DATE : {formData.date ? (() => {
             const [y, m, d] = formData.date.split('-');
@@ -1044,7 +862,7 @@ export default function ProcessControl() {
                     handleKeyDown(e, 'partName');
                   }
                 }}
-                placeholder="CAPITAL LETTERS & NUMBERS"
+                placeholder="AUTO-CAPITALIZED"
                 disabled={!isPrimarySaved}
                 className={getInputClassName('partName', partNameValid)}
                 autoComplete="off"
@@ -1113,19 +931,45 @@ export default function ProcessControl() {
               />
             </div>
 
-            <div className="process-form-group">
+            <div className="process-form-group" style={{ gridColumn: 'span 2' }}>
               <label>Qty. Of Moulds {mark('quantityOfMoulds')}</label>
-              <input
-                ref={el => inputRefs.current.quantityOfMoulds = el}
-                type="number"
-                name="quantityOfMoulds"
-                value={formData.quantityOfMoulds}
-                onChange={handleChange}
-                onKeyDown={e => handleKeyDown(e, 'quantityOfMoulds')}
-                placeholder="Enter quantity"
-                disabled={!isPrimarySaved}
-                className={getInputClassName('quantityOfMoulds', quantityOfMouldsValid)}
-              />
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  ref={el => inputRefs.current.quantityOfMouldsFrom = el}
+                  type="number"
+                  name="quantityOfMouldsFrom"
+                  value={formData.quantityOfMouldsFrom}
+                  onChange={handleChange}
+                  onKeyDown={e => handleKeyDown(e, 'quantityOfMouldsFrom')}
+                  placeholder="From"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('quantityOfMouldsFrom', qtyMouldsRangeValid)}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontWeight: '600', color: '#64748b' }}>-</span>
+                <input
+                  ref={el => inputRefs.current.quantityOfMouldsTo = el}
+                  type="number"
+                  name="quantityOfMouldsTo"
+                  value={formData.quantityOfMouldsTo}
+                  onChange={handleChange}
+                  onKeyDown={e => handleKeyDown(e, 'quantityOfMouldsTo')}
+                  placeholder="To"
+                  disabled={!isPrimarySaved}
+                  className={getInputClassName('quantityOfMouldsTo', qtyMouldsRangeValid)}
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="number"
+                  value={formData.quantityOfMoulds}
+                  readOnly
+                  disabled
+                  title="Calculated: To - From (or To, if From is blank)"
+                  placeholder="Calc."
+                  className={getInputClassName('quantityOfMoulds', quantityOfMouldsValid)}
+                  style={{ flex: 1, backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600 }}
+                />
+              </div>
             </div>
 
             <div className="section-header metal-composition-header" style={{ gridColumn: '1 / -1' }}>

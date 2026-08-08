@@ -1,14 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
-import { FilterButton, ClearButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { isDeviant } from '../../utils/formValidation';
+import { validationRanges } from './DisamaticProduct';
+import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
 const DisamaticProductReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, []);
+  const isFieldDeviant = (ruleFieldName, value) => {
+    if (!showDeviations || !isAdmin) return false;
+    const rule = ruleByField[ruleFieldName];
+    return Boolean(rule && isDeviant(rule, value));
+  };
   const [currentDate, setCurrentDate] = useState('');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -512,41 +528,51 @@ const DisamaticProductReport = () => {
         </span>
       )
     },
-    { 
-      key: 'produced', 
-      label: 'Produced', 
-      width: '120px', 
+    {
+      key: 'produced',
+      label: 'Produced',
+      width: '120px',
       align: 'center',
       render: (item) => (
-        <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}>
+        <span
+          className={!item.isTotalRow && isFieldDeviant('Produced', item.produced) ? 'deviation-flag' : undefined}
+          style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
+        >
           {item.produced}
         </span>
       )
     },
-    { 
-      key: 'poured', 
-      label: 'Poured', 
-      width: '120px', 
+    {
+      key: 'poured',
+      label: 'Poured',
+      width: '120px',
       align: 'center',
       render: (item) => (
-        <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}>
+        <span
+          className={!item.isTotalRow && isFieldDeviant('Poured', item.poured) ? 'deviation-flag' : undefined}
+          style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
+        >
           {item.poured}
         </span>
       )
     },
-    { 
-      key: 'cycleTime', 
-      label: 'Cycle Time', 
-      width: '120px', 
+    {
+      key: 'cycleTime',
+      label: 'Cycle Time',
+      width: '120px',
       align: 'center',
       render: (item) => item.isTotalRow ? '' : item.cycleTime
     },
-    { 
-      key: 'mouldsPerHour', 
-      label: 'Moulds/Hour', 
-      width: '140px', 
+    {
+      key: 'mouldsPerHour',
+      label: 'Moulds/Hour',
+      width: '140px',
       align: 'center',
-      render: (item) => item.isTotalRow ? '' : item.mouldsPerHour
+      render: (item) => item.isTotalRow ? '' : (
+        <span className={isFieldDeviant('Moulds/Hour', item.mouldsPerHour) ? 'deviation-flag' : undefined}>
+          {item.mouldsPerHour}
+        </span>
+      )
     },
     { 
       key: 'remarks', 
@@ -606,7 +632,14 @@ const DisamaticProductReport = () => {
       render: (item, rowIndex) => item.sNo || rowIndex + 1
     },
     { key: 'componentName', label: 'Component Name', width: '300px', align: 'left' },
-    { key: 'plannedMoulds', label: 'Planned Moulds', width: '200px', align: 'center' },
+    {
+      key: 'plannedMoulds', label: 'Planned Moulds', width: '200px', align: 'center',
+      render: (item) => (
+        <span className={isFieldDeviant('Planned Moulds', item.plannedMoulds) ? 'deviation-flag' : undefined}>
+          {item.plannedMoulds}
+        </span>
+      )
+    },
     { key: 'remarks', label: 'Remarks', width: '300px', align: 'left' }
   ];
 
@@ -655,26 +688,30 @@ const DisamaticProductReport = () => {
         }
         return (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-            {item.durationMinutes.map((duration, idx) => (
-              <span
-                key={idx}
-                onMouseEnter={() => setHoveredDelayIndex({ rowIndex, itemIndex: idx })}
-                onMouseLeave={() => setHoveredDelayIndex({ rowIndex: null, itemIndex: null })}
-                style={{
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: hoveredDelayIndex.rowIndex === rowIndex && hoveredDelayIndex.itemIndex === idx ? '#5B9AA9' : '#f1f5f9',
-                  color: hoveredDelayIndex.rowIndex === rowIndex && hoveredDelayIndex.itemIndex === idx ? '#ffffff' : '#334155',
-                  fontWeight: hoveredDelayIndex.rowIndex === rowIndex && hoveredDelayIndex.itemIndex === idx ? 600 : 500,
-                  cursor: 'default',
-                  transition: 'all 0.2s ease',
-                  border: '1px solid',
-                  borderColor: hoveredDelayIndex.rowIndex === rowIndex && hoveredDelayIndex.itemIndex === idx ? '#5B9AA9' : '#cbd5e1'
-                }}
-              >
-                {duration} min
-              </span>
-            ))}
+            {item.durationMinutes.map((duration, idx) => {
+              const isHovered = hoveredDelayIndex.rowIndex === rowIndex && hoveredDelayIndex.itemIndex === idx;
+              const deviant = isFieldDeviant('Duration (Minutes)', duration);
+              return (
+                <span
+                  key={idx}
+                  onMouseEnter={() => setHoveredDelayIndex({ rowIndex, itemIndex: idx })}
+                  onMouseLeave={() => setHoveredDelayIndex({ rowIndex: null, itemIndex: null })}
+                  style={{
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '6px',
+                    backgroundColor: isHovered ? '#5B9AA9' : (deviant ? '#fef9c3' : '#f1f5f9'),
+                    color: isHovered ? '#ffffff' : '#334155',
+                    fontWeight: isHovered ? 600 : 500,
+                    cursor: 'default',
+                    transition: 'all 0.2s ease',
+                    border: '1px solid',
+                    borderColor: isHovered ? '#5B9AA9' : (deviant ? '#eab308' : '#cbd5e1')
+                  }}
+                >
+                  {duration} min
+                </span>
+              );
+            })}
           </div>
         );
       }
@@ -940,6 +977,12 @@ const DisamaticProductReport = () => {
           <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
             Clear
           </ClearButton>
+          {isAdmin && (
+            <DeviationToggleButton
+              active={showDeviations}
+              onClick={() => setShowDeviations((prev) => !prev)}
+            />
+          )}
           <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
           <ExcelDownloadDialog
             open={showDownloadDialog}

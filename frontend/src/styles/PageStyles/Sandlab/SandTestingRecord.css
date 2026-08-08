@@ -190,6 +190,25 @@
   border-color: #ef4444;
   background-color: #fef2f2;
 }
+
+/* Disabled fields (Primary not yet saved/found) get a clear "not-allowed" cursor —
+   defined here directly rather than relying on FoundarySandTestingNote.css's copy of
+   this rule reaching this page only because app.jsx happens to import both eagerly. */
+.foundry-section input:disabled,
+.foundry-section select:disabled,
+.foundry-section textarea:disabled,
+.sand-form-field input:disabled,
+.sand-form-field select:disabled,
+.sand-form-field textarea:disabled {
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+}
+
+/* Remarks (Table 5) reads smaller than a full grid cell — it's free text, not a
+   measurement, so it doesn't need the same width as the numeric fields beside it. */
+.sand-form-field.remarks-field input {
+  max-width: 65%;
+}
 .sand-form-field input[type="text"]:focus,
 .sand-form-field input[type="number"]:focus,
 .sand-form-field textarea:focus,

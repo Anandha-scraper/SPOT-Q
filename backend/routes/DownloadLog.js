@@ -6,6 +6,6 @@ const { checkAdminAccess } = require('../middleware/access');
 // Mounted at /api/v1/download-logs behind `protect` (see server.js).
 router.get('/all', checkAdminAccess, getAllDownloadLogs); // admin: every department
 router.get('/', getMyDownloadLogs);                       // current user's logs
-router.post('/', recordDownload);                         // record a download (template)
+router.post('/', recordDownload);                         // record a download
 
 module.exports = router;

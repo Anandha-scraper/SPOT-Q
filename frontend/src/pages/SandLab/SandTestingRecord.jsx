@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpen} from 'lucide-react';
 import Table from '../../Components/Table';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { PlusButton, MinusButton, SubmitButton, CustomTimeInput, Time } from '../../Components/Buttons';
+import { PlantDropdown, PlusButton, MinusButton, SubmitButton, LockPrimaryButton, CustomTimeInput, Time } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { validationRanges as sandTestingValidationRanges } from '../../deviations/DsandTestingRecord';
 import '../../styles/PageStyles/Sandlab/SandTestingRecord.css';
 
 // Get today's date in YYYY-MM-DD format
@@ -25,10 +26,37 @@ const SandTestingRecord = () => {
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [isFetchingCombination, setIsFetchingCombination] = useState(false);
   const isInitialMount = useRef(true);
+
+  // Primary lock — Date+Plant must be saved before the 5 sections unlock,
+  // same pattern as ReturnSandFoundrySandTestingNote.jsx.
+  const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
+  const [savingPrimary, setSavingPrimary] = useState(false);
+  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
+  const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
+  const [highlightPrimaryFields, setHighlightPrimaryFields] = useState(false);
+  const [primaryMessage, setPrimaryMessage] = useState(null);
+  const primarySectionRef = useRef(null);
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const { isOpen: isInfoOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useInfoModal();
 
+  // Compactability/Mould Strength Setting suggestion lists — the last 3 distinct
+  // values actually entered, ordered by most recently used first (derived from
+  // the last ~90 days of records). Empty until history is fetched.
+  const [compactabilitySuggestions, setCompactabilitySuggestions] = useState([]);
+  const [mouldStrengthSuggestions, setMouldStrengthSuggestions] = useState([]);
+  const [filteredCompactabilitySuggestions, setFilteredCompactabilitySuggestions] = useState([]);
+  const [showCompactabilityDropdown, setShowCompactabilityDropdown] = useState(false);
+  const [filteredMouldStrengthSuggestions, setFilteredMouldStrengthSuggestions] = useState([]);
+  const [showMouldStrengthDropdown, setShowMouldStrengthDropdown] = useState(false);
+  const compactabilityDropdownRef = useRef(null);
+  const mouldStrengthDropdownRef = useRef(null);
+
   // Lock state for each table
+  // Inline save outcome per table, shown via InlineLoader instead of alert().
+  const [tableMessages, setTableMessages] = useState({});
+  const showTableMessage = (tableNum, text, variant) => {
+    setTableMessages(prev => ({ ...prev, [tableNum]: { text, variant } }));
+  };
   const [table1Locked, setTable1Locked] = useState(false);
   const [table2Locked, setTable2Locked] = useState(false);
   const [table3Locked, setTable3Locked] = useState(false);
@@ -64,9 +92,7 @@ const SandTestingRecord = () => {
     premixCoalCheckpoint: '',
     premixCoalKgs: '',
     premixCoalPercent: '',
-    compactabilitySetting: '',
     compactabilityValue: '',
-    mouldStrengthSetting: '',
     mouldStrengthValue: '',
     preparedSandLumpsKg: '',
     itemName: '',
@@ -94,9 +120,7 @@ const SandTestingRecord = () => {
   const [premixCoalCheckpointValid, setPremixCoalCheckpointValid] = useState(null);
   const [premixCoalKgsValid, setPremixCoalKgsValid] = useState(null);
   const [premixCoalPercentValid, setPremixCoalPercentValid] = useState(null);
-  const [compactabilitySettingValid, setCompactabilitySettingValid] = useState(null);
   const [compactabilityValueValid, setCompactabilityValueValid] = useState(null);
-  const [mouldStrengthSettingValid, setMouldStrengthSettingValid] = useState(null);
   const [mouldStrengthValueValid, setMouldStrengthValueValid] = useState(null);
   const [preparedSandLumpsKgValid, setPreparedSandLumpsKgValid] = useState(null);
   const [itemNameValid, setItemNameValid] = useState(null);
@@ -158,9 +182,7 @@ const SandTestingRecord = () => {
     premixCoalCheckpoint: setPremixCoalCheckpointValid,
     premixCoalKgs: setPremixCoalKgsValid,
     premixCoalPercent: setPremixCoalPercentValid,
-    compactabilitySetting: setCompactabilitySettingValid,
     compactabilityValue: setCompactabilityValueValid,
-    mouldStrengthSetting: setMouldStrengthSettingValid,
     mouldStrengthValue: setMouldStrengthValueValid,
     preparedSandLumpsKg: setPreparedSandLumpsKgValid,
     itemName: setItemNameValid
@@ -181,8 +203,95 @@ const SandTestingRecord = () => {
     if (field === 'gcsCheckpoint') setGcsValid(null);
     if (field === 'bentoniteCheckpoint') { setBentoniteKgsValid(null); setBentonitePercentValid(null); }
     if (field === 'premixCoalCheckpoint') { setPremixCoalKgsValid(null); setPremixCoalPercentValid(null); }
-    if (field === 'compactabilitySetting') setCompactabilityValueValid(null);
-    if (field === 'mouldStrengthSetting') setMouldStrengthValueValid(null);
+  };
+
+  // Fetch the last ~90 days once on mount and reorder the Compactability/Mould
+  // Strength suggestion lists by most-recently-used-first. The backend never
+  // stores the setting name itself — only which of 4 fixed numeric columns
+  // got the value — so the setting name is inferred from which column is
+  // nonzero on each historical Table 5 row.
+  useEffect(() => {
+    const fetchSettingSuggestions = async () => {
+      try {
+        const to = getTodaysDate();
+        const fromDateObj = new Date();
+        fromDateObj.setDate(fromDateObj.getDate() - 90);
+        const from = fromDateObj.toISOString().split('T')[0];
+        const res = await fetch(`${API_ENDPOINTS.sandTestingRecords}?startDate=${from}&endDate=${to}&limit=500`, { credentials: 'include' });
+        const result = await res.json();
+        const records = (result.success && Array.isArray(result.data)) ? result.data : [];
+        records.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+        // Each field now writes to one fixed column (CompactabilitySettings /
+        // mouldStrength) going forward, but older rows may still carry a value
+        // in the other legacy column (lc / shearStrengthSetting) — read both so
+        // the suggestion list stays continuous across the change.
+        const compactList = [];
+        const mouldList = [];
+        records.forEach((r) => {
+          const rows = Array.isArray(r.testParameter) ? [...r.testParameter].reverse() : [];
+          rows.forEach((row) => {
+            const compactVal = row.CompactabilitySettings || row.lc;
+            const mouldVal = row.mouldStrength || row.shearStrengthSetting;
+            if (compactVal && !compactList.includes(String(compactVal))) compactList.push(String(compactVal));
+            if (mouldVal && !mouldList.includes(String(mouldVal))) mouldList.push(String(mouldVal));
+          });
+        });
+        setCompactabilitySuggestions(compactList.slice(0, 3));
+        setMouldStrengthSuggestions(mouldList.slice(0, 3));
+      } catch (error) {
+        // Suggestion list is a nice-to-have — an empty list just shows no suggestions.
+      }
+    };
+    fetchSettingSuggestions();
+  }, []);
+
+  useEffect(() => {
+    const handleSettingClickOutside = (event) => {
+      if (compactabilityDropdownRef.current && !compactabilityDropdownRef.current.contains(event.target)) {
+        setShowCompactabilityDropdown(false);
+      }
+      if (mouldStrengthDropdownRef.current && !mouldStrengthDropdownRef.current.contains(event.target)) {
+        setShowMouldStrengthDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleSettingClickOutside);
+    return () => document.removeEventListener('mousedown', handleSettingClickOutside);
+  }, []);
+
+  const filterSettingSuggestions = (list, typed) => {
+    const t = (typed || '').toString();
+    return (t ? list.filter((s) => s.includes(t)) : list).slice(0, 3);
+  };
+
+  const handleCompactabilityValueFocus = () => {
+    setFilteredCompactabilitySuggestions(filterSettingSuggestions(compactabilitySuggestions, table5FormData.compactabilityValue));
+    setShowCompactabilityDropdown(true);
+  };
+  const handleCompactabilityValueChange = (value) => {
+    updateFormField('compactabilityValue', value);
+    setFilteredCompactabilitySuggestions(filterSettingSuggestions(compactabilitySuggestions, value));
+    setShowCompactabilityDropdown(true);
+  };
+  const handleCompactabilityValueSelect = (value) => {
+    updateFormField('compactabilityValue', value);
+    setShowCompactabilityDropdown(false);
+    mouldStrengthValueRef.current?.focus();
+  };
+
+  const handleMouldStrengthValueFocus = () => {
+    setFilteredMouldStrengthSuggestions(filterSettingSuggestions(mouldStrengthSuggestions, table5FormData.mouldStrengthValue));
+    setShowMouldStrengthDropdown(true);
+  };
+  const handleMouldStrengthValueChange = (value) => {
+    updateFormField('mouldStrengthValue', value);
+    setFilteredMouldStrengthSuggestions(filterSettingSuggestions(mouldStrengthSuggestions, value));
+    setShowMouldStrengthDropdown(true);
+  };
+  const handleMouldStrengthValueSelect = (value) => {
+    updateFormField('mouldStrengthValue', value);
+    setShowMouldStrengthDropdown(false);
+    preparedSandLumpsRef.current?.focus();
   };
 
   // Handle time change
@@ -192,9 +301,10 @@ const SandTestingRecord = () => {
 
   // Handle form submission
   const handleTable5Submit = async () => {
+    setTableMessages(prev => ({ ...prev, 5: null }));
     // Validate date before proceeding
     if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-      alert('Please select a valid date before submitting.');
+      showTableMessage(5, 'Please select a valid date before submitting.', 'danger');
       return;
     }
     
@@ -209,18 +319,18 @@ const SandTestingRecord = () => {
     };
     const isEmpty = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
 
-    // Straightforward field: fails if required-and-empty, or (when filled) type/range not satisfied.
+    // Straightforward field: fails if required-and-empty, or (when filled) not a valid number.
+    // min/max are QC target ranges, not hard input limits — the real measured
+    // value must be accepted even outside spec, so they're no longer checked here.
     // requiredKey lets several inputs (e.g. Sand Temp BC/WU/SSU) share one rule's "required" flag.
-    const checkField = (formKey, value, { min, max } = {}, requiredKey = formKey) => {
+    const checkField = (formKey, value, _range = {}, requiredKey = formKey) => {
       const setValid = table5ValidSetters[formKey];
       if (isEmpty(value)) {
         if (isFieldRequired(requiredKey)) { if (setValid) setValid(false); hasErrors = true; }
         return;
       }
       const num = parseFloat(value);
-      if (isNaN(num) || !isFinite(num) ||
-          (min !== undefined && num < min) ||
-          (max !== undefined && num > max)) {
+      if (isNaN(num) || !isFinite(num)) {
         if (setValid) setValid(false);
         hasErrors = true;
       }
@@ -250,67 +360,57 @@ const SandTestingRecord = () => {
     checkField('preparedSandLumpsKg', table5FormData.preparedSandLumpsKg, { min: 0 });
     checkPresence('itemName', table5FormData.itemName);
 
-    // G.C.S — value range depends on the selected checkpoint (FDY-A: min 1800, FDY-B: min 1900)
-    if (!table5FormData.gcsCheckpoint || !table5FormData.gcsValue) {
-      if (isFieldRequired('gcsValue')) { setGcsValid(false); hasErrors = true; }
-    } else {
-      const num = parseFloat(table5FormData.gcsValue);
-      const minValue = table5FormData.gcsCheckpoint === 'FDY-A' ? 1800 : 1900;
-      if (isNaN(num) || num < minValue) { setGcsValid(false); hasErrors = true; }
-    }
-
-    // Bentonite — % range depends on the selected checkpoint
-    if (isFieldRequired('bentonitePercent')) {
-      if (!table5FormData.bentoniteCheckpoint) { setBentoniteCheckpointValid(false); hasErrors = true; }
-      if (!table5FormData.bentoniteKgs) { setBentoniteKgsValid(false); hasErrors = true; }
-    }
-    if (!table5FormData.bentonitePercent) {
-      if (isFieldRequired('bentonitePercent')) { setBentonitePercentValid(false); hasErrors = true; }
-    } else if (table5FormData.bentoniteCheckpoint) {
-      const percent = parseFloat(table5FormData.bentonitePercent);
-      const range = table5FormData.bentoniteCheckpoint === '0.60-1.20' ? [0.60, 1.20] : [0.80, 2.20];
-      if (isNaN(percent) || percent < range[0] || percent > range[1]) {
-        setBentonitePercentValid(false);
+    // Radio-driven "checkpoint decides destination" groups (G.C.S., Bentonite,
+    // Premix/Coal Dust): a value typed without its checkpoint chosen has
+    // nowhere unambiguous to be saved, so it's a hard block regardless of the
+    // formKey's own `required` flag — that flag only ever meant "not
+    // mandatory to fill at all," which stays true when neither is touched.
+    // Checkpoint chosen + value(s) left blank is fine — the submit payload
+    // below stores '-' for the untouched value(s).
+    const checkCheckpointGroup = (checkpoint, values, setCheckpointValid, valueSetters) => {
+      const anyEntered = values.some((v) => !isEmpty(v));
+      if (anyEntered && !checkpoint) {
+        setCheckpointValid(false);
+        valueSetters.forEach((setValid) => setValid && setValid(false));
         hasErrors = true;
+        return;
       }
-    }
+      values.forEach((v, i) => {
+        if (isEmpty(v)) return;
+        const num = parseFloat(v);
+        if (isNaN(num) || !isFinite(num)) {
+          if (valueSetters[i]) valueSetters[i](false);
+          hasErrors = true;
+        }
+      });
+    };
 
-    // Premix / Coal Dust — % range depends on the selected checkpoint
-    if (isFieldRequired('premixCoalPercent')) {
-      if (!table5FormData.premixCoalCheckpoint) { setPremixCoalCheckpointValid(false); hasErrors = true; }
-      if (!table5FormData.premixCoalKgs) { setPremixCoalKgsValid(false); hasErrors = true; }
-    }
-    if (!table5FormData.premixCoalPercent) {
-      if (isFieldRequired('premixCoalPercent')) { setPremixCoalPercentValid(false); hasErrors = true; }
-    } else if (table5FormData.premixCoalCheckpoint) {
-      const percent = parseFloat(table5FormData.premixCoalPercent);
-      const range = table5FormData.premixCoalCheckpoint === 'Premix' ? [0.60, 1.20] : [0.28, 0.70];
-      if (isNaN(percent) || percent < range[0] || percent > range[1]) {
-        setPremixCoalPercentValid(false);
-        hasErrors = true;
-      }
-    }
+    checkCheckpointGroup(table5FormData.gcsCheckpoint, [table5FormData.gcsValue], setGcsCheckpointValid, [setGcsValid]);
+    checkCheckpointGroup(
+      table5FormData.bentoniteCheckpoint,
+      [table5FormData.bentoniteKgs, table5FormData.bentonitePercent],
+      setBentoniteCheckpointValid,
+      [setBentoniteKgsValid, setBentonitePercentValid]
+    );
+    checkCheckpointGroup(
+      table5FormData.premixCoalCheckpoint,
+      [table5FormData.premixCoalKgs, table5FormData.premixCoalPercent],
+      setPremixCoalCheckpointValid,
+      [setPremixCoalKgsValid, setPremixCoalPercentValid]
+    );
 
-    // Compactability setting + value
-    if (isFieldRequired('compactabilityValue') && !table5FormData.compactabilitySetting) {
-      setCompactabilitySettingValid(false);
-      hasErrors = true;
-    }
+    // Compactability Setting
     if (!table5FormData.compactabilityValue) {
       if (isFieldRequired('compactabilityValue')) { setCompactabilityValueValid(false); hasErrors = true; }
-    } else if (isNaN(parseFloat(table5FormData.compactabilityValue)) || parseFloat(table5FormData.compactabilityValue) < 0) {
+    } else if (isNaN(parseFloat(table5FormData.compactabilityValue)) || !isFinite(parseFloat(table5FormData.compactabilityValue))) {
       setCompactabilityValueValid(false);
       hasErrors = true;
     }
 
-    // Mould strength setting + value
-    if (isFieldRequired('mouldStrengthValue') && !table5FormData.mouldStrengthSetting) {
-      setMouldStrengthSettingValid(false);
-      hasErrors = true;
-    }
+    // Mould Strength Setting
     if (!table5FormData.mouldStrengthValue) {
       if (isFieldRequired('mouldStrengthValue')) { setMouldStrengthValueValid(false); hasErrors = true; }
-    } else if (isNaN(parseFloat(table5FormData.mouldStrengthValue)) || parseFloat(table5FormData.mouldStrengthValue) < 0) {
+    } else if (isNaN(parseFloat(table5FormData.mouldStrengthValue)) || !isFinite(parseFloat(table5FormData.mouldStrengthValue))) {
       setMouldStrengthValueValid(false);
       hasErrors = true;
     }
@@ -318,7 +418,7 @@ const SandTestingRecord = () => {
     // Remarks is optional, no validation needed
 
     if (hasErrors) {
-      alert('Please fill in all required fields correctly with valid values.');
+      showTableMessage(5, 'Please fill in all required fields correctly with valid values.', 'danger');
       return;
     }
 
@@ -328,11 +428,13 @@ const SandTestingRecord = () => {
         date: selectedDate,
         plant,
         sno: currentSNo === 0 ? 1 : currentSNo + 1,
-        time: table5FormData.time ? table5FormData.time.hour * 100 + table5FormData.time.minute : 0, // Convert to number format
+        // '-' (not 0) when untouched — 0 is indistinguishable from a genuine
+        // 12:00 AM reading once packed into this format.
+        time: table5FormData.time ? table5FormData.time.hour * 100 + table5FormData.time.minute : '-',
         mixno: parseFloat(table5FormData.mixNo) || 0,
         permeability: parseFloat(table5FormData.permeability) || 0,
-        gcsFdyA: table5FormData.gcsCheckpoint === 'FDY-A' ? parseFloat(table5FormData.gcsValue) || 0 : 0,
-        gcsFdyB: table5FormData.gcsCheckpoint === 'FDY-B' ? parseFloat(table5FormData.gcsValue) || 0 : 0,
+        gcsFdyA: table5FormData.gcsCheckpoint === 'FDY-A' ? (table5FormData.gcsValue.trim() || '-') : '-',
+        gcsFdyB: table5FormData.gcsCheckpoint === 'FDY-B' ? (table5FormData.gcsValue.trim() || '-') : '-',
         wts: parseFloat(table5FormData.wts) || 0,
         moisture: parseFloat(table5FormData.moisture) || 0,
         compactability: parseFloat(table5FormData.compactability) || 0,
@@ -346,27 +448,30 @@ const SandTestingRecord = () => {
         newSandKgs: parseFloat(table5FormData.newSandKgsMould) || 0,
         mould: 0, // Not in form
         bentonite: {
-          Kgs: parseFloat(table5FormData.bentoniteKgs) || 0,
-          Percent: parseFloat(table5FormData.bentonitePercent) || 0
+          Kgs: table5FormData.bentoniteCheckpoint ? (table5FormData.bentoniteKgs.trim() || '-') : '-',
+          Percent: table5FormData.bentoniteCheckpoint ? (table5FormData.bentonitePercent.trim() || '-') : '-',
+          Checkpoint: table5FormData.bentoniteCheckpoint || '-'
         },
         premix: table5FormData.premixCoalCheckpoint === 'Premix' ? {
-          Kgs: parseFloat(table5FormData.premixCoalKgs) || 0,
-          Percent: parseFloat(table5FormData.premixCoalPercent) || 0
-        } : { Kgs: 0, Percent: 0 },
+          Kgs: table5FormData.premixCoalKgs.trim() || '-',
+          Percent: table5FormData.premixCoalPercent.trim() || '-'
+        } : { Kgs: '-', Percent: '-' },
         coalDust: table5FormData.premixCoalCheckpoint === 'CoalDust' ? {
-          Kgs: parseFloat(table5FormData.premixCoalKgs) || 0,
-          Percent: parseFloat(table5FormData.premixCoalPercent) || 0
-        } : { Kgs: 0, Percent: 0 },
-        lc: table5FormData.compactabilitySetting === 'LC' ? parseFloat(table5FormData.compactabilityValue) || 0 : 0,
-        CompactabilitySettings: table5FormData.compactabilitySetting === 'SMC42' ? parseFloat(table5FormData.compactabilityValue) || 0 : 0,
-        mouldStrength: table5FormData.mouldStrengthSetting === 'SMC23' ? parseFloat(table5FormData.mouldStrengthValue) || 0 : 0,
-        shearStrengthSetting: table5FormData.mouldStrengthSetting === 'At15' ? parseFloat(table5FormData.mouldStrengthValue) || 0 : 0,
+          Kgs: table5FormData.premixCoalKgs.trim() || '-',
+          Percent: table5FormData.premixCoalPercent.trim() || '-'
+        } : { Kgs: '-', Percent: '-' },
+        // Single free-text-with-suggestions field now (previously a 2-box name+value
+        // pair) — always writes to one fixed column per field. `lc`/`shearStrengthSetting`
+        // are the old alternate columns; no longer written to, but still read by the
+        // report for historical rows saved before this change.
+        lc: 0,
+        CompactabilitySettings: parseFloat(table5FormData.compactabilityValue) || 0,
+        mouldStrength: parseFloat(table5FormData.mouldStrengthValue) || 0,
+        shearStrengthSetting: 0,
         preparedSandlumps: parseFloat(table5FormData.preparedSandLumpsKg) || 0,
         itemName: table5FormData.itemName || '',
         remarks: table5FormData.remarks || ''
       };
-
-      console.log('Saving data:', dataToSave);
 
       const response = await fetch(`${API_ENDPOINTS.sandTestingRecords}/table/5`, {
         method: 'POST',
@@ -377,8 +482,8 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert('Table 5 data submitted successfully!');
-        
+        showTableMessage(5, 'Table 5 data submitted successfully!', 'success');
+
         // Track the submitted entry for S.No auto-increment (display lives on the report page)
         setTable5Data(prev => [...prev, dataToSave]);
 
@@ -397,11 +502,11 @@ const SandTestingRecord = () => {
           }
         }, 100);
       } else {
-        alert('Failed to submit Table 5 data: ' + result.message);
+        showTableMessage(5, result.message || 'Failed to submit Table 5 data.', 'danger');
       }
     } catch (error) {
       console.error('Error saving Table 5 data:', error);
-      alert('Error submitting Table 5 data');
+      showTableMessage(5, 'Error submitting Table 5 data. Please try again.', 'danger');
     }
   };
 
@@ -428,9 +533,7 @@ const SandTestingRecord = () => {
       premixCoalCheckpoint: '',
       premixCoalKgs: '',
       premixCoalPercent: '',
-      compactabilitySetting: '',
       compactabilityValue: '',
-      mouldStrengthSetting: '',
       mouldStrengthValue: '',
       preparedSandLumpsKg: '',
       itemName: '',
@@ -458,9 +561,7 @@ const SandTestingRecord = () => {
     setPremixCoalCheckpointValid(null);
     setPremixCoalKgsValid(null);
     setPremixCoalPercentValid(null);
-    setCompactabilitySettingValid(null);
     setCompactabilityValueValid(null);
-    setMouldStrengthSettingValid(null);
     setMouldStrengthValueValid(null);
     setPreparedSandLumpsKgValid(null);
     setItemNameValid(null);
@@ -634,18 +735,50 @@ const SandTestingRecord = () => {
     return totals.length > 0 ? totals : [{ value: '', locked: false }];
   };
 
-  // Builds the submitted (unlocked, new) total values for one shift row, paired by index with the new Start/End entries
-  const buildTable3TotalsForSubmit = (rowIndex) => {
-    const startVals = (table3Inputs[`${rowIndex}_0`] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value);
-    const endVals = (table3Inputs[`${rowIndex}_1`] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value);
-    const len = Math.min(startVals.length, endVals.length);
-    const totals = [];
+  // Start/End/Total are validated and resolved together per position (they're
+  // already index-paired — addTable3Input/removeTable3Input grow/shrink Start
+  // and End in lockstep): both blank skips the position; both filled requires
+  // End >= Start; Start-only defaults End to 0 and stores it; End-only has no
+  // Start to measure from and is rejected outright.
+  const ROMAN_SHIFT = ['I', 'II', 'III'];
+  const resolveTable3Row = (rowIndex) => {
+    const startEntries = (table3Inputs[`${rowIndex}_0`] || []).filter(v => !v.locked);
+    const endEntries = (table3Inputs[`${rowIndex}_1`] || []).filter(v => !v.locked);
+    const len = Math.max(startEntries.length, endEntries.length);
+
+    const start = [];
+    const end = [];
+    const total = [];
+
     for (let i = 0; i < len; i++) {
-      const s = parseFloat(startVals[i]);
-      const e = parseFloat(endVals[i]);
-      totals.push(!isNaN(s) && !isNaN(e) ? String(e - s) : '');
+      const sRaw = (startEntries[i]?.value || '').trim();
+      const eRaw = (endEntries[i]?.value || '').trim();
+      if (!sRaw && !eRaw) continue;
+
+      if (!sRaw && eRaw) {
+        return { error: `Shift ${ROMAN_SHIFT[rowIndex]}: an End value needs a Start value first — enter Start or clear End.` };
+      }
+
+      if (sRaw && !eRaw) {
+        // Start-only: End defaults to 0 and is stored as such.
+        const s = parseFloat(sRaw);
+        start.push(sRaw);
+        end.push('0');
+        total.push(!isNaN(s) ? String(0 - s) : '');
+        continue;
+      }
+
+      const s = parseFloat(sRaw);
+      const e = parseFloat(eRaw);
+      if (!isNaN(s) && !isNaN(e) && e < s) {
+        return { error: `Shift ${ROMAN_SHIFT[rowIndex]}: End (${eRaw}) must be greater than or equal to Start (${sRaw}).` };
+      }
+      start.push(sRaw);
+      end.push(eRaw);
+      total.push((!isNaN(s) && !isNaN(e)) ? String(e - s) : '');
     }
-    return totals;
+
+    return { start, end, total };
   };
   const checkExistingData = async (date, plantType) => {
     const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds minimum for full animation
@@ -674,6 +807,7 @@ const SandTestingRecord = () => {
         if (result.success && result.data && result.data.length > 0) {
           setShowCombinationFound(true);
           setTimeout(() => setShowCombinationFound(false), 1500);
+          setIsPrimaryDataSaved(true);
           const existingData = result.data[0];
           
           // Load Table 1 data - mark existing entries as locked
@@ -858,6 +992,7 @@ const SandTestingRecord = () => {
 
         } else {
           // No data exists, reset to unlocked default state
+          setIsPrimaryDataSaved(false);
           setTable1Locked(false);
           setTable2Locked(false);
           setTable3Locked(false);
@@ -918,6 +1053,7 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error checking existing data:', error);
       setIsFetchingCombination(false);
+      setIsPrimaryDataSaved(false);
     } finally {
       // Ensure minimum loading time has passed before hiding loader
       const elapsedTime = Date.now() - startTime;
@@ -945,8 +1081,39 @@ const SandTestingRecord = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, plant]);
 
+  // Before primary data is saved, clicking anywhere in a locked section flashes a
+  // "save primary first" warning, highlights the primary fields, and scrolls up to them.
+  const handleDisabledFieldClick = () => {
+    setShowPrimaryWarning(true);
+    setHighlightPrimaryFields(true);
+    if (primarySectionRef.current) {
+      primarySectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setTimeout(() => {
+      setShowPrimaryWarning(false);
+      setHighlightPrimaryFields(false);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    const handleLockedSectionClick = (e) => {
+      if (isPrimaryDataSaved) return;
+      const section = e.target.closest && e.target.closest('.foundry-section');
+      if (section) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDisabledFieldClick();
+      }
+    };
+
+    document.addEventListener('mousedown', handleLockedSectionClick, true);
+    return () => document.removeEventListener('mousedown', handleLockedSectionClick, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPrimaryDataSaved]);
+
   // Reset all tables to default state
   const resetAllTables = () => {
+    setIsPrimaryDataSaved(false);
     // Reset Table 1a
     setTable1aInputs({
       '0_1': [{ value: '', locked: false }], '0_2': [{ value: '', locked: false }], '0_3': [{ value: '', locked: false }],
@@ -998,15 +1165,51 @@ const SandTestingRecord = () => {
     handleTable5Reset();
   };
 
+  // Persist just the Date+Plant combination — unlocks the 5 sections below
+  // without needing any table data yet. Mirrors ReturnSandFoundrySandTestingNote.jsx's
+  // handlePrimarySubmit; there's no "update primary" here since Date+Plant is a
+  // pure combination key with nothing else to change once saved.
+  const handleSavePrimary = async () => {
+    if (!selectedDate || !plant) return;
+
+    setPrimaryMessage(null);
+
+    try {
+      setSavingPrimary(true);
+
+      const res = await fetch(`${API_ENDPOINTS.sandTestingRecords}/primary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ date: selectedDate, plant })
+      });
+      const response = await res.json();
+
+      if (response.success) {
+        setShowCombinationAdded(true);
+        setTimeout(() => setShowCombinationAdded(false), 1500);
+        setIsPrimaryDataSaved(true);
+      } else {
+        setPrimaryMessage({ text: response.message || 'Failed to save primary data.', variant: 'danger' });
+      }
+    } catch (error) {
+      console.error('Error saving primary data:', error);
+      setPrimaryMessage({ text: 'Failed to save primary data. Please try again.', variant: 'danger' });
+    } finally {
+      setSavingPrimary(false);
+    }
+  };
+
   // Handlers for Table 1
   const handleTable1Submit = async () => {
+    setTableMessages(prev => ({ ...prev, 1: null }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-        alert('Please select a valid date before submitting.');
+        showTableMessage(1, 'Please select a valid date before submitting.', 'danger');
         return;
       }
-      
+
       // Transform table1aInputs to match backend structure - only submit unlocked (new) entries
       const sandShifts = {
         shiftI: {
@@ -1051,27 +1254,28 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        console.log('Table 1 submitted:', result.data);
+        showTableMessage(1, 'Table 1 data submitted successfully!', 'success');
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
-        alert('Failed to submit Table 1 data: ' + result.message);
+        showTableMessage(1, result.message || 'Failed to submit Table 1 data.', 'danger');
       }
     } catch (error) {
       console.error('Error submitting Table 1:', error);
-      alert('Error submitting Table 1 data');
+      showTableMessage(1, 'Error submitting Table 1 data. Please try again.', 'danger');
     }
   };
 
   // Handlers for Table 2
   const handleTable2Submit = async () => {
+    setTableMessages(prev => ({ ...prev, 2: null }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-        alert('Please select a valid date before submitting.');
+        showTableMessage(2, 'Please select a valid date before submitting.', 'danger');
         return;
       }
-      
+
       // Transform table2Inputs to match backend structure - only submit unlocked (new) entries
       const clayShifts = {
         shiftI: {
@@ -1117,54 +1321,53 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert('Table 2 data submitted successfully!');
-        console.log('Table 2 submitted:', result.data);
+        showTableMessage(2, 'Table 2 data submitted successfully!', 'success');
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
-        alert('Failed to submit Table 2 data: ' + result.message);
+        showTableMessage(2, result.message || 'Failed to submit Table 2 data.', 'danger');
       }
     } catch (error) {
       console.error('Error submitting Table 2:', error);
-      alert('Error submitting Table 2 data');
+      showTableMessage(2, 'Error submitting Table 2 data. Please try again.', 'danger');
     }
   };
 
   // Handlers for Table 3
   const handleTable3Submit = async () => {
+    setTableMessages(prev => ({ ...prev, 3: null }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-        alert('Please select a valid date before submitting.');
+        showTableMessage(3, 'Please select a valid date before submitting.', 'danger');
         return;
       }
-      
+
+      // Resolve Start/End/Total together (validates End >= Start, defaults a
+      // Start-only entry's End to 0, rejects an End-only entry) before
+      // building anything else — a validation failure on any shift aborts
+      // the whole submit, nothing is sent.
+      const table3Rows = [0, 1, 2].map(resolveTable3Row);
+      const invalidRow = table3Rows.find(r => r.error);
+      if (invalidRow) {
+        showTableMessage(3, invalidRow.error, 'danger');
+        return;
+      }
+
       // Transform table3Inputs to match backend structure - only submit unlocked (new) entries
       const mixshifts = {
         ShiftI: {
-          mixno: {
-            start: (table3Inputs['0_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            end: (table3Inputs['0_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: buildTable3TotalsForSubmit(0)
-          },
+          mixno: table3Rows[0],
           numberOfMixRejected: (table3Inputs['0_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['0_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
         },
         ShiftII: {
-          mixno: {
-            start: (table3Inputs['1_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            end: (table3Inputs['1_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: buildTable3TotalsForSubmit(1)
-          },
+          mixno: table3Rows[1],
           numberOfMixRejected: (table3Inputs['1_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['1_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
         },
         ShiftIII: {
-          mixno: {
-            start: (table3Inputs['2_0'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            end: (table3Inputs['2_1'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
-            total: buildTable3TotalsForSubmit(2)
-          },
+          mixno: table3Rows[2],
           numberOfMixRejected: (table3Inputs['2_3'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value),
           returnSandHopperLevel: (table3Inputs['2_4'] || []).filter(v => !v.locked && v.value.trim() !== '').map(v => v.value)
         }
@@ -1184,28 +1387,28 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert('Table 3 data submitted successfully!');
-        console.log('Table 3 submitted:', result.data);
+        showTableMessage(3, 'Table 3 data submitted successfully!', 'success');
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
-        alert('Failed to submit Table 3 data: ' + result.message);
+        showTableMessage(3, result.message || 'Failed to submit Table 3 data.', 'danger');
       }
     } catch (error) {
       console.error('Error submitting Table 3:', error);
-      alert('Error submitting Table 3 data');
+      showTableMessage(3, 'Error submitting Table 3 data. Please try again.', 'danger');
     }
   };
 
   // Handlers for Table 4
   const handleTable4Submit = async () => {
+    setTableMessages(prev => ({ ...prev, 4: null }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
-        alert('Please select a valid date before submitting.');
+        showTableMessage(4, 'Please select a valid date before submitting.', 'danger');
         return;
       }
-      
+
       // Build table4Data object with only non-empty unlocked values
       const table4Data = {};
       
@@ -1250,65 +1453,17 @@ const SandTestingRecord = () => {
       const result = await response.json();
       
       if (result.success) {
-        alert('Table 4 data submitted successfully!');
-        console.log('Table 4 submitted:', result.data);
+        showTableMessage(4, 'Table 4 data submitted successfully!', 'success');
         // Reload data to lock newly submitted entries
         await checkExistingData(selectedDate, plant);
       } else {
-        alert('Failed to submit Table 4 data: ' + result.message);
+        showTableMessage(4, result.message || 'Failed to submit Table 4 data.', 'danger');
       }
     } catch (error) {
       console.error('Error submitting Table 4:', error);
-      alert('Error submitting Table 4 data');
+      showTableMessage(4, 'Error submitting Table 4 data. Please try again.', 'danger');
     }
   };
-
-  // Reference ranges shown in the Info modal - drawn from the ranges already documented in this
-  // page's table labels/Table 5 logic; fields with no documented range are listed as required-only.
-  const sandTestingValidationRanges = [
-    { field: 'Plant', required: true, type: 'Select', allowedValues: ['Disa', 'Eirich'] },
-    { field: 'Date', required: true, type: 'Date' },
-    { field: 'R. Sand (Kgs/Mix)', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'N. Sand (Kgs/Mould)', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Mixing Mode', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Bentonite (Kgs/Mix) - Table 1', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Coal Dust / Premix (Kgs/Mix)', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Total Clay', required: false, type: 'Number', unit: '%', min: 11.0, max: 14.5 },
-    { field: 'Active Clay', required: false, type: 'Number', unit: '%', min: 8.5, max: 11.0 },
-    { field: 'Dead Clay', required: false, type: 'Number', unit: '%', min: 2.0, max: 4.0 },
-    { field: 'V.C.M.', required: false, type: 'Number', unit: '%', min: 2.0, max: 3.2 },
-    { field: 'L.O.I.', required: false, type: 'Number', unit: '%', min: 4.5, max: 6.0 },
-    { field: 'AFS No.', required: false, type: 'Number', min: 48, description: 'Minimum 48' },
-    { field: 'Fines', required: false, type: 'Number', unit: '%', max: 10, description: 'Maximum 10%' },
-    { field: 'Mix No. Start / End', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Mix No. Total', required: false, type: 'Number', description: 'Auto-computed as End - Start; not editable' },
-    { field: 'No. Of Rejected', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Return Sand Hopper Level', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Sand Lumps', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'New Sand Wt', required: false, type: 'Text', description: 'No fixed range documented' },
-    { field: 'Prepared Sand Friability', required: false, type: 'Number', unit: '%', min: 8.0, max: 13.0 },
-    { field: 'Time', formKey: 'time', required: false, type: 'Time' },
-    { field: 'Mix No (Table 5)', formKey: 'mixNo', required: false, type: 'Number' },
-    { field: 'Permeability', formKey: 'permeability', required: false, type: 'Number', min: 90, max: 160 },
-    { field: 'G.C.S FDY-A', formKey: 'gcsValue', required: false, type: 'Number', unit: 'Gm/cm²', min: 1800, description: 'Minimum 1800' },
-    { field: 'G.C.S FDY-B', required: false, type: 'Number', unit: 'Gm/cm²', min: 1900, description: 'Minimum 1900' },
-    { field: 'WTS', formKey: 'wts', required: false, type: 'Number', unit: 'N/cm²', min: 0.15, description: 'Minimum 0.15' },
-    { field: 'Moisture', formKey: 'moisture', required: false, type: 'Number', unit: '%', min: 3.0, max: 4.0 },
-    { field: 'Compactability At Dmm', formKey: 'compactability', required: false, type: 'Number', unit: '%', min: 33, max: 40 },
-    { field: 'Compressability At Dmm', formKey: 'compressability', required: false, type: 'Number', unit: '%', min: 20, max: 28 },
-    { field: 'Water Litre/Kg Mix', formKey: 'waterLitreKgMix', required: false, type: 'Number', min: 0 },
-    { field: 'Sand Temp BC/WU/SSU', formKey: 'sandTempBC', required: false, type: 'Number', unit: '°C', min: 0, max: 45 },
-    { field: 'New Sand Kgs/Mould', formKey: 'newSandKgsMould', required: false, type: 'Number', min: 0.0, max: 5.0 },
-    { field: 'Bentonite % (0.60-1.20 checkpoint)', formKey: 'bentonitePercent', required: false, type: 'Number', unit: '%', min: 0.60, max: 1.20 },
-    { field: 'Bentonite % (0.80-2.20 checkpoint)', required: false, type: 'Number', unit: '%', min: 0.80, max: 2.20 },
-    { field: 'Premix % (Premix checkpoint)', formKey: 'premixCoalPercent', required: false, type: 'Number', unit: '%', min: 0.60, max: 1.20 },
-    { field: 'Coal Dust % (CoalDust checkpoint)', required: false, type: 'Number', unit: '%', min: 0.28, max: 0.70 },
-    { field: 'Compactability Setting Value', formKey: 'compactabilityValue', required: false, type: 'Number', min: 0 },
-    { field: 'Mould Strength Setting Value', formKey: 'mouldStrengthValue', required: false, type: 'Number', min: 0 },
-    { field: 'Prepared Sand Lumps/Kg', formKey: 'preparedSandLumpsKg', required: false, type: 'Number', min: 0 },
-    { field: 'Item Name', formKey: 'itemName', required: false, type: 'Text' },
-    { field: 'Remarks', formKey: 'remarks', required: false, type: 'Text' }
-  ];
 
   return (
     <>
@@ -1323,39 +1478,11 @@ const SandTestingRecord = () => {
             <InfoIcon onClick={openInfoModal} />
           </h2>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <label style={{ fontWeight: '600', fontSize: '1rem', color: '#1e293b' }}>Plant:</label>
-          <select
-            value={plant}
-            onChange={(e) => setPlant(e.target.value)}
-            disabled={isLoading}
-            style={{
-              padding: '8px 12px',
-              fontSize: '1rem',
-              borderRadius: '4px',
-              border: '1px solid #cbd5e1',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="Disa">Disa</option>
-            <option value="Eirich">Eirich</option>
-          </select>
-          <label style={{ fontWeight: '600', fontSize: '1rem', color: '#1e293b' }}>Date:</label>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <CustomDatePicker
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-              disabled={isLoading}
-              style={{
-                padding: '8px 12px',
-                fontSize: '1rem',
-                borderRadius: '4px',
-                border: '1px solid #cbd5e1'
-              }}
-            />
-          </div>
-
+        <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
+          DATE : {selectedDate ? (() => {
+            const [y, m, d] = selectedDate.split('-');
+            return `${d} / ${m} / ${y}`;
+          })() : '-'}
         </div>
       </div>
 
@@ -1365,12 +1492,56 @@ const SandTestingRecord = () => {
         title="Sand Testing Record - Validation Ranges & Data Entry Flow"
         validationRanges={sandTestingValidationRanges}
       />
+      <h3 className="foundry-section-title">Primary</h3>
+      <div className={`foundry-form-grid${highlightPrimaryFields ? ' primary-highlight' : ''}`}>
+        <div className="foundry-form-group">
+          <label>Date <span style={{ color: '#ef4444' }}>*</span></label>
+          <CustomDatePicker
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+        <div className="foundry-form-group">
+          <label>Plant <span style={{ color: '#ef4444' }}>*</span></label>
+          <PlantDropdown
+            value={plant}
+            onChange={(e) => setPlant(e.target.value)}
+            name="plant"
+          />
+        </div>
+        <div className="foundry-form-group">
+          <label>&nbsp;</label>
+          <LockPrimaryButton
+            onClick={handleSavePrimary}
+            disabled={!selectedDate || !plant || isPrimaryDataSaved}
+            isLocked={isPrimaryDataSaved}
+            statusMessage={
+              isFetchingCombination ? 'Fetching Date, Plant'
+                : showCombinationFound ? 'Combination found'
+                : savingPrimary ? 'Saving...'
+                : showCombinationAdded ? 'Combination Added'
+                : null
+            }
+            statusVariant={isFetchingCombination || savingPrimary ? 'primary' : 'success'}
+          />
+          {(showPrimaryWarning || primaryMessage) && (
+            <div style={{ marginTop: '0.5rem' }}>
+              {showPrimaryWarning && (
+                <InlineLoader message="Save Date, Plant first" size="medium" variant="danger" />
+              )}
+              {primaryMessage && (
+                <InlineLoader message={primaryMessage.text} variant={primaryMessage.variant} size="medium" />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div ref={gridRef} onKeyDown={handleArrowKeyDown}>
-
       {/* Table 1 */}
       <div className="foundry-section">
-        <h3 className="foundry-section-title">Sand & Mix Testing</h3>
+        <h3 className="foundry-section-title">Sand & Mix Testing {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         {/* Table 1a - with Shift headers and input fields */}
         <div className="foundry-table-wrapper" style={{ marginBottom: '1rem' }}>
         <Table
@@ -1413,7 +1584,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={item.value}
                         placeholder={item.locked ? "Locked" : "Enter value"}
-                        disabled={item.locked}
+                        disabled={!isPrimaryDataSaved || item.locked}
                         onChange={(e) => {
                           const newValues = [...values];
                           newValues[inputIndex].value = e.target.value;
@@ -1429,13 +1600,13 @@ const SandTestingRecord = () => {
                           borderRadius: '4px',
                           fontSize: '1rem',
                           outline: 'none',
-                          backgroundColor: item.locked ? '#f1f5f9' : 'white',
-                          cursor: item.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || item.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || item.locked) ? 'not-allowed' : 'text'
                         }}
                       />
                       {!item.locked && inputIndex === values.length - 1 && values.length > 1 && (
-                        <MinusButton 
-                          onClick={() => removeTable1aInput(rowIndex, colIndex, inputIndex)} 
+                        <MinusButton
+                          onClick={() => removeTable1aInput(rowIndex, colIndex, inputIndex)}
                           title="Remove entry" 
                         />
                       )}
@@ -1465,27 +1636,27 @@ const SandTestingRecord = () => {
                 <td style={{ textAlign: 'center', fontWeight: 700, fontSize: '1.0625rem', color: '#1e293b' }}>Bentonite</td>
                 <td style={{ textAlign: 'center', padding: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', flexWrap: 'nowrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: table1bInputs.valueLocked ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: table1bInputs.valueLocked ? 0.6 : 1, fontSize: '1rem', fontWeight: '500' }}>
-                      <input 
-                        type="radio" 
-                        name="table1b_type" 
-                        value="coalDust" 
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 0.6 : 1, fontSize: '1rem', fontWeight: '500' }}>
+                      <input
+                        type="radio"
+                        name="table1b_type"
+                        value="coalDust"
                         checked={table1bInputs.batchType === 'coalDust'}
                         onChange={(e) => setTable1bInputs({...table1bInputs, batchType: e.target.value})}
-                        disabled={table1bInputs.valueLocked}
-                        style={{ cursor: table1bInputs.valueLocked ? 'not-allowed' : 'pointer', width: '18px', height: '18px' }} 
+                        disabled={!isPrimaryDataSaved || table1bInputs.valueLocked}
+                        style={{ cursor: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 'not-allowed' : 'pointer', width: '18px', height: '18px' }}
                       />
                       <span style={{ fontSize: '1rem' }}>Coal Dust</span>
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: table1bInputs.valueLocked ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: table1bInputs.valueLocked ? 0.6 : 1, fontSize: '1rem', fontWeight: '500' }}>
-                      <input 
-                        type="radio" 
-                        name="table1b_type" 
-                        value="premix" 
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 0.6 : 1, fontSize: '1rem', fontWeight: '500' }}>
+                      <input
+                        type="radio"
+                        name="table1b_type"
+                        value="premix"
                         checked={table1bInputs.batchType === 'premix'}
                         onChange={(e) => setTable1bInputs({...table1bInputs, batchType: e.target.value})}
-                        disabled={table1bInputs.valueLocked}
-                        style={{ cursor: table1bInputs.valueLocked ? 'not-allowed' : 'pointer', width: '18px', height: '18px' }} 
+                        disabled={!isPrimaryDataSaved || table1bInputs.valueLocked}
+                        style={{ cursor: (!isPrimaryDataSaved || table1bInputs.valueLocked) ? 'not-allowed' : 'pointer', width: '18px', height: '18px' }}
                       />
                       <span style={{ fontSize: '1rem' }}>Premix</span>
                     </label>
@@ -1499,7 +1670,7 @@ const SandTestingRecord = () => {
                     value={table1bInputs.bentonite}
                     onChange={(e) => setTable1bInputs({...table1bInputs, bentonite: e.target.value})}
                     placeholder={table1bInputs.bentoniteLocked ? "Locked" : "Enter bentonite value"}
-                    disabled={table1bInputs.bentoniteLocked}
+                    disabled={!isPrimaryDataSaved || table1bInputs.bentoniteLocked}
                     style={{ 
                       width: '100%', 
                       padding: '10px', 
@@ -1507,8 +1678,8 @@ const SandTestingRecord = () => {
                       borderRadius: '4px', 
                       fontSize: '1rem', 
                       textAlign: 'center',
-                      backgroundColor: table1bInputs.bentoniteLocked ? '#f1f5f9' : 'white',
-                      cursor: table1bInputs.bentoniteLocked ? 'not-allowed' : 'text'
+                      backgroundColor: (!isPrimaryDataSaved || table1bInputs.bentoniteLocked) ? '#f1f5f9' : 'white',
+                      cursor: (!isPrimaryDataSaved || table1bInputs.bentoniteLocked) ? 'not-allowed' : 'text'
                     }} 
                   />
                 </td>
@@ -1518,7 +1689,7 @@ const SandTestingRecord = () => {
                     value={table1bInputs.value}
                     onChange={(e) => setTable1bInputs({...table1bInputs, value: e.target.value})}
                     placeholder={table1bInputs.valueLocked ? "Locked" : (table1bInputs.batchType === 'coalDust' ? 'Enter coal dust value' : 'Enter premix value')}
-                    disabled={table1bInputs.valueLocked || !table1bInputs.batchType}
+                    disabled={!isPrimaryDataSaved || table1bInputs.valueLocked || !table1bInputs.batchType}
                     style={{ 
                       width: '100%', 
                       padding: '10px', 
@@ -1526,8 +1697,8 @@ const SandTestingRecord = () => {
                       borderRadius: '4px', 
                       fontSize: '1rem', 
                       textAlign: 'center',
-                      backgroundColor: (table1bInputs.valueLocked || !table1bInputs.batchType) ? '#f1f5f9' : 'white',
-                      cursor: (table1bInputs.valueLocked || !table1bInputs.batchType) ? 'not-allowed' : 'text'
+                      backgroundColor: (!isPrimaryDataSaved || table1bInputs.valueLocked || !table1bInputs.batchType) ? '#f1f5f9' : 'white',
+                      cursor: (!isPrimaryDataSaved || table1bInputs.valueLocked || !table1bInputs.batchType) ? 'not-allowed' : 'text'
                     }} 
                   />
                 </td>
@@ -1537,15 +1708,18 @@ const SandTestingRecord = () => {
         </div>
         
         {/* Table 1 Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <SubmitButton onClick={handleTable1Submit} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {tableMessages[1] && (
+            <InlineLoader message={tableMessages[1].text} variant={tableMessages[1].variant} size="medium" />
+          )}
+          <SubmitButton onClick={handleTable1Submit} disabled={!isPrimaryDataSaved} />
         </div>
       </div>
       </div>
 
       {/* Table 2 */}
       <div className="foundry-section">
-        <h3 className="foundry-section-title">Clay Testing</h3>
+        <h3 className="foundry-section-title">Clay Testing {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         {/* Table 2 - 8x4 with header */}
         <div className="foundry-table-wrapper" style={{ marginBottom: '1.5rem' }}>
         <div className="reusable-table-container">
@@ -1580,7 +1754,7 @@ const SandTestingRecord = () => {
                           type="text" 
                           value={cellData.value}
                           placeholder={cellData.locked ? "Locked" : "Enter value"}
-                          disabled={cellData.locked}
+                          disabled={!isPrimaryDataSaved || cellData.locked}
                           onChange={(e) => {
                             setTable2Inputs({
                               ...table2Inputs,
@@ -1595,8 +1769,8 @@ const SandTestingRecord = () => {
                             fontSize: '1rem',
                             outline: 'none',
                             textAlign: 'center',
-                            backgroundColor: cellData.locked ? '#f1f5f9' : 'white',
-                            cursor: cellData.locked ? 'not-allowed' : 'text'
+                            backgroundColor: (!isPrimaryDataSaved || cellData.locked) ? '#f1f5f9' : 'white',
+                            cursor: (!isPrimaryDataSaved || cellData.locked) ? 'not-allowed' : 'text'
                           }} 
                         />
                       </td>
@@ -1609,15 +1783,18 @@ const SandTestingRecord = () => {
         </div>
         
         {/* Table 2 Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <SubmitButton onClick={handleTable2Submit} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {tableMessages[2] && (
+            <InlineLoader message={tableMessages[2].text} variant={tableMessages[2].variant} size="medium" />
+          )}
+          <SubmitButton onClick={handleTable2Submit} disabled={!isPrimaryDataSaved} />
         </div>
       </div>
       </div>
 
       {/* Table 3 */}
       <div className="foundry-section">
-        <h3 className="foundry-section-title">Mix Testing & Hopper Level</h3>
+        <h3 className="foundry-section-title">Mix Testing & Hopper Level {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         {/* Table 3 - 4x4 empty table with custom column widths */}
         <div className="foundry-table-wrapper" style={{ marginBottom: '1.5rem' }}>
         <div className="reusable-table-container">
@@ -1705,7 +1882,7 @@ const SandTestingRecord = () => {
                                   type="text"
                                   value={item.value}
                                   placeholder={item.locked ? "Locked" : "Enter value"}
-                                  disabled={item.locked}
+                                  disabled={!isPrimaryDataSaved || item.locked}
                                   onChange={(e) => {
                                     const newValues = [...values];
                                     newValues[inputIndex].value = e.target.value;
@@ -1722,8 +1899,8 @@ const SandTestingRecord = () => {
                                     fontSize: '1rem',
                                     outline: 'none',
                                     textAlign: 'center',
-                                    backgroundColor: item.locked ? '#f1f5f9' : 'white',
-                                    cursor: item.locked ? 'not-allowed' : 'text'
+                                    backgroundColor: (!isPrimaryDataSaved || item.locked) ? '#f1f5f9' : 'white',
+                                    cursor: (!isPrimaryDataSaved || item.locked) ? 'not-allowed' : 'text'
                                   }}
                                 />
                                 {!item.locked && inputIndex === values.length - 1 && values.length > 1 && (
@@ -1752,15 +1929,18 @@ const SandTestingRecord = () => {
         </div>
         
         {/* Table 3 Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <SubmitButton onClick={handleTable3Submit} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {tableMessages[3] && (
+            <InlineLoader message={tableMessages[3].text} variant={tableMessages[3].variant} size="medium" />
+          )}
+          <SubmitButton onClick={handleTable3Submit} disabled={!isPrimaryDataSaved} />
         </div>
       </div>
       </div>
 
       {/* Table 4 */}
       <div className="foundry-section">
-        <h3 className="foundry-section-title">Sand Weight & Friability</h3>
+        <h3 className="foundry-section-title">Sand Weight & Friability {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
         {/* Table 4a and 4b - Side by Side (plain container; no bordered wrapper so the
             two narrow tables don't leave a stray border line running to the Submit button) */}
         <div style={{ marginBottom: '1.5rem' }}>
@@ -1777,7 +1957,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={table4Inputs.sandLump.value}
                         placeholder={table4Inputs.sandLump.locked ? "Locked" : "Enter value"}
-                        disabled={table4Inputs.sandLump.locked}
+                        disabled={!isPrimaryDataSaved || table4Inputs.sandLump.locked}
                         onChange={(e) => setTable4Inputs({...table4Inputs, sandLump: { value: e.target.value, locked: table4Inputs.sandLump.locked }})}
                         style={{ 
                           width: '100%', 
@@ -1787,8 +1967,8 @@ const SandTestingRecord = () => {
                           fontSize: '1rem',
                           outline: 'none',
                           textAlign: 'center',
-                          backgroundColor: table4Inputs.sandLump.locked ? '#f1f5f9' : 'white',
-                          cursor: table4Inputs.sandLump.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || table4Inputs.sandLump.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || table4Inputs.sandLump.locked) ? 'not-allowed' : 'text'
                         }} 
                       />
                     </td>
@@ -1800,7 +1980,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={table4Inputs.newSandWt.value}
                         placeholder={table4Inputs.newSandWt.locked ? "Locked" : "Enter value"}
-                        disabled={table4Inputs.newSandWt.locked}
+                        disabled={!isPrimaryDataSaved || table4Inputs.newSandWt.locked}
                         onChange={(e) => setTable4Inputs({...table4Inputs, newSandWt: { value: e.target.value, locked: table4Inputs.newSandWt.locked }})}
                         style={{ 
                           width: '100%', 
@@ -1810,8 +1990,8 @@ const SandTestingRecord = () => {
                           fontSize: '1rem',
                           outline: 'none',
                           textAlign: 'center',
-                          backgroundColor: table4Inputs.newSandWt.locked ? '#f1f5f9' : 'white',
-                          cursor: table4Inputs.newSandWt.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || table4Inputs.newSandWt.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || table4Inputs.newSandWt.locked) ? 'not-allowed' : 'text'
                         }} 
                       />
                     </td>
@@ -1837,7 +2017,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={table4Inputs.friabilityShiftI.value}
                         placeholder={table4Inputs.friabilityShiftI.locked ? "Locked" : "Enter value"}
-                        disabled={table4Inputs.friabilityShiftI.locked}
+                        disabled={!isPrimaryDataSaved || table4Inputs.friabilityShiftI.locked}
                         onChange={(e) => setTable4Inputs({...table4Inputs, friabilityShiftI: { value: e.target.value, locked: table4Inputs.friabilityShiftI.locked }})}
                         style={{ 
                           width: '100%', 
@@ -1847,8 +2027,8 @@ const SandTestingRecord = () => {
                           fontSize: '1rem',
                           outline: 'none',
                           textAlign: 'center',
-                          backgroundColor: table4Inputs.friabilityShiftI.locked ? '#f1f5f9' : 'white',
-                          cursor: table4Inputs.friabilityShiftI.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftI.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftI.locked) ? 'not-allowed' : 'text'
                         }} 
                       />
                     </td>
@@ -1860,7 +2040,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={table4Inputs.friabilityShiftII.value}
                         placeholder={table4Inputs.friabilityShiftII.locked ? "Locked" : "Enter value"}
-                        disabled={table4Inputs.friabilityShiftII.locked}
+                        disabled={!isPrimaryDataSaved || table4Inputs.friabilityShiftII.locked}
                         onChange={(e) => setTable4Inputs({...table4Inputs, friabilityShiftII: { value: e.target.value, locked: table4Inputs.friabilityShiftII.locked }})}
                         style={{ 
                           width: '100%', 
@@ -1870,8 +2050,8 @@ const SandTestingRecord = () => {
                           fontSize: '1rem',
                           outline: 'none',
                           textAlign: 'center',
-                          backgroundColor: table4Inputs.friabilityShiftII.locked ? '#f1f5f9' : 'white',
-                          cursor: table4Inputs.friabilityShiftII.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftII.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftII.locked) ? 'not-allowed' : 'text'
                         }} 
                       />
                     </td>
@@ -1883,7 +2063,7 @@ const SandTestingRecord = () => {
                         type="text"
                         value={table4Inputs.friabilityShiftIII.value}
                         placeholder={table4Inputs.friabilityShiftIII.locked ? "Locked" : "Enter value"}
-                        disabled={table4Inputs.friabilityShiftIII.locked}
+                        disabled={!isPrimaryDataSaved || table4Inputs.friabilityShiftIII.locked}
                         onChange={(e) => setTable4Inputs({...table4Inputs, friabilityShiftIII: { value: e.target.value, locked: table4Inputs.friabilityShiftIII.locked }})}
                         style={{ 
                           width: '100%', 
@@ -1893,8 +2073,8 @@ const SandTestingRecord = () => {
                           fontSize: '1rem',
                           outline: 'none',
                           textAlign: 'center',
-                          backgroundColor: table4Inputs.friabilityShiftIII.locked ? '#f1f5f9' : 'white',
-                          cursor: table4Inputs.friabilityShiftIII.locked ? 'not-allowed' : 'text'
+                          backgroundColor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftIII.locked) ? '#f1f5f9' : 'white',
+                          cursor: (!isPrimaryDataSaved || table4Inputs.friabilityShiftIII.locked) ? 'not-allowed' : 'text'
                         }} 
                       />
                     </td>
@@ -1906,14 +2086,17 @@ const SandTestingRecord = () => {
         </div>
         
         {/* Table 4 Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <SubmitButton onClick={handleTable4Submit} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {tableMessages[4] && (
+            <InlineLoader message={tableMessages[4].text} variant={tableMessages[4].variant} size="medium" />
+          )}
+          <SubmitButton onClick={handleTable4Submit} disabled={!isPrimaryDataSaved} />
         </div>
       </div>
       </div>
       {/* Table 5: Sand Properties & Test Parameters */}
       <div className="foundry-section">
-        <h3 className="foundry-section-title">Sand Properties & Test Parameters</h3>
+        <h3 className="foundry-section-title">Sand Properties & Test Parameters {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
 
         {/* New entry form (S.No {nextTable5SNo}). Submitted rows are shown on the report page only. */}
         <div className="sand-table5-form-grid">
@@ -1935,6 +2118,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Mix No</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={mixNoRef}
               type="number"
               placeholder="Mix No"
@@ -1948,6 +2132,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Permeability (90-160)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={permeabilityRef}
               type="number"
               placeholder="90-160"
@@ -1964,6 +2149,7 @@ const SandTestingRecord = () => {
               <div className={`sand-radio-group ${gcsCheckpointValid === false ? 'invalid-input' : ''}`}>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="gcsCheckpoint"
                     value="FDY-A"
@@ -1974,6 +2160,7 @@ const SandTestingRecord = () => {
                 </label>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="gcsCheckpoint"
                     value="FDY-B"
@@ -1985,6 +2172,7 @@ const SandTestingRecord = () => {
               </div>
             </div>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={gcsValueRef}
               type="number"
               placeholder="Value"
@@ -1999,6 +2187,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>WTS N/cm² (Min 0.15)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={wtsRef}
               type="number"
               placeholder="Min 0.15"
@@ -2012,6 +2201,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Moisture (3.0-4.0%)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={moistureRef}
               type="number"
               placeholder="3.0-4.0"
@@ -2025,6 +2215,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Compactability At Dmm (33-40%)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={compactabilityRef}
               type="number"
               placeholder="33-40"
@@ -2038,6 +2229,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Compressability At Dmm (20-28%)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={compressabilityRef}
               type="number"
               placeholder="20-28"
@@ -2051,6 +2243,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Water Litre/Kg Mix</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={waterLitreRef}
               type="number"
               placeholder="Value"
@@ -2065,6 +2258,7 @@ const SandTestingRecord = () => {
             <label>Sand Temp °C (BC/WU/SSU Max 45)</label>
             <div style={{ display: 'flex', gap: '4px' }}>
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={sandTempBCRef}
                 type="number"
                 placeholder="BC"
@@ -2074,6 +2268,7 @@ const SandTestingRecord = () => {
                 className={sandTempBCValid === false ? "invalid-input" : ""}
               />
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={sandTempWURef}
                 type="number"
                 placeholder="WU"
@@ -2083,6 +2278,7 @@ const SandTestingRecord = () => {
                 className={sandTempWUValid === false ? "invalid-input" : ""}
               />
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={sandTempSSURef}
                 type="number"
                 placeholder="SSU"
@@ -2097,6 +2293,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>New Sand Kgs/Mould (0.0-5.0)</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={newSandRef}
               type="number"
               placeholder="0.0-5.0"
@@ -2113,6 +2310,7 @@ const SandTestingRecord = () => {
               <div className={`sand-radio-group ${bentoniteCheckpointValid === false ? 'invalid-input' : ''}`}>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="bentoniteCheckpoint"
                     value="0.60-1.20"
@@ -2123,6 +2321,7 @@ const SandTestingRecord = () => {
                 </label>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="bentoniteCheckpoint"
                     value="0.80-2.20"
@@ -2135,6 +2334,7 @@ const SandTestingRecord = () => {
             </div>
             <div style={{ display: 'flex', gap: '4px' }}>
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={bentoniteKgsRef}
                 type="number"
                 placeholder="Kgs"
@@ -2145,6 +2345,7 @@ const SandTestingRecord = () => {
                 className={bentoniteKgsValid === false ? "invalid-input" : ""}
               />
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={bentonitePercentRef}
                 type="number"
                 placeholder="%"
@@ -2163,6 +2364,7 @@ const SandTestingRecord = () => {
               <div className={`sand-radio-group ${premixCoalCheckpointValid === false ? 'invalid-input' : ''}`}>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="premixCoalCheckpoint"
                     value="Premix"
@@ -2173,6 +2375,7 @@ const SandTestingRecord = () => {
                 </label>
                 <label>
                   <input
+                    disabled={!isPrimaryDataSaved}
                     type="radio"
                     name="premixCoalCheckpoint"
                     value="CoalDust"
@@ -2185,6 +2388,7 @@ const SandTestingRecord = () => {
             </div>
             <div style={{ display: 'flex', gap: '4px' }}>
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={premixCoalKgsRef}
                 type="number"
                 placeholder="Kgs"
@@ -2195,6 +2399,7 @@ const SandTestingRecord = () => {
                 className={premixCoalKgsValid === false ? "invalid-input" : ""}
               />
               <input
+                disabled={!isPrimaryDataSaved}
                 ref={premixCoalPercentRef}
                 type="number"
                 placeholder="%"
@@ -2207,59 +2412,112 @@ const SandTestingRecord = () => {
             </div>
           </div>
 
-          <div className="sand-form-field sand-selector-field">
-            <div className="sand-field-header">
-              <label>Compactability Setting</label>
-              <select
-                value={table5FormData.compactabilitySetting}
-                onChange={(e) => updateFormField('compactabilitySetting', e.target.value)}
-                className={compactabilitySettingValid === false ? "invalid-input" : ""}
-              >
-                <option value="">Select</option>
-                <option value="LC">LC</option>
-                <option value="SMC42">SMC42 (42±3)</option>
-              </select>
+          <div className="sand-form-field">
+            <label>Compactability Setting</label>
+            <div ref={compactabilityDropdownRef} style={{ position: 'relative' }}>
+              <input
+                disabled={!isPrimaryDataSaved}
+                ref={compactabilityValueRef}
+                type="number"
+                value={table5FormData.compactabilityValue}
+                onChange={(e) => handleCompactabilityValueChange(e.target.value)}
+                onFocus={handleCompactabilityValueFocus}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowCompactabilityDropdown(false);
+                  } else if (e.key === 'Enter' && showCompactabilityDropdown && filteredCompactabilitySuggestions.length > 0) {
+                    e.preventDefault();
+                    handleCompactabilityValueSelect(filteredCompactabilitySuggestions[0]);
+                  } else {
+                    handleKeyDown(e, mouldStrengthValueRef);
+                  }
+                }}
+                placeholder="Value"
+                autoComplete="off"
+                className={compactabilityValueValid === false ? "invalid-input" : ""}
+              />
+              {showCompactabilityDropdown && filteredCompactabilitySuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0,
+                  backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                  maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}>
+                  {filteredCompactabilitySuggestions.map((s, idx) => (
+                    <div
+                      key={s}
+                      onClick={() => handleCompactabilityValueSelect(s)}
+                      style={{
+                        padding: '8px 12px', cursor: 'pointer',
+                        borderBottom: idx < filteredCompactabilitySuggestions.length - 1 ? '1px solid #eee' : 'none',
+                        backgroundColor: 'white'
+                      }}
+                      onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                      onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <input
-              ref={compactabilityValueRef}
-              type="number"
-              placeholder="Value"
-              value={table5FormData.compactabilityValue}
-              onChange={(e) => updateFormField('compactabilityValue', e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, mouldStrengthValueRef)}
-              onFocus={() => { if (!table5FormData.compactabilitySetting) setCompactabilitySettingValid(false); }}
-              className={compactabilityValueValid === false ? "invalid-input" : ""}
-            />
           </div>
 
-          <div className="sand-form-field sand-selector-field">
-            <div className="sand-field-header">
-              <label>Mould Strength Setting</label>
-              <select
-                value={table5FormData.mouldStrengthSetting}
-                onChange={(e) => updateFormField('mouldStrengthSetting', e.target.value)}
-                className={mouldStrengthSettingValid === false ? "invalid-input" : ""}
-              >
-                <option value="">Select</option>
-                <option value="SMC23">SMC23 (23±3)</option>
-                <option value="At15">At15 (5.0±1%)</option>
-              </select>
+          <div className="sand-form-field">
+            <label>Mould Strength Setting</label>
+            <div ref={mouldStrengthDropdownRef} style={{ position: 'relative' }}>
+              <input
+                disabled={!isPrimaryDataSaved}
+                ref={mouldStrengthValueRef}
+                type="number"
+                value={table5FormData.mouldStrengthValue}
+                onChange={(e) => handleMouldStrengthValueChange(e.target.value)}
+                onFocus={handleMouldStrengthValueFocus}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowMouldStrengthDropdown(false);
+                  } else if (e.key === 'Enter' && showMouldStrengthDropdown && filteredMouldStrengthSuggestions.length > 0) {
+                    e.preventDefault();
+                    handleMouldStrengthValueSelect(filteredMouldStrengthSuggestions[0]);
+                  } else {
+                    handleKeyDown(e, preparedSandLumpsRef);
+                  }
+                }}
+                placeholder="Value"
+                autoComplete="off"
+                className={mouldStrengthValueValid === false ? "invalid-input" : ""}
+              />
+              {showMouldStrengthDropdown && filteredMouldStrengthSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0,
+                  backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                  maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                }}>
+                  {filteredMouldStrengthSuggestions.map((s, idx) => (
+                    <div
+                      key={s}
+                      onClick={() => handleMouldStrengthValueSelect(s)}
+                      style={{
+                        padding: '8px 12px', cursor: 'pointer',
+                        borderBottom: idx < filteredMouldStrengthSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                        backgroundColor: 'white'
+                      }}
+                      onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                      onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <input
-              ref={mouldStrengthValueRef}
-              type="number"
-              placeholder="Value"
-              value={table5FormData.mouldStrengthValue}
-              onChange={(e) => updateFormField('mouldStrengthValue', e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, preparedSandLumpsRef)}
-              onFocus={() => { if (!table5FormData.mouldStrengthSetting) setMouldStrengthSettingValid(false); }}
-              className={mouldStrengthValueValid === false ? "invalid-input" : ""}
-            />
           </div>
 
           <div className="sand-form-field">
             <label>Prepared Sand Lumps/Kg</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={preparedSandLumpsRef}
               type="number"
               placeholder="Value"
@@ -2273,6 +2531,7 @@ const SandTestingRecord = () => {
           <div className="sand-form-field">
             <label>Item Name</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={itemNameRef}
               type="text"
               placeholder="Item Name"
@@ -2283,9 +2542,10 @@ const SandTestingRecord = () => {
             />
           </div>
 
-          <div className="sand-form-field full-row">
+          <div className="sand-form-field remarks-field">
             <label>Remarks</label>
             <input
+              disabled={!isPrimaryDataSaved}
               ref={remarksRef}
               type="text"
               placeholder="Remarks"
@@ -2304,8 +2564,11 @@ const SandTestingRecord = () => {
         </div>
 
         {/* Submit Button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-          <SubmitButton ref={submitButtonRef} onClick={handleTable5Submit} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem' }}>
+          {tableMessages[5] && (
+            <InlineLoader message={tableMessages[5].text} variant={tableMessages[5].variant} size="medium" />
+          )}
+          <SubmitButton ref={submitButtonRef} onClick={handleTable5Submit} disabled={!isPrimaryDataSaved} />
         </div>
       </div>
       </div>

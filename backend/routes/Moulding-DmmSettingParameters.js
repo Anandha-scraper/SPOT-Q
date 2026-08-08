@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const dmmController = require('../controllers/Moulding-DmmSettingParameters');
+const {
+    getAllDMMSettings,
+    getDMMSettingsByDate,
+    createDMMSettings
+} = require('../controllers/Moulding-DmmSettingParameters');
 
-router.get('/all', dmmController.getAllDMMSettings);
-router.get('/search/primary', dmmController.getDMMSettingsByDate); 
-router.get('/search/customer', dmmController.getDMMSettingsByCustomer);
-router.post('/', dmmController.createDMMSettings);
+// protect/checkDepartmentAccess('Moulding') apply at the server.js mount site. GET /search/customer is dropped (zero frontend callers).
+
+router.get('/all', getAllDMMSettings);
+router.get('/search/primary', getDMMSettingsByDate);
+router.post('/', createDMMSettings);
 
 module.exports = router;

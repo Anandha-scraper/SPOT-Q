@@ -43,55 +43,86 @@ const shouldNavigate = (el, key) => {
   return true;
 };
 
-// Pick the nearest navigable element in the pressed direction, preferring alignment.
-const findNearest = (current, container, key) => {
-  const cur = current.getBoundingClientRect();
-  const cx = cur.left + cur.width / 2;
-  const cy = cur.top + cur.height / 2;
+// Elements within this many px of vertical center of a row's first element
+// are considered part of that same visual row. Generous enough to absorb
+// minor height differences between <input>/<select>/custom pickers, tight
+// enough not to merge genuinely different rows.
+const ROW_TOLERANCE_PX = 14;
 
-  let best = null;
-  let bestScore = Infinity;
-
-  for (const el of getNavigableElements(container)) {
-    if (el === current) continue;
+// Group navigable elements into visual rows (by rendered geometry, not DOM/CSS
+// structure, so this works the same for CSS Grid rows and flex-wrap sub-rows
+// nested inside one grid cell), then sort each row left-to-right. Recomputed
+// on every keypress so dynamically disabled fields are naturally excluded.
+const buildRows = (container) => {
+  const items = getNavigableElements(container).map((el) => {
     const r = el.getBoundingClientRect();
-    const ex = r.left + r.width / 2;
-    const ey = r.top + r.height / 2;
-    const dx = ex - cx;
-    const dy = ey - cy;
+    return { el, top: r.top, cx: r.left + r.width / 2 };
+  });
+  items.sort((a, b) => a.top - b.top);
 
-    let inDirection;
-    let forward;
-    let cross;
-    switch (key) {
-      case 'ArrowUp':
-        inDirection = dy < -1; forward = -dy; cross = Math.abs(dx); break;
-      case 'ArrowDown':
-        inDirection = dy > 1; forward = dy; cross = Math.abs(dx); break;
-      case 'ArrowLeft':
-        inDirection = dx < -1; forward = -dx; cross = Math.abs(dy); break;
-      default: // ArrowRight
-        inDirection = dx > 1; forward = dx; cross = Math.abs(dy); break;
-    }
-    if (!inDirection) continue;
-
-    const score = cross * 2 + forward;
-    if (score < bestScore) {
-      bestScore = score;
-      best = el;
+  const rows = [];
+  for (const item of items) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(item.top - row[0].top) <= ROW_TOLERANCE_PX) {
+      row.push(item);
+    } else {
+      rows.push([item]);
     }
   }
+  rows.forEach((row) => row.sort((a, b) => a.cx - b.cx));
 
-  return best;
+  return rows;
 };
 
-/**
- * Spatial arrow-key navigation for grid-style entry forms.
- *
- * Attach the returned `containerRef` and `handleArrowKeyDown` to the form's
- * wrapper element. Bubbling delivers every field's arrow keypress to the single
- * handler, which moves focus to the control physically above/below/left/right.
- */
+const findRowCol = (rows, current) => {
+  for (let r = 0; r < rows.length; r++) {
+    const c = rows[r].findIndex((item) => item.el === current);
+    if (c !== -1) return { r, c };
+  }
+  return null;
+};
+
+// Row-and-column aware navigation: Left/Right stay on the same row and wrap
+// to the adjacent row's start/end at a boundary; Up/Down are restricted to
+// the immediately adjacent row (picking its horizontally-nearest item) so a
+// wide element (e.g. a full-width textarea) several rows away can never be
+// picked over the field that is actually next.
+const findNearest = (current, container, key) => {
+  const rows = buildRows(container);
+  const pos = findRowCol(rows, current);
+  if (!pos) return null;
+  const { r, c } = pos;
+  const row = rows[r];
+
+  if (key === 'ArrowRight') {
+    if (c < row.length - 1) return row[c + 1].el;
+    const nextRow = rows[r + 1];
+    return nextRow ? nextRow[0].el : null;
+  }
+
+  if (key === 'ArrowLeft') {
+    if (c > 0) return row[c - 1].el;
+    const prevRow = rows[r - 1];
+    return prevRow ? prevRow[prevRow.length - 1].el : null;
+  }
+
+  const targetRow = key === 'ArrowDown' ? rows[r + 1] : rows[r - 1];
+  if (!targetRow) return null;
+
+  const curX = row[c].cx;
+  let best = null;
+  let bestDist = Infinity;
+  for (const item of targetRow) {
+    const dist = Math.abs(item.cx - curX);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = item;
+    }
+  }
+  return best ? best.el : null;
+};
+
+// Attach containerRef/handleArrowKeyDown to a grid-style form's wrapper — see frontend.md for the row-clustering model.
 export function useArrowNavigation() {
   const containerRef = useRef(null);
 
@@ -105,9 +136,7 @@ export function useArrowNavigation() {
     // Leave native date/time segment editing alone.
     if (el.tagName === 'INPUT' && NATIVE_ARROW_TYPES.includes((el.type || '').toLowerCase())) return;
 
-    // Suppress the native number-input spinner: ↑/↓ must never change the value,
-    // only move focus. Done up-front so it's killed even at grid boundaries where
-    // no neighbouring control exists to navigate to.
+    // Suppress the native number-input spinner up-front (↑/↓ must only move focus), even at grid boundaries with no neighbour to navigate to.
     const isNumber = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'number';
     if (isNumber && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();

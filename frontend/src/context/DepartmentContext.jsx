@@ -2,21 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useAuth } from './AuthContext';
 import { departmentFormConfig } from './departmentFormConfig';
 
-// A single generic context that holds one independent draft "slice" per department.
-// Each slice = { formData, validationStates, submitErrorMessage, meta }.
-//
-// Pages consume a slice via useDepartmentForm('<dept>'), which returns the same
-// property names the old per-department contexts exposed, so page bodies are unchanged.
-//
-// Drafts persist for the whole authenticated session (the provider is mounted once,
-// above <Routes>, so it survives navigation) and are cleared on logout / session
-// teardown (user -> null) and on hard refresh (in-memory state).
+// One generic context holding an independent draft slice per department ({formData, validationStates, submitErrorMessage, meta}); see frontend.md.
 
 const DepartmentContext = createContext(null);
 
-// Build a fresh slice for one department from its config. structuredClone keeps the
-// (possibly nested — e.g. QcProduction arrays) initial values isolated per slice so
-// one department can never mutate another's defaults.
+// structuredClone isolates nested initial values per slice so one department can't mutate another's defaults.
 const createSlice = (deptKey) => {
   const cfg = departmentFormConfig[deptKey];
   return {

@@ -1,0 +1,1200 @@
+// SPOT-Q schema. Auth (Phase 1), Process (Phase 2), and Tensile / Impact /
+// Micro Tensile / Micro Structure / QC Production (Phase 3).
+//
+// The rationale for every non-obvious column type lives in INFO.md's Decision
+// record, not here. Read it before "fixing" anything that looks wrong.
+//
+// PORTABILITY CONTRACT — production moves to MS SQL Server 2022 later, so every
+// construct here must be valid for BOTH the `postgresql` and `sqlserver`
+// providers. That rules out:
+//   - `enum` types      (unsupported on sqlserver)
+//   - `Json` columns    (unsupported on sqlserver)
+//   - scalar lists      (postgres-only)
+//   - provider-specific @db.* types
+// Department and role are therefore plain strings, validated in the service
+// layer against utils/constants.js (DEPARTMENTS / ROLES).
+//
+// To switch to SQL Server: set provider = "sqlserver" here, swap the driver
+// adapter in database/prisma.js to @prisma/adapter-mssql, point the URLs in
+// .env at the new server, and re-baseline `prisma/migrations/` with a fresh
+// `prisma migrate dev --name init_auth`. The model bodies do not change — that
+// is what the @db.VarChar annotations buy.
+//
+// Prisma 7 note: connection URLs no longer live in this file. The CLI reads
+// them from ../prisma.config.js; the runtime client gets a driver adapter.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  // Client-side generated UUID: identical on every provider, needs no
+  // sequence/identity, and keeps the frontend's `String(a) === String(b)` id
+  // comparisons working. @db.VarChar(36) is mandatory, not cosmetic — an
+  // un-annotated String becomes NVARCHAR(1000) on SQL Server, and an index key
+  // over 900 bytes is rejected there.
+  id String @id @default(uuid()) @db.VarChar(36)
+
+  // Normalised to UPPERCASE + trimmed in the service layer; Mongoose's
+  // `uppercase: true` / `trim: true` setters have no Prisma equivalent.
+  employeeId String @unique @db.VarChar(32)
+
+  // Not indexed, so deliberately left un-annotated (postgres `text` /
+  // SQL Server NVARCHAR(1000)) — operator names may be non-ASCII.
+  name String
+
+  department String @db.VarChar(32)
+  role       String @default("employee") @db.VarChar(16)
+
+  // Named passwordHash, never `password`: the old Mongoose model used
+  // `password`, so any copy-pasted `user.password` now reads undefined (a loud
+  // failure) instead of silently working with a hash. bcrypt output is 60 chars.
+  passwordHash String @db.VarChar(100)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loginActivities LoginActivity[]
+  processEntries  ProcessEntry[]
+
+  tensileEntries        TensileEntry[]
+  impactEntries         ImpactEntry[]
+  microTensileEntries   MicroTensileEntry[]
+  microStructureEntries MicroStructureEntry[]
+  qcProductionEntries   QcProduction[]
+
+  // Cupola and both Moulding modules never had a createdBy field in Mongoose —
+  // genuinely ownerless, no back-relation here. Sand Lab's three modules
+  // (SandNoteEntry/ReturnSandNoteEntry/SandRecordDay) were ownerless too until
+  // their report pages needed the same ownership+edit-window gating every
+  // other department already has.
+  meltingLogEntries MeltingLogEntry[]
+
+  sandNoteEntries       SandNoteEntry[]
+  returnSandNoteEntries ReturnSandNoteEntry[]
+  sandRecordDays        SandRecordDay[]
+
+  downloadLogs DownloadLog[]
+
+  @@index([department])
+  @@map("users")
+}
+
+model LoginActivity {
+  id     String @id @default(uuid()) @db.VarChar(36)
+  userId String @db.VarChar(36)
+
+  // Denormalised snapshots, exactly as in the old models/LoginActivity.js: they
+  // record who the user WAS at login time and must not follow later profile
+  // edits. Not a join — deliberate.
+  employeeId String @db.VarChar(32)
+  department String @db.VarChar(32)
+
+  loginAt   DateTime @default(now())
+  ip        String?  @db.VarChar(64)
+  userAgent String?
+
+  // Replaces the orphan sweep in the old utils/cleanupLoginActivity.js —
+  // orphaned rows are now impossible by construction.
+  // NOTE for Phase 2: SQL Server rejects multiple cascade paths to the same
+  // table, so when department tables gain a createdBy FK -> User, those
+  // relations must use onDelete: NoAction. Only this one cascade can stay.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, loginAt(sort: Desc)])
+  @@index([employeeId, loginAt(sort: Desc)])
+  @@map("login_activities")
+}
+
+// Audit trail of report/Excel downloads per employee. Immutable, create-only —
+// no update, no delete — so there is no updatedAt, matching LoginActivity.
+model DownloadLog {
+  id     String @id @default(uuid()) @db.VarChar(36)
+  userId String @db.VarChar(36)
+
+  // Denormalised snapshot at download time, same reasoning as LoginActivity:
+  // must not follow later profile edits (a department transfer shouldn't
+  // rewrite history for downloads made before it).
+  employeeId String @db.VarChar(32)
+  name       String @default("")
+  department String @db.VarChar(32)
+
+  // Which department/report screen the download came from (e.g. 'Tensile').
+  reportType String @default("") @db.VarChar(64)
+  // Human-readable date range that was exported, e.g. "01/07/2026 - 07/07/2026".
+  rangeLabel String @default("") @db.VarChar(128)
+
+  createdAt DateTime @default(now())
+
+  // NoAction, not Cascade: LoginActivity already owns the one cascade path
+  // into users that SQL Server allows.
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("download_logs")
+}
+
+// ── Process department ───────────────────────────────────────────────────────
+// Replaces the single Mongo `process` collection, which was one document per
+// calendar day holding an embedded entries[] array and a savedDisas[] scalar
+// array. Both become real tables: scalar lists are banned by the portability
+// contract above, and embedded arrays have no SQL equivalent.
+
+model Process {
+  id String @id @default(uuid()) @db.VarChar(36)
+
+  // Deliberately a STRING 'YYYY-MM-DD', not DateTime.
+  // ProcessReport.jsx filters with plain string >= / <= and defaults to exact
+  // equality with today. A DateTime serialises as '2026-08-01T00:00:00.000Z',
+  // which new Date() reads as UTC and renders as the PREVIOUS day for anyone
+  // behind UTC — today's entries would silently vanish from the report.
+  // VarChar(10) also sorts correctly, since YYYY-MM-DD is lexicographic.
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries    ProcessEntry[]
+  savedDisas ProcessSavedDisa[]
+
+  @@map("process")
+}
+
+// The old `savedDisas: [String]`. Drives the frontend's "primary lock": until a
+// Date+DISA pair is saved here, every downstream field in the entry form stays
+// disabled. The @@unique replaces the hand-rolled includes() dedupe the old
+// savePrimary controller did in application code.
+model ProcessSavedDisa {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  processId String @db.VarChar(36)
+  disa      String @db.VarChar(32)
+
+  createdAt DateTime @default(now())
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, disa])
+  @@map("process_saved_disas")
+}
+
+model ProcessEntry {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  processId String @db.VarChar(36)
+
+  disa     String @db.VarChar(32) // the only required entry field
+  partName String @default("") @db.VarChar(128)
+  datecode String @default("") @db.VarChar(16) // /^[0-9][A-Z][0-9]{2}$/, validated in the service
+  heatcode String @default("") @db.VarChar(32)
+
+  // The one numeric the form OMITS when blank (a '-' would fail the cast).
+  quantityOfMoulds Int?
+
+  // The 21 fields that were mongoose Schema.Types.Mixed with default '-'.
+  // They stay String because the form posts the literal '-' for "not measured"
+  // and the report renders the stored value verbatim. Making any of these
+  // numeric breaks submission for every blank optional field.
+  metalCompositionC    String @default("-") @db.VarChar(32)
+  metalCompositionSi   String @default("-") @db.VarChar(32)
+  metalCompositionMn   String @default("-") @db.VarChar(32)
+  metalCompositionP    String @default("-") @db.VarChar(32)
+  metalCompositionS    String @default("-") @db.VarChar(32)
+  metalCompositionMgFL String @default("-") @db.VarChar(32) // exact casing: MgFL
+  metalCompositionCu   String @default("-") @db.VarChar(32)
+  metalCompositionCr   String @default("-") @db.VarChar(32)
+
+  correctiveAdditionC  String @default("-") @db.VarChar(32)
+  correctiveAdditionSi String @default("-") @db.VarChar(32)
+  correctiveAdditionMn String @default("-") @db.VarChar(32)
+  correctiveAdditionS  String @default("-") @db.VarChar(32)
+  correctiveAdditionCr String @default("-") @db.VarChar(32)
+  correctiveAdditionCu String @default("-") @db.VarChar(32)
+  correctiveAdditionSn String @default("-") @db.VarChar(32)
+
+  tappingWt       String @default("-") @db.VarChar(32)
+  mg              String @default("-") @db.VarChar(32)
+  resMgConvertor  String @default("-") @db.VarChar(32) // "Convertor", not "Converter"
+  recOfMg         String @default("-") @db.VarChar(32)
+  streamInoculant String @default("-") @db.VarChar(32)
+  pTime           String @default("-") @db.VarChar(32)
+
+  timeOfPouring         String @default("") @db.VarChar(32) // "9:05 AM - 9:45 AM"
+  tappingTime           String @default("") @db.VarChar(32) // "9:05 AM"
+  pouringTemperatureMin Int?
+  pouringTemperatureMax Int?
+
+  ppCode      String @default("") @db.VarChar(16)
+  treatmentNo String @default("") @db.VarChar(16)
+  fcNo        String @default("") @db.VarChar(8) // '1'..'4','H1','H2' — strings, not ints
+  heatNo      String @default("") @db.VarChar(32)
+  conNo       String @default("") @db.VarChar(32)
+  remarks     String @default("") @db.VarChar(500)
+
+  // Scalar uuid, never serialised as a nested user object: EntryActions.jsx
+  // compares String(entry.createdBy) === String(user.id) to decide whether to
+  // show the edit pencil.
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([processId])
+  @@index([partName])
+  @@map("process_entries")
+}
+
+// ── Tensile department ───────────────────────────────────────────────────────
+
+model Tensile {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries TensileEntry[]
+
+  @@map("tensile")
+}
+
+model TensileEntry {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  tensileId String @db.VarChar(36)
+
+  item     String @db.VarChar(128)
+  dateCode String @db.VarChar(16)
+  heatCode String @default("") @db.VarChar(32)
+
+  dia          Float?
+  lo           Float?
+  li           Float?
+  breakingLoad Float?
+  yieldLoad    Float?
+  uts          Float?
+  ys           Float?
+  elongation   Float?
+
+  remarks  String @default("") @db.VarChar(500)
+  testedBy String @default("") @db.VarChar(64)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tensile Tensile @relation(fields: [tensileId], references: [id], onDelete: Cascade)
+  creator User?   @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([tensileId])
+  @@map("tensile_entries")
+}
+
+// ── Impact department ────────────────────────────────────────────────────────
+
+model Impact {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries ImpactEntry[]
+
+  @@map("impact")
+}
+
+model ImpactEntry {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  impactId String @db.VarChar(36)
+
+  partName      String @db.VarChar(128)
+  dateCode      String @db.VarChar(16)
+  specification String @db.VarChar(128)
+  observedValue String @db.VarChar(200)
+  remarks       String @db.VarChar(500)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  impact  Impact @relation(fields: [impactId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([impactId])
+  @@map("impact_entries")
+}
+
+// ── Micro Tensile department ─────────────────────────────────────────────────
+
+model MicroTensile {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries    MicroTensileEntry[]
+  savedDisas MicroTensileSavedDisa[]
+
+  @@map("micro_tensile")
+}
+
+model MicroTensileSavedDisa {
+  id             String @id @default(uuid()) @db.VarChar(36)
+  microTensileId String @db.VarChar(36)
+  disa           String @db.VarChar(32)
+
+  createdAt DateTime @default(now())
+
+  microTensile MicroTensile @relation(fields: [microTensileId], references: [id], onDelete: Cascade)
+
+  @@unique([microTensileId, disa])
+  @@map("micro_tensile_saved_disas")
+}
+
+model MicroTensileEntry {
+  id             String @id @default(uuid()) @db.VarChar(36)
+  microTensileId String @db.VarChar(36)
+
+  disa    String @db.VarChar(32)
+  itemIt1 String @db.VarChar(128)
+  itemIt2 String @default("") @db.VarChar(32)
+
+  dateCode String @db.VarChar(16)
+  heatCode String @db.VarChar(32)
+
+  barDia          Float
+  gaugeLength     Float
+  maxLoad         Float
+  yieldLoad       Float
+  tensileStrength Float
+  yieldStrength   Float
+  elongation      Float
+
+  remarks  String @default("") @db.VarChar(500)
+  testedBy String @default("") @db.VarChar(64)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  microTensile MicroTensile @relation(fields: [microTensileId], references: [id], onDelete: Cascade)
+  creator      User?        @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([microTensileId])
+  @@map("micro_tensile_entries")
+}
+
+// ── Micro Structure department ───────────────────────────────────────────────
+
+model MicroStructure {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries    MicroStructureEntry[]
+  savedDisas MicroStructureSavedDisa[]
+
+  @@map("micro_structure")
+}
+
+model MicroStructureSavedDisa {
+  id               String @id @default(uuid()) @db.VarChar(36)
+  microStructureId String @db.VarChar(36)
+  disa             String @db.VarChar(32)
+
+  createdAt DateTime @default(now())
+
+  microStructure MicroStructure @relation(fields: [microStructureId], references: [id], onDelete: Cascade)
+
+  @@unique([microStructureId, disa])
+  @@map("micro_structure_saved_disas")
+}
+
+model MicroStructureEntry {
+  id               String @id @default(uuid()) @db.VarChar(36)
+  microStructureId String @db.VarChar(36)
+
+  disa     String @db.VarChar(32)
+  partName String @db.VarChar(128)
+  dateCode String @db.VarChar(16)
+  heatCode String @db.VarChar(32)
+
+  nodularity   Float
+  graphiteType String @db.VarChar(32)
+
+  countMin    Float
+  countMax    Float @default(0)
+  sizeMin     Float
+  sizeMax     Float @default(0)
+  ferriteMin  Float
+  ferriteMax  Float @default(0)
+  pearliteMin Float
+  pearliteMax Float @default(0)
+  carbideMin  Float
+  carbideMax  Float @default(0)
+
+  remarks String @default("") @db.VarChar(500)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  microStructure MicroStructure @relation(fields: [microStructureId], references: [id], onDelete: Cascade)
+  creator        User?          @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([microStructureId])
+  @@map("micro_structure_entries")
+}
+
+// ── QC Production department ─────────────────────────────────────────────────
+// The one department with no date-keyed parent: the row IS the entry, and many
+// rows per calendar day is normal. `date` therefore carries no @unique.
+
+model QcProduction {
+  id String @id @default(uuid()) @db.VarChar(36)
+
+  date     String @db.VarChar(10)
+  partName String @db.VarChar(128)
+
+  noOfMoulds Int?
+
+  cPercentFrom  Float?
+  cPercentTo    Float  @default(0)
+  siPercentFrom Float?
+  siPercentTo   Float  @default(0)
+  mnPercentFrom Float?
+  mnPercentTo   Float  @default(0)
+  pPercentFrom  Float?
+  pPercentTo    Float  @default(0)
+  sPercentFrom  Float?
+  sPercentTo    Float  @default(0)
+  mgPercentFrom Float?
+  mgPercentTo   Float  @default(0)
+  cuPercentFrom Float?
+  cuPercentTo   Float  @default(0)
+  crPercentFrom Float?
+  crPercentTo   Float  @default(0)
+
+  nodularity  Float?
+  noduleCount Float?
+
+  graphiteTypeFrom Float?
+  graphiteTypeTo   Float  @default(0)
+
+  pearlite Float?
+  ferrite  Float?
+
+  hardnessBHNFrom Float?
+  hardnessBHNTo   Float  @default(0)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values  QcProductionValue[]
+  creator User?               @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([date])
+  @@index([partName])
+  @@map("qc_production_details")
+}
+
+// The old ts:[Number], ys:[String], el:[String] scalar arrays, which the
+// portability contract bans. `position` preserves the test-bar ordering the
+// report renders.
+model QcProductionValue {
+  id             String @id @default(uuid()) @db.VarChar(36)
+  qcProductionId String @db.VarChar(36)
+
+  kind     String @db.VarChar(2)
+  position Int
+  value    String @db.VarChar(32)
+
+  entry QcProduction @relation(fields: [qcProductionId], references: [id], onDelete: Cascade)
+
+  @@unique([qcProductionId, kind, position])
+  @@map("qc_production_values")
+}
+
+// ── Melting department ───────────────────────────────────────────────────────
+// Two Mongoose collections, both nesting two levels deep (primaries[].entries[]
+// in Mongo terms). MeltingLogsheet keeps its per-entry edit/delete (the only one
+// of the six Phase 4 modules that had one); CupolaHolderLog never did.
+
+model MeltingLog {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  primaries MeltingLogPrimary[]
+
+  @@map("melting_logs")
+}
+
+// shift+furnaceNo+panel was matched in application code with no DB constraint
+// in Mongoose; the @@unique here makes createOrUpdatePrimary a real upsert.
+model MeltingLogPrimary {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  meltingLogId String @db.VarChar(36)
+
+  shift     String @db.VarChar(16)
+  furnaceNo String @db.VarChar(16)
+  panel     String @db.VarChar(16)
+
+  cumulativeLiquidMetal Float   @default(0)
+  finalKwhr             Float   @default(0)
+  initialKwhr           Float   @default(0)
+  totalUnits            Float   @default(0)
+  cumulativeUnits       Float   @default(0)
+  isLocked              Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meltingLog MeltingLog        @relation(fields: [meltingLogId], references: [id], onDelete: Cascade)
+  entries    MeltingLogEntry[]
+
+  @@unique([meltingLogId, shift, furnaceNo, panel])
+  @@map("melting_log_primaries")
+}
+
+// 42 columns, one per the old controller's FLAT_TO_PATH key — create and
+// filter already speak this flat vocabulary, so no wire-shape reshaping is
+// needed. All String @default("-") (former Mixed fields, '-' sentinel).
+// `time`/`tempCSg` (wire keys for metalTapping.*) are named metalTappingTime /
+// metalTappingTempCSg here to stay unambiguous next to chargingTime; the
+// service maps between the two.
+model MeltingLogEntry {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  primaryId String @db.VarChar(36)
+
+  heatno String @default("-") @db.VarChar(32)
+  grade  String @default("-") @db.VarChar(32)
+
+  chargingTime                 String @default("-") @db.VarChar(16)
+  chargingIfBath               String @default("-") @db.VarChar(32)
+  chargingLiquidMetalPressPour String @default("-") @db.VarChar(32)
+  chargingLiquidMetalHolder    String @default("-") @db.VarChar(32)
+  chargingSgMsSteel            String @default("-") @db.VarChar(32)
+  chargingGreyMsSteel          String @default("-") @db.VarChar(32)
+  chargingReturnsSg            String @default("-") @db.VarChar(32)
+  chargingPigIron              String @default("-") @db.VarChar(32)
+  chargingBorings              String @default("-") @db.VarChar(32)
+  chargingFinalBath            String @default("-") @db.VarChar(32)
+
+  charCoal String @default("-") @db.VarChar(32)
+  cpcFur   String @default("-") @db.VarChar(32)
+  cpcLc    String @default("-") @db.VarChar(32)
+
+  siliconCarbideFur String @default("-") @db.VarChar(32)
+  ferrosiliconFur   String @default("-") @db.VarChar(32)
+  ferrosiliconLc    String @default("-") @db.VarChar(32)
+  ferroManganeseFur String @default("-") @db.VarChar(32)
+  ferroManganeseLc  String @default("-") @db.VarChar(32)
+
+  cu String @default("-") @db.VarChar(32)
+  cr String @default("-") @db.VarChar(32)
+
+  pureMg     String @default("-") @db.VarChar(32)
+  ironPyrite String @default("-") @db.VarChar(32)
+
+  labCoinTime  String @default("-") @db.VarChar(16)
+  labCoinTempC String @default("-") @db.VarChar(32)
+
+  deslagingTimeFrom String @default("-") @db.VarChar(16)
+  deslagingTimeTo   String @default("-") @db.VarChar(16)
+  metalReadyTime    String @default("-") @db.VarChar(16)
+
+  waitingForTappingFrom String @default("-") @db.VarChar(16)
+  waitingForTappingTo   String @default("-") @db.VarChar(16)
+  reason                String @default("-") @db.VarChar(200)
+
+  // Wire keys: `time` / `tempCSg` (metalTapping.time / metalTapping.tempCSg).
+  metalTappingTime    String @default("-") @db.VarChar(16)
+  metalTappingTempCSg String @default("-") @db.VarChar(32)
+
+  directFurnace   String @default("-") @db.VarChar(32)
+  holderToFurnace String @default("-") @db.VarChar(32)
+  furnaceToHolder String @default("-") @db.VarChar(32)
+
+  disaNo String @default("-") @db.VarChar(16)
+  item   String @default("-") @db.VarChar(64)
+
+  furnace1Kw   String @default("-") @db.VarChar(16)
+  furnace1A    String @default("-") @db.VarChar(16)
+  furnace1V    String @default("-") @db.VarChar(16)
+  furnace2Kw   String @default("-") @db.VarChar(16)
+  furnace2A    String @default("-") @db.VarChar(16)
+  furnace2V    String @default("-") @db.VarChar(16)
+  furnace3Kw   String @default("-") @db.VarChar(16)
+  furnace3A    String @default("-") @db.VarChar(16)
+  furnace3V    String @default("-") @db.VarChar(16)
+  furnace4Hz   String @default("-") @db.VarChar(16)
+  furnace4Gld  String @default("-") @db.VarChar(16)
+  furnace4KwHr String @default("-") @db.VarChar(16)
+
+  createdBy String?  @db.VarChar(36)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  primary MeltingLogPrimary @relation(fields: [primaryId], references: [id], onDelete: Cascade)
+  creator User?             @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@index([primaryId])
+  @@map("melting_log_entries")
+}
+
+// CupolaHolderLog — same two-level shape, no lock/value fields on the
+// primary, no createdBy on the entry (Mongoose never had one), no /:id route.
+model CupolaLog {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  primaries CupolaLogPrimary[]
+
+  @@map("cupola_logs")
+}
+
+model CupolaLogPrimary {
+  id          String @id @default(uuid()) @db.VarChar(36)
+  cupolaLogId String @db.VarChar(36)
+
+  shift        String @db.VarChar(16)
+  holderNumber String @db.VarChar(16)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cupolaLog CupolaLog        @relation(fields: [cupolaLogId], references: [id], onDelete: Cascade)
+  entries   CupolaLogEntry[]
+
+  @@unique([cupolaLogId, shift, holderNumber])
+  @@map("cupola_log_primaries")
+}
+
+model CupolaLogEntry {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  primaryId String @db.VarChar(36)
+
+  heatNo String @default("-") @db.VarChar(32)
+  cpc    String @default("-") @db.VarChar(32)
+  feSl   String @default("-") @db.VarChar(32)
+  feMn   String @default("-") @db.VarChar(32)
+  sic    String @default("-") @db.VarChar(32)
+  pureMg String @default("-") @db.VarChar(32)
+  cu     String @default("-") @db.VarChar(32)
+  feCr   String @default("-") @db.VarChar(32)
+
+  actualTime  String @default("-") @db.VarChar(16)
+  tappingTime String @default("-") @db.VarChar(16)
+  tappingTemp String @default("-") @db.VarChar(32)
+  metalKg     String @default("-") @db.VarChar(32)
+
+  disaLine String @default("-") @db.VarChar(16)
+  indFur   String @default("-") @db.VarChar(16)
+  bailNo   String @default("-") @db.VarChar(16)
+  tap      String @default("-") @db.VarChar(16)
+  kw       String @default("-") @db.VarChar(16)
+  remarks  String @default("-") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  primary CupolaLogPrimary @relation(fields: [primaryId], references: [id], onDelete: Cascade)
+
+  @@index([primaryId])
+  @@map("cupola_log_entries")
+}
+
+// ── Moulding department ──────────────────────────────────────────────────────
+// Neither module had entries[] or a /:id route; both dispatched writes through
+// a "section" name in the request body onto named sub-tables (DISA) or a
+// machine+shift entries[] with a nested parameters[] array (DMM).
+
+// date+shift keyed (was a compound unique index in Mongoose). The old
+// section-save controller looked up its parent by date ALONE, so two shifts on
+// one day could silently cross-write; the fix here is that every lookup in
+// disaReportService.js is keyed by (date, shift) from the start.
+model DisaReport {
+  id    String @id @default(uuid()) @db.VarChar(36)
+  date  String @db.VarChar(10)
+  shift String @db.VarChar(16)
+
+  incharge   String? @db.VarChar(64)
+  ppOperator String? @db.VarChar(64)
+
+  significantEvent String? @db.VarChar(500)
+  maintenance      String? @db.VarChar(500)
+  supervisorName   String? @db.VarChar(64)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       DisaReportMember[]
+  production    DisaProductionEntry[]
+  nextShiftPlan DisaNextShiftPlanEntry[]
+  delays        DisaDelayEntry[]
+  mouldHardness DisaMouldHardnessEntry[]
+  patternTemp   DisaPatternTempEntry[]
+
+  @@unique([date, shift])
+  @@map("disa_reports")
+}
+
+model DisaReportMember {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  position Int
+  name     String @db.VarChar(64)
+
+  report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+
+  @@unique([disaReportId, position])
+  @@map("disa_report_members")
+}
+
+model DisaProductionEntry {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  sNo Int
+
+  counterNo     String @default("") @db.VarChar(32)
+  componentName String @default("") @db.VarChar(64)
+  produced      Int    @default(0)
+  poured        Int    @default(0)
+  cycleTime     String @default("") @db.VarChar(16)
+  mouldsPerHour Int    @default(0)
+  remarks       String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+
+  @@index([disaReportId])
+  @@map("disa_production_entries")
+}
+
+model DisaNextShiftPlanEntry {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  sNo Int
+
+  componentName String @default("") @db.VarChar(64)
+  plannedMoulds Int    @default(0)
+  remarks       String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+
+  @@index([disaReportId])
+  @@map("disa_next_shift_plan_entries")
+}
+
+// One row per delay; durationMinutes/fromTime/toTime were three PARALLEL
+// scalar arrays in Mongoose — delay N's i-th duration/from/to travel together,
+// which is exactly what a position-keyed child table preserves.
+model DisaDelayEntry {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  sNo    Int
+  delays String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  report    DisaReport          @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+  intervals DisaDelayInterval[]
+
+  @@index([disaReportId])
+  @@map("disa_delay_entries")
+}
+
+model DisaDelayInterval {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  delayEntryId String @db.VarChar(36)
+
+  position        Int
+  durationMinutes String @default("") @db.VarChar(16)
+  fromTime        String @default("") @db.VarChar(16)
+  toTime          String @default("") @db.VarChar(16)
+
+  entry DisaDelayEntry @relation(fields: [delayEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([delayEntryId, position])
+  @@map("disa_delay_intervals")
+}
+
+// mpPP/mpSP/bsPP/bsSP were arrays of [from,to] string pairs — one child row
+// per (kind, position), the same discriminator pattern as QcProductionValue.
+model DisaMouldHardnessEntry {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  sNo           Int
+  componentName String @default("") @db.VarChar(64)
+  remarks       String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  report   DisaReport                 @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+  readings DisaMouldHardnessReading[]
+
+  @@index([disaReportId])
+  @@map("disa_mould_hardness_entries")
+}
+
+model DisaMouldHardnessReading {
+  id      String @id @default(uuid()) @db.VarChar(36)
+  entryId String @db.VarChar(36)
+
+  kind      String @db.VarChar(4) // 'mpPP' | 'mpSP' | 'bsPP' | 'bsSP'
+  position  Int
+  fromValue String @default("") @db.VarChar(16)
+  toValue   String @default("") @db.VarChar(16)
+
+  entry DisaMouldHardnessEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, kind, position])
+  @@map("disa_mould_hardness_readings")
+}
+
+model DisaPatternTempEntry {
+  id           String @id @default(uuid()) @db.VarChar(36)
+  disaReportId String @db.VarChar(36)
+
+  sNo  Int
+  item String @default("") @db.VarChar(64)
+  pp   Int    @default(0)
+  sp   Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
+
+  @@index([disaReportId])
+  @@map("disa_pattern_temp_entries")
+}
+
+// date keyed (one document per date, machine+shift was a soft key matched in
+// application code). The @@unique below makes the 'operation' section save a
+// real upsert instead of a manual find-in-array.
+model DmmLog {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  machineShifts DmmMachineShift[]
+
+  @@map("dmm_logs")
+}
+
+model DmmMachineShift {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  dmmLogId String @db.VarChar(36)
+
+  machine String @db.VarChar(32)
+  shift   String @db.VarChar(4)
+
+  operatorName String @default("") @db.VarChar(64)
+  checkedBy    String @default("") @db.VarChar(64)
+
+  dmmLog     DmmLog              @relation(fields: [dmmLogId], references: [id], onDelete: Cascade)
+  parameters DmmParameterEntry[]
+
+  @@unique([dmmLogId, machine, shift])
+  @@map("dmm_machine_shifts")
+}
+
+model DmmParameterEntry {
+  id             String @id @default(uuid()) @db.VarChar(36)
+  machineShiftId String @db.VarChar(36)
+
+  sNo Int
+
+  customer        String @default("") @db.VarChar(64)
+  itemDescription String @default("") @db.VarChar(128)
+  time            String @default("") @db.VarChar(16)
+
+  ppThickness Float @default(0)
+  ppHeight    Float @default(0)
+  spThickness Float @default(0)
+  spHeight    Float @default(0)
+
+  coreMaskThickness     Float @default(0)
+  coreMaskHeightOutside Float @default(0)
+  coreMaskHeightInside  Float @default(0)
+
+  sandShotPressureBar Float @default(0)
+  correctionShotTime  Float @default(0)
+  squeezePressure     Float @default(0)
+
+  ppStrippingAcceleration Float @default(0)
+  ppStrippingDistance     Float @default(0)
+  spStrippingAcceleration Float @default(0)
+  spStrippingDistance     Float @default(0)
+  mouldThicknessPlus10    Float @default(0)
+
+  closeUpForceMouldCloseUpPressure String @default("") @db.VarChar(32)
+  remarks                          String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  machineShift DmmMachineShift @relation(fields: [machineShiftId], references: [id], onDelete: Cascade)
+
+  @@index([machineShiftId])
+  @@map("dmm_parameter_entries")
+}
+
+// ── Sand Lab department ──────────────────────────────────────────────────────
+// Neither module had a /:id route; both wrote via a recursive deep-merge onto
+// arbitrarily nested optional fields. Rather than name ~108 columns (Foundry
+// Note) or hardcode three genuinely different shift-key spellings per section
+// (Testing Record — confirmed in the frontend source, not a typo), both use a
+// generic path/value discriminator table. "Overwrite this leaf if non-empty"
+// becomes a single-row upsert; the exact wire casing is stored verbatim.
+
+model SandNoteDay {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries SandNoteEntry[]
+
+  @@map("sand_note_days")
+}
+
+model SandNoteEntry {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  sandNoteDayId String @db.VarChar(36)
+
+  shift     String @db.VarChar(16)
+  sandPlant String @db.VarChar(32)
+
+  compactibilitySetting String @default("") @db.VarChar(32)
+  shearStrengthSetting  String @default("") @db.VarChar(32)
+  remarks               String @default("") @db.VarChar(500)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  day    SandNoteDay     @relation(fields: [sandNoteDayId], references: [id], onDelete: Cascade)
+  fields SandNoteField[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@unique([sandNoteDayId, shift, sandPlant])
+  @@map("sand_note_entries")
+}
+
+// Replaces clayTests/sieveTesting/parameters/additionalData x test1/test2 x
+// several leaves (~108 total). `fieldPath` mirrors exactly what the frontend
+// itself already builds as a flat key for its own lock-tracking, e.g.
+// 'totalClay.input1', 'sieveSize.1700', 'compactability'.
+model SandNoteField {
+  id      String @id @default(uuid()) @db.VarChar(36)
+  entryId String @db.VarChar(36)
+
+  section   String @db.VarChar(20) // 'clayTests' | 'sieveTesting' | 'parameters' | 'additionalData'
+  testNo    Int // 1 or 2
+  fieldPath String @db.VarChar(40)
+  value     String @db.VarChar(64)
+
+  entry SandNoteEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, section, testNo, fieldPath])
+  @@map("sand_note_fields")
+}
+
+// Return Sand Foundry Sand Testing Note — a scoped-down sibling of
+// SandNoteDay/Entry/Field above: same date+shift+plant primary shape and the
+// same generic path/value discriminator table, but only clayTests/sieveTesting
+// sections and no Compactability/Shear-Strength/Remarks scalar columns, since
+// this module never has them. plant is 'Eirich' | 'Disa' | 'Foundry-A',
+// validated in the service — no enum, per the portability contract.
+model ReturnSandNoteDay {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  date String @unique @db.VarChar(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries ReturnSandNoteEntry[]
+
+  @@map("return_sand_note_days")
+}
+
+model ReturnSandNoteEntry {
+  id    String @id @default(uuid()) @db.VarChar(36)
+  dayId String @db.VarChar(36)
+
+  shift String @db.VarChar(16)
+  plant String @db.VarChar(32)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  day    ReturnSandNoteDay     @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  fields ReturnSandNoteField[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@unique([dayId, shift, plant])
+  @@map("return_sand_note_entries")
+}
+
+model ReturnSandNoteField {
+  id      String @id @default(uuid()) @db.VarChar(36)
+  entryId String @db.VarChar(36)
+
+  section   String @db.VarChar(20) // 'clayTests' | 'sieveTesting'
+  testNo    Int
+  fieldPath String @db.VarChar(40)
+  value     String @db.VarChar(64)
+
+  entry ReturnSandNoteEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, section, testNo, fieldPath])
+  @@map("return_sand_note_fields")
+}
+
+// date+plant keyed (was a compound unique index in Mongoose; plant is
+// 'Disa' | 'Eirich', validated in the service — no enum, per the portability
+// contract).
+model SandRecordDay {
+  id    String @id @default(uuid()) @db.VarChar(36)
+  date  String @db.VarChar(10)
+  plant String @db.VarChar(16)
+
+  sandLump  String @default("") @db.VarChar(32)
+  newSandWt String @default("") @db.VarChar(32)
+
+  createdBy String? @db.VarChar(36)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values         SandRecordValue[]
+  testParameters SandRecordTestParameter[]
+
+  // NoAction, not Cascade: SQL Server rejects multiple cascade paths to the
+  // same table, and LoginActivity already owns the single cascade into users.
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+
+  @@unique([date, plant])
+  @@map("sand_record_days")
+}
+
+// Replaces sandShifts / clayShifts / mixshifts / sandFriability. `shiftKey`
+// stores the wire casing VERBATIM: sandShifts sends 'shiftI'/'shiftII'/
+// 'shiftIII', clayShifts sends 'shiftI'/'ShiftII'/'ShiftIII', mixshifts sends
+// 'ShiftI'/'ShiftII'/'ShiftIII' — three different spellings per section,
+// confirmed in SandTestingRecord.jsx. `position` is 0 for scalar fields and
+// 0..N for the growing string-array fields (rSand, mixno.start, ...); append
+// means "insert the next position", never overwrite an existing one.
+model SandRecordValue {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  recordId String @db.VarChar(36)
+
+  section  String @db.VarChar(20) // 'sandShifts' | 'clayShifts' | 'mixshifts' | 'sandFriability'
+  shiftKey String @db.VarChar(10)
+  field    String @db.VarChar(30) // 'rSand', 'mixno.start', 'batchNo.bentonite', ...
+  position Int    @default(0)
+  value    String @db.VarChar(64)
+
+  record SandRecordDay @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([recordId, section, shiftKey, field, position])
+  @@map("sand_record_values")
+}
+
+// Table 5 — a genuine append-only log, never deep-merged in Mongoose. Named
+// columns are fine here (no casing ambiguity), and getStats aggregates these
+// directly.
+model SandRecordTestParameter {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  recordId String @db.VarChar(36)
+
+  sno   Int
+  time  String @default("") @db.VarChar(16)
+  mixno String @default("") @db.VarChar(16)
+
+  permeability    Float  @default(0)
+  gcsFdyA         String @default("-") @db.VarChar(16)
+  gcsFdyB         String @default("-") @db.VarChar(16)
+  wts             Float  @default(0)
+  moisture        Float  @default(0)
+  compactability  Float  @default(0)
+  compressibility Float  @default(0)
+  waterLitre      Float  @default(0)
+
+  sandTempBC     Float @default(0)
+  sandTempWU     Float @default(0)
+  sandTempSSUmax Float @default(0)
+
+  newSandKgs Float @default(0)
+  mould      Float @default(0)
+
+  bentoniteWithPremixKgs     Float  @default(0)
+  bentoniteWithPremixPercent Float  @default(0)
+  bentoniteKgs               String @default("-") @db.VarChar(16)
+  bentonitePercent           String @default("-") @db.VarChar(16)
+  bentoniteCheckpoint        String @default("-") @db.VarChar(16)
+  premixKgs                  String @default("-") @db.VarChar(16)
+  premixPercent              String @default("-") @db.VarChar(16)
+  coalDustKgs                String @default("-") @db.VarChar(16)
+  coalDustPercent            String @default("-") @db.VarChar(16)
+
+  lc                     Float @default(0)
+  compactabilitySettings Float @default(0)
+  mouldStrength          Float @default(0)
+  shearStrengthSetting   Float @default(0)
+  preparedSandlumps      Float @default(0)
+
+  itemName String @default("") @db.VarChar(64)
+  remarks  String @default("") @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  record SandRecordDay @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@map("sand_record_test_parameters")
+}

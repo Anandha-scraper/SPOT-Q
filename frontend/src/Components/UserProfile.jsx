@@ -60,9 +60,7 @@ const MONTH_NAMES = [
   "December",
 ];
 
-// Admin overview: departments included in the Entry Trends graph.
-// Sand Lab (table-based) and Moulding DISA (table-based) are intentionally excluded.
-// MOCK ONLY — real per-department entry counts will come from the backend later.
+// Admin Entry Trends graph departments — Sand Lab/Moulding DISA excluded (table-based); mock data until backend wiring lands (see backend.md's stats Open Item).
 const ADMIN_DEPARTMENTS = [
   "Melting · Log Sheet",
   "Melting · Cupola Holder",
@@ -250,13 +248,17 @@ const UserProfile = () => {
   }, [user, isAdmin]);
 
   // ---- Download logs pagination (derived) ----
+  // Non-admin: flat last-5, no pager — the rest is only reachable via the
+  // dedicated "my downloads" report page (mirrors admin's "view full logs").
   const totalDownloadPages = Math.ceil(
     downloadLogs.length / downloadLogsPerPage,
   );
-  const paginatedDownloadLogs = downloadLogs.slice(
-    (downloadPage - 1) * downloadLogsPerPage,
-    downloadPage * downloadLogsPerPage,
-  );
+  const paginatedDownloadLogs = isAdmin
+    ? downloadLogs.slice(
+        (downloadPage - 1) * downloadLogsPerPage,
+        downloadPage * downloadLogsPerPage,
+      )
+    : downloadLogs.slice(0, downloadLogsPerPage);
 
   // Fetch per-day entry stats for the current month (non-admin only)
   const fetchEntryStats = async () => {
@@ -591,11 +593,19 @@ const UserProfile = () => {
             <span className="up-head-sub">
               {isAdmin ? "All departments" : "Your recent downloads"}
             </span>
-            {isAdmin && (
+            {isAdmin ? (
               <button
                 className="up-refresh-btn"
                 title="View full logs"
                 onClick={() => navigate("/admin/download-logs")}
+              >
+                <ExternalLink size={14} />
+              </button>
+            ) : (
+              <button
+                className="up-refresh-btn"
+                title="View all your downloads"
+                onClick={() => navigate("/user-profile/download-logs")}
               >
                 <ExternalLink size={14} />
               </button>
@@ -654,7 +664,7 @@ const UserProfile = () => {
               </tbody>
             </table>
           </div>
-          {!downloadLoading && totalDownloadPages > 1 && (
+          {isAdmin && !downloadLoading && totalDownloadPages > 1 && (
             <CustomPagination
               currentPage={downloadPage}
               totalPages={totalDownloadPages}

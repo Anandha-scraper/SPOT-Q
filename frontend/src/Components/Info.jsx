@@ -1,62 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Info, X } from "lucide-react";
+import { Info } from "lucide-react";
 import "../styles/ComponentStyles/Info.css";
 
-/**
- * INFO CARD VALIDATION RANGE CONFIGURATION
- *
- * Properties that can be included in each validation range object:
- *
- * {
- *   field: 'Part Name',              // Field name to display (required) - Shows as the heading
- *   required: true,                   // Shows red asterisk (*) if true
- *   type: 'Text',                     // Data type: 'Text', 'Number', 'Date', 'Select', 'Time', etc.
- *   unit: 'Joules',                   // Unit of measurement (e.g., 'Joules', 'Kgs', 'mm', '°C', 'MPa', 'cm²')
- *   min: 0,                           // Minimum value (for numbers) - Shows as "Min: 0" or "Range: 0 - 100" if max is also provided
- *   max: 100,                         // Maximum value (for numbers) - Shows as "Max: 100" or "Range: 0 - 100" if min is also provided
- *   minLength: 2,                     // Minimum string length - Shows as "Min Length: 2"
- *   maxLength: 100,                   // Maximum string length - Shows as "Max Length: 100"
- *   pattern: 'e.g., ABC-123',         // Pattern description or example - Shows as "Pattern: e.g., ABC-123"
- *   allowedValues: ['Val1', 'Val2'],  // Array of allowed values (for dropdowns) - Shows as "Allowed Values: Val1, Val2"
- *   description: 'Enter the part name' // Additional notes/guidelines - Shows as "Note: Enter the part name"
- * }
- *
- * All properties are optional except 'field'. The Info card will display only the properties
- * that are provided, creating a clean and relevant validation reference for users.
- *
- * USAGE EXAMPLE:
- *
- * const validationRanges = [
- *   {
- *     field: 'Part Name',
- *     required: true,
- *     type: 'Text',
- *     minLength: 2,
- *     maxLength: 100,
- *     pattern: 'Alphanumeric, spaces, hyphens only',
- *     description: 'Enter the name of the part being tested. Only alphanumeric characters, spaces, and hyphens allowed.'
- *   },
- *   {
- *     field: 'Temperature',
- *     required: true,
- *     type: 'Number',
- *     min: 0,
- *     max: 1500,
- *     unit: '°C',
- *     pattern: 'e.g., 1400',
- *     description: 'Enter the pouring temperature in degrees Celsius'
- *   },
- *   {
- *     field: 'Material Type',
- *     required: true,
- *     type: 'Select',
- *     allowedValues: ['Steel', 'Iron', 'Aluminum'],
- *     description: 'Select the material type from the dropdown'
- *   }
- * ];
- */
-
-// Info Icon Button Component
+// validationRanges item shape and rendering rules are documented in frontend.md's Info.jsx entry.
 export const InfoIcon = ({ onClick, className = "" }) => (
   <button
     type="button"
@@ -68,7 +14,6 @@ export const InfoIcon = ({ onClick, className = "" }) => (
   </button>
 );
 
-// Info Card/Modal Component
 export const InfoCard = ({ isOpen, onClose, title, validationRanges = [] }) => {
   const modalRef = useRef(null);
 

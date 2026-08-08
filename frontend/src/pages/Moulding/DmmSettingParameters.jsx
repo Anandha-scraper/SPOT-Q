@@ -6,6 +6,7 @@ import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { buildSubmitError } from '../../utils/submitError';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
 const initialRow = {
@@ -68,6 +69,7 @@ const formatTimeToString = (timeObj) => {
 
 const DmmSettingParameters = () => {
   const navigate = useNavigate();
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [primaryData, setPrimaryData] = useState({
     date: getTodaysDate(),
     machine: '',
@@ -930,7 +932,7 @@ const DmmSettingParameters = () => {
   };
 
   return (
-    <div className="page-wrapper moulding-page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       {/* Header */}
       <div className="dmm-header">
         <div className="dmm-header-text">

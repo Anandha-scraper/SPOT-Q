@@ -314,7 +314,6 @@ export const validationRanges = [
     required: false,
     type: 'Number',
     min: 0.6,
-    max: 95,
     unit: 'Amps'
   },
   {

@@ -244,17 +244,17 @@ export const MinusButton = ({
 // Submit , Reset , Lock Primary Buttons
 
 export const SubmitButton = forwardRef(
-  ({ onClick, disabled = false, children, type = "button" }, ref) => (
+  ({ onClick, disabled = false, children, type = "button", loading = false }, ref) => (
     <div className="submit-button-wrapper">
       <button
         ref={ref}
         onClick={onClick}
         type={type}
-        disabled={disabled}
-        title={children || "Submit"}
+        disabled={disabled || loading}
+        title={loading ? "Saving..." : (children || "Submit")}
       >
-        <Save size={18} />
-        {children || "Submit"}
+        {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+        {loading ? "Saving..." : (children || "Submit")}
       </button>
     </div>
   ),

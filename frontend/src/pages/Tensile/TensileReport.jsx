@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -29,6 +29,7 @@ const KEY_TO_RULE_FIELD = {
 };
 
 const TensileReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -99,7 +100,7 @@ const TensileReport = () => {
         setFilteredEntries(computeFiltered(result.data));
       }
     } catch (error) {
-      alert('Failed to load tensile data. Please refresh.');
+      toast.error('Failed to load tensile data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -216,10 +217,10 @@ const TensileReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -238,7 +239,7 @@ const TensileReport = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = tableColumns.map(c => ({
         header: c.label, key: c.key, width: c.xlsWidth, value: c.render
@@ -254,7 +255,7 @@ const TensileReport = () => {
         sheetName: 'Tensile',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }

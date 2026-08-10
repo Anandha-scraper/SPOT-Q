@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight, Table2, PencilLine, Save, Trash2, X } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { AlertDialog, ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { FilterButton, ClearButton, DeviationToggleButton, ExcelDownloadButton, FilterDisaDropdown } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -34,6 +34,7 @@ const navButtonStyle = (disabled) => ({
 
 const ReturnSandFoundrySandTestingNoteReport = () => {
   const { isAdmin, user, editWindowMs } = useAuth();
+  const { toast } = useToast();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
     const map = {};
@@ -136,7 +137,7 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
   const handleFilter = () => {
     const to = toDate || getCurrentDate();
     if (fromDate) {
-      if (new Date(to) < new Date(fromDate)) { alert('To date cannot be before From date'); return; }
+      if (new Date(to) < new Date(fromDate)) { toast.error('To date cannot be before From date'); return; }
       setIsFiltered(true);
       fetchRange(fromDate, to);
     } else {
@@ -205,6 +206,7 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
   const [edits, setEdits] = useState({}); // `${section}|${testNum}|${fieldPath}` -> pending value
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Navigating to a different entry (or back to the combinations table) must
   // never carry stale pending edits over to whatever's shown next.
@@ -322,11 +324,12 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
         setEntries((prev) => prev.map((e, i) => (i === currentIndex ? data.data : e)));
         setEdits({});
         setEditMode(false);
+        toast.success(data.message || 'Entry updated successfully.');
       } else {
-        alert(data.message || 'Failed to save changes.');
+        toast.error(data.message || 'Failed to save changes.');
       }
     } catch (err) {
-      alert('Network error while saving. Please try again.');
+      toast.error('Network error while saving. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -339,7 +342,6 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
 
   const handleDeleteEntry = async () => {
     if (!currentEntry?._id) return;
-    if (!window.confirm('Delete this entry? This action cannot be undone.')) return;
     setDeleting(true);
     try {
       const res = await fetch(`${API_ENDPOINTS.returnSandFoundrySandTestingNotes}/${currentEntry._id}`, {
@@ -351,13 +353,15 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
         const remaining = entries.filter((_, i) => i !== currentIndex);
         setEntries(remaining);
         setCurrentIndex((i) => Math.max(0, Math.min(i, remaining.length - 1)));
+        toast.success(data.message || 'Entry deleted successfully.');
       } else {
-        alert(data.message || 'Failed to delete entry.');
+        toast.error(data.message || 'Failed to delete entry.');
       }
     } catch (err) {
-      alert('Network error while deleting. Please try again.');
+      toast.error('Network error while deleting. Please try again.');
     } finally {
       setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -483,10 +487,10 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -499,7 +503,7 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
       let records = (data.success && Array.isArray(data.data)) ? data.data : [];
       records = applyEntryFilters(records);
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
-      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (records.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDate(r.date);
 
@@ -569,7 +573,7 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
         ],
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -698,7 +702,7 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
             </>
           )}
           {currentEntry && !showEntryTable && !editMode && canDeleteEntry() && (
-            <button type="button" onClick={handleDeleteEntry} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
+            <button type="button" onClick={() => setConfirmDelete(true)} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
               <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
             </button>
           )}
@@ -755,6 +759,19 @@ const ReturnSandFoundrySandTestingNoteReport = () => {
 
       {/* Detail view — exactly one record's data at a time */}
       {!loading && !showEntryTable && currentEntry && renderDetail(currentEntry)}
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this entry?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        closeOnConfirm={false}
+        onConfirm={handleDeleteEntry}
+      />
+
 
     </div>
   );

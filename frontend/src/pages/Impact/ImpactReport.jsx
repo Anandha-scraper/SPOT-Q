@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
@@ -14,6 +14,7 @@ import '../../styles/PageStyles/Impact/ImpactReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const ImpactReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -90,7 +91,7 @@ const ImpactReport = () => {
         setFilteredEntries(computeFiltered(result.data));
       }
     } catch (error) {
-      alert('Failed to load impact data. Please refresh.');
+      toast.error('Failed to load impact data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -214,7 +215,7 @@ const ImpactReport = () => {
         sheetName: 'Impact',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }

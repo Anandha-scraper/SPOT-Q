@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { PencilLine, Trash2, BookOpenCheck, ChevronLeft, ChevronRight, Table2, Save, X } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { AlertDialog, ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { FilterButton, ClearButton, DeviationToggleButton, ExcelDownloadButton, FilterDisaDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -47,6 +47,7 @@ const navButtonStyle = (disabled) => ({
 
 const SandTestingRecordReport = () => {
   const { isAdmin, user, editWindowMs } = useAuth();
+  const { toast } = useToast();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
     const map = {};
@@ -295,6 +296,7 @@ const SandTestingRecordReport = () => {
   const [edits, setEdits] = useState({}); // cellKey -> pending string value
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     setEditMode(false);
@@ -614,11 +616,12 @@ const SandTestingRecordReport = () => {
         processRecordData(data.data);
         setEdits({});
         setEditMode(false);
+        toast.success(data.message || 'Entry updated successfully.');
       } else {
-        alert(data.message || 'Failed to save changes.');
+        toast.error(data.message || 'Failed to save changes.');
       }
     } catch (err) {
-      alert('Network error while saving. Please try again.');
+      toast.error('Network error while saving. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -631,7 +634,6 @@ const SandTestingRecordReport = () => {
 
   const handleDeleteEntry = async () => {
     if (!currentEntry?._id) return;
-    if (!window.confirm('Delete this entry? This action cannot be undone.')) return;
     setDeleting(true);
     try {
       const res = await fetch(`${API_ENDPOINTS.sandTestingRecords}/${currentEntry._id}`, {
@@ -645,13 +647,15 @@ const SandTestingRecordReport = () => {
         const newIndex = Math.max(0, Math.min(currentIndex, remaining.length - 1));
         setCurrentIndex(newIndex);
         if (remaining.length > 0) processRecordData(remaining[newIndex]);
+        toast.success(data.message || 'Entry deleted successfully.');
       } else {
-        alert(data.message || 'Failed to delete entry.');
+        toast.error(data.message || 'Failed to delete entry.');
       }
     } catch (err) {
-      alert('Network error while deleting. Please try again.');
+      toast.error('Network error while deleting. Please try again.');
     } finally {
       setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -740,7 +744,7 @@ const SandTestingRecordReport = () => {
 
     if (startDate) {
       if (new Date(to) < new Date(startDate)) {
-        alert('End date cannot be before start date');
+        toast.error('End date cannot be before start date');
         return;
       }
       setIsFiltered(true);
@@ -800,10 +804,10 @@ const SandTestingRecordReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -816,7 +820,7 @@ const SandTestingRecordReport = () => {
       const records = applyPlantFilter((result.success && Array.isArray(result.data)) ? result.data : []);
       // Oldest → newest for a natural top-to-bottom read.
       records.sort((a, b) => new Date(a.date) - new Date(b.date));
-      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (records.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDateDisplay(r.date);
       const joinArr = (a) => (Array.isArray(a) && a.length ? a.join(' / ') : '');
@@ -1034,7 +1038,7 @@ const SandTestingRecordReport = () => {
         ],
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -1157,7 +1161,7 @@ const SandTestingRecordReport = () => {
           </>
         )}
         {currentEntry && !showEntryTable && !editMode && canDeleteEntry() && (
-          <button type="button" onClick={handleDeleteEntry} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
+          <button type="button" onClick={() => setConfirmDelete(true)} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
             <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
           </button>
         )}
@@ -1345,10 +1349,9 @@ const SandTestingRecordReport = () => {
                     const deviant = Boolean(rule && isDeviant(rule, value));
 
                     return (
-                      <td key={colIndex} style={{ textAlign: 'center', padding: '10px' }}>
+                      <td key={colIndex} className={!editMode && deviant ? 'deviation-flag' : undefined} style={{ textAlign: 'center', padding: '10px' }}>
                         {editMode ? editableScalarCell(cellKey, value) : (
                           <div
-                            className={deviant ? 'deviation-flag' : undefined}
                             style={{
                               padding: '10px',
                               backgroundColor: deviant ? undefined : '#f8fafc',
@@ -1716,6 +1719,19 @@ const SandTestingRecordReport = () => {
       </div>
       </>
       )}
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this entry?"
+        description="This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        closeOnConfirm={false}
+        onConfirm={handleDeleteEntry}
+      />
+
 
     </div>
   );

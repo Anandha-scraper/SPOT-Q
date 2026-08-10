@@ -2,17 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck, ArrowLeft } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { isDeviant } from '../../utils/formValidation';
-import { validationRanges } from './DisamaticProduct';
+import { validationRanges } from '../../deviations/DdisamaticProduct';
 import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
 const DisamaticProductReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -178,7 +179,7 @@ const DisamaticProductReport = () => {
 
   const handleFilter = async () => {
     if (!startDate) {
-      alert('Please select a date');
+      toast.error('Please select a date');
       return;
     }
 
@@ -188,7 +189,7 @@ const DisamaticProductReport = () => {
       if (endDate) {
         // Range mode - fetch from range endpoint
         if (new Date(endDate) < new Date(startDate)) {
-          alert('End date cannot be before start date');
+          toast.error('End date cannot be before start date');
           setLoading(false);
           return;
         }
@@ -306,10 +307,10 @@ const DisamaticProductReport = () => {
   // ─── Excel export: one worksheet (tab) per section, flat table per tab ───
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -325,7 +326,7 @@ const DisamaticProductReport = () => {
         if (dateCompare !== 0) return dateCompare;
         return (a.shift || '').localeCompare(b.shift || '');
       });
-      if (records.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (records.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const D = (r) => formatDate(r.date);
       const S = (r) => r.shift || '-';
@@ -495,7 +496,7 @@ const DisamaticProductReport = () => {
         ],
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -533,9 +534,9 @@ const DisamaticProductReport = () => {
       label: 'Produced',
       width: '120px',
       align: 'center',
+      cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Produced', item.produced) ? 'deviation-flag' : undefined),
       render: (item) => (
         <span
-          className={!item.isTotalRow && isFieldDeviant('Produced', item.produced) ? 'deviation-flag' : undefined}
           style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
         >
           {item.produced}
@@ -547,9 +548,9 @@ const DisamaticProductReport = () => {
       label: 'Poured',
       width: '120px',
       align: 'center',
+      cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Poured', item.poured) ? 'deviation-flag' : undefined),
       render: (item) => (
         <span
-          className={!item.isTotalRow && isFieldDeviant('Poured', item.poured) ? 'deviation-flag' : undefined}
           style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
         >
           {item.poured}
@@ -568,8 +569,9 @@ const DisamaticProductReport = () => {
       label: 'Moulds/Hour',
       width: '140px',
       align: 'center',
+      cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Moulds/Hour', item.mouldsPerHour) ? 'deviation-flag' : undefined),
       render: (item) => item.isTotalRow ? '' : (
-        <span className={isFieldDeviant('Moulds/Hour', item.mouldsPerHour) ? 'deviation-flag' : undefined}>
+        <span>
           {item.mouldsPerHour}
         </span>
       )
@@ -634,8 +636,9 @@ const DisamaticProductReport = () => {
     { key: 'componentName', label: 'Component Name', width: '300px', align: 'left' },
     {
       key: 'plannedMoulds', label: 'Planned Moulds', width: '200px', align: 'center',
+      cellClassName: (item) => (isFieldDeviant('Planned Moulds', item.plannedMoulds) ? 'deviation-flag' : undefined),
       render: (item) => (
-        <span className={isFieldDeviant('Planned Moulds', item.plannedMoulds) ? 'deviation-flag' : undefined}>
+        <span>
           {item.plannedMoulds}
         </span>
       )

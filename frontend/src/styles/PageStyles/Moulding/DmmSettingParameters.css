@@ -113,7 +113,6 @@
   box-shadow: 0 4px 6px rgba(91, 154, 169, 0.3);
 }
 
-
 .dmm-submit-btn svg {
   width: 18px;
   height: 18px;
@@ -288,19 +287,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-/* Validation styles */
-.invalid-input {
-  border-color: #ef4444 !important;
-  background-color: #fef2f2 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
-}
-
-.invalid-input:focus {
-  outline: none;
-  border-color: #dc2626 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }
 
 .dmm-form-group input.invalid-input,

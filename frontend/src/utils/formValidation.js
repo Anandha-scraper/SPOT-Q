@@ -13,9 +13,28 @@ const FORMATS = {
 const INVALID_NUMBER = /[eE+]|\..*\.|--|\+\+/;
 const TRAILING_JUNK = /[eE.+-]$/;
 
-const isBlank = (v) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+export const isBlank = (v) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 
 const hasBadInput = (el) => Boolean(el && el.validity && el.validity.badInput);
+
+// Departments spell the same concept two ways ('NumberRange' in DmicroStructure,
+// 'Number Range' everywhere else). Normalise once so neither spelling silently
+// falls through to the no-op default branch.
+const normalizeType = (type) => {
+  const t = String(type || '').trim();
+  if (t === 'NumberRange') return 'Number Range';
+  if (t === 'DynamicRangeArray') return 'Dynamic Range Array';
+  if (t === 'DynamicArray') return 'Dynamic Array';
+  return t;
+};
+
+// Only these treat a two-key mapping as [min, max]. Any other multi-key mapping
+// (e.g. Dmelting's ['chargingTimeHour','chargingTimeMinute']) is a set of parts
+// that must each be validated on their own — never compared against each other.
+const RANGE_TYPES = new Set(['Number Range', 'Dynamic Range Array']);
+
+// Types whose values are numeric for spec-range (isDeviant) purposes.
+const NUMERIC_TYPES = new Set(['Number', 'Integer', 'Number Range', 'Dynamic Range Array', 'Dynamic Array']);
 
 const invalid = (message, fields) => ({ isValid: false, isMissing: false, message, fields });
 const missing = (message, fields) => ({ isValid: false, isMissing: true, message, fields });
@@ -64,24 +83,23 @@ const validateRange = (rule, [minKey, maxKey], formData, inputRefs) => {
   const maxResult = checkNumber(rule, maxValue, label);
   if (!maxResult.isValid) return { ...maxResult, fields: [maxKey] };
 
-  if (parseFloat(minValue) >= parseFloat(maxValue)) {
-    return invalid(`${label} minimum must be less than maximum`);
+  // Equal is a legal single-point range; only an inverted pair is rejected.
+  if (parseFloat(minValue) > parseFloat(maxValue)) {
+    return invalid(`${label} minimum cannot be greater than maximum`, [minKey, maxKey]);
   }
   return valid();
 };
 
-export const validateField = (rule, mapped, formData, inputRefs) => {
-  if (Array.isArray(mapped)) return validateRange(rule, mapped, formData, inputRefs);
-
+const validateScalar = (rule, value, el) => {
   const label = rule.field;
-  const value = formData[mapped];
+  const type = normalizeType(rule.type);
 
-  if (hasBadInput(inputRefs?.current?.[mapped])) {
-    return invalid(`${label} must be a valid ${String(rule.type || '').toLowerCase()}`);
+  if (hasBadInput(el)) {
+    return invalid(`${label} must be a valid ${type.toLowerCase()}`);
   }
 
   // NumberArray has its own emptiness semantics, checked before the generic blank/required handling below.
-  if (rule.type === 'NumberArray') {
+  if (type === 'NumberArray') {
     const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [];
     if (rule.required && arr.length === 0) return missing(`${label} must have at least one value`);
     for (const v of arr) {
@@ -93,7 +111,7 @@ export const validateField = (rule, mapped, formData, inputRefs) => {
 
   if (isBlank(value)) return rule.required ? missing(`${label} is required`) : valid();
 
-  switch (rule.type) {
+  switch (type) {
     case 'Number':
     case 'Integer': {
       const result = checkNumber(rule, value, label);
@@ -121,6 +139,25 @@ export const validateField = (rule, mapped, formData, inputRefs) => {
   }
 
   return valid();
+};
+
+// A multi-key mapping that is not a range: every part is validated independently
+// against the rule's own type, and `required` means every part must be filled.
+const validateParts = (rule, keys, formData, inputRefs) => {
+  for (const key of keys) {
+    const result = validateScalar(rule, formData[key], inputRefs?.current?.[key]);
+    if (!result.isValid) return { ...result, fields: [key] };
+  }
+  return valid();
+};
+
+export const validateField = (rule, mapped, formData, inputRefs) => {
+  if (Array.isArray(mapped)) {
+    return RANGE_TYPES.has(normalizeType(rule.type))
+      ? validateRange(rule, mapped, formData, inputRefs)
+      : validateParts(rule, mapped, formData, inputRefs);
+  }
+  return validateScalar(rule, formData[mapped], inputRefs?.current?.[mapped]);
 };
 
 export const MESSAGE_REQUIRED = 'Fill required fields';
@@ -180,22 +217,30 @@ export const RequiredMark = () =>
 export const isDeviant = (rule, value) => {
   if (isBlank(value)) return false;
 
-  if (rule.type === 'Number' || rule.type === 'Integer') {
+  const type = normalizeType(rule.type);
+
+  // Range/array types are spec-checked one value at a time — report pages pass a
+  // single cell's value, so a min/max pair is two independent calls.
+  if (NUMERIC_TYPES.has(type)) {
     const num = Number(String(value).trim());
-    if (isNaN(num) || !isFinite(num)) return false; // malformed data, not a spec deviation
-    if (rule.min !== undefined) {
+    if (isNaN(num) || !isFinite(num)) return true; // wrong-type data is itself a deviation
+    // A numeric min/max on a range rule bounds each end of the range, so only
+    // compare when the bound is itself numeric ('60min'-style strings are ignored).
+    if (typeof rule.min === 'number') {
       if (rule.exclusiveMin ? num <= rule.min : num < rule.min) return true;
     }
-    if (rule.max !== undefined && num > rule.max) return true;
+    if (typeof rule.max === 'number' && num > rule.max) return true;
     return false;
   }
 
-  if (rule.type === 'NumberArray') {
-    const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [];
+  if (type === 'NumberArray') {
+    // Report pages flag one cell at a time, so a bare value is checked as a
+    // single-element array rather than being silently treated as "not deviant".
+    const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [value];
     return arr.some((v) => isDeviant({ ...rule, type: 'Number' }, v));
   }
 
-  if (rule.type === 'Text') {
+  if (type === 'Text') {
     const text = String(value).trim();
     const format = rule.format && FORMATS[rule.format];
     if (format && !format.re.test(text)) return true;

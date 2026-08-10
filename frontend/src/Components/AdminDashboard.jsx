@@ -5,6 +5,7 @@ import { DeleteButton, DeptTrendDropdown } from "./Buttons";
 import { Eye, EyeOff, UserRoundPen } from "lucide-react";
 import "../styles/ComponentStyles/Alert.css";
 import { API_ENDPOINTS } from "../config/api"; //deployment ready API endpoints
+import { useToast } from "./alert";
 import "../styles/ComponentStyles/AdminDashboard.css";
 
 const DeletingStatus = () => (
@@ -60,6 +61,7 @@ const CreatingEmployeeStatus = () => (
 );
 
 const AdminDashboard = () => {
+  const { toast } = useToast();
   // Hooks and Context
   const { isAdmin } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -233,12 +235,12 @@ const AdminDashboard = () => {
         }, 1000); // set suration of deleting animation
       } else {
         setIsDeleting(false);
-        alert(data.message || "Failed to delete employee");
+        toast.error(data.message || "Failed to delete employee");
       }
     } catch (error) {
       console.error("Error deleting user:", error);
       setIsDeleting(false);
-      alert("Error deleting employee");
+      toast.error("Error deleting employee");
     }
   };
 
@@ -271,7 +273,7 @@ const AdminDashboard = () => {
       );
       const data = await response.json();
       if (data.success) {
-        alert("Password updated successfully!");
+        toast.success("Password updated successfully!");
         setShowPasswordModal(false);
       } else {
         setPasswordError(data.message || "Failed to update password.");

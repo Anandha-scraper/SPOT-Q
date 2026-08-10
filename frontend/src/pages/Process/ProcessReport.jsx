@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
@@ -14,6 +14,7 @@ import '../../styles/PageStyles/Process/ProcessReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const ProcessReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
 
@@ -103,7 +104,7 @@ const ProcessReport = () => {
         setFilteredEntries(computeFiltered(validEntries));
       }
     } catch (error) {
-      alert('Failed to load process data. Please refresh.');
+      toast.error('Failed to load process data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -314,7 +315,7 @@ const ProcessReport = () => {
         sheetName: 'Process',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }

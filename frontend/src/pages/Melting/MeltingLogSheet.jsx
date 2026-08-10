@@ -3,6 +3,7 @@ import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown, SgFgDropdown } from '../../Components/Buttons';
 import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
@@ -11,6 +12,7 @@ import { validationRanges, fieldMapping } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
+  const { toast } = useToast();
   // Primary: Date, Shift, Furnace No., Panel, Cumulative Liquid metal, Final KWHr, Initial KWHr, Total Units, Cumulative Units
   // Draft containers persist across Form <-> Report navigation (shared context).
   const {
@@ -765,7 +767,7 @@ const MeltingLogSheet = () => {
       
       if (response.success) {
         setEntryCount(response.entryCount || 0);
-        alert('Entry saved successfully.');
+        toast.success('Entry saved successfully.');
         // Reset all tables after successful save
         resetTable1();
         resetTable2();
@@ -773,11 +775,11 @@ const MeltingLogSheet = () => {
         resetTable4();
         resetTable5();
       } else {
-        alert('Error: ' + response.message);
+        toast.error('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Error saving entry:', error);
-      alert('Failed to save entry. Please try again.');
+      toast.error('Failed to save entry. Please try again.');
     } finally {
       setLoadingStates({
         table1: false,
@@ -1168,7 +1170,7 @@ const MeltingLogSheet = () => {
   const handlePrimarySubmit = async () => {
     // Validate required key fields
     if (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) {
-      alert('Please fill in Date, Shift, Furnace No., and Panel');
+      toast.error('Please fill in Date, Shift, Furnace No., and Panel');
       return;
     }
 
@@ -1229,11 +1231,11 @@ const MeltingLogSheet = () => {
         setTimeout(() => setClosingCombinationMsg(true), 2600);
         setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 3000);
       } else {
-        alert('Error: ' + response.message);
+        toast.error('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
-      alert('Failed to save primary data. Please try again.');
+      toast.error('Failed to save primary data. Please try again.');
     } finally {
       setPrimaryLoading(false);
     }

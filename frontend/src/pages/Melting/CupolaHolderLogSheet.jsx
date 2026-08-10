@@ -4,37 +4,20 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
-// Single source of truth for both the Info modal and field validation.
-// Each entry's `key` matches the input row field name so validateField can
-// look it up. Module-scope (not component-local) so
-// CupolaHolderLogSheetReport.jsx can import it for admin-only deviation highlighting.
-export const validationRanges = [
-  { key: 'heatNo', field: 'Heat No', type: 'Auto', description: 'Auto-incremented per holder & date' },
-  { key: 'cpc',    field: 'CPC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'mFeSl',  field: 'Fe Sl',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'feMn',   field: 'Fe Mn',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'sic',    field: 'SIC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'pureMg', field: 'Pure Mg', type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'cu',     field: 'Cu',      type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'feCr',   field: 'Fe Cr',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'actualTime',  field: 'Actual Time',  type: 'Time', pattern: 'HH:MM' },
-  { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
-  { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
-  { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
-  { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
-  { key: 'indFur', field: 'IND FUR', type: 'Text' },
-  { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
-  { key: 'tap',    field: 'TAP',     type: 'Text' },
-  { key: 'kw',     field: 'KW',      type: 'Number', min: 0, max: 5000, unit: 'KW' },
-  { key: 'remarks', field: 'Remarks', type: 'Text' },
-];
+// Rules live in src/deviations/ with every other department's; re-exported here
+// so existing importers of this module keep resolving.
+import { validationRanges } from '../../deviations/DcupolaHolder';
+
+export { validationRanges };
 
 const CupolaHolderLogSheet = () => {
+  const { toast } = useToast();
   // Validation-range info modal (driven by the same validationRanges that powers validation)
   const { isOpen, openModal, closeModal } = useInfoModal();
 
@@ -465,7 +448,7 @@ const CupolaHolderLogSheet = () => {
         setTimeout(() => setClosingCombinationMsg(true), 2600);
         setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 3000);
       } else {
-        alert('Error: ' + response.message);
+        toast.error('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
@@ -582,13 +565,13 @@ const CupolaHolderLogSheet = () => {
         setErrorMessage('');
         setFocusedField(null);
         // Show branded loader after successful entry save
-        alert('Entry saved successfully.');
+        toast.success('Entry saved successfully.');
       } else {
-        alert('Error: ' + result.message);
+        toast.error('Error: ' + result.message);
       }
     } catch (error) {
       console.error('Error saving cupola holder log:', error);
-      alert('Failed to save entry: ' + error.message);
+      toast.error('Failed to save entry: ' + error.message);
     } finally {
       setSubmitLoading(false);
     }

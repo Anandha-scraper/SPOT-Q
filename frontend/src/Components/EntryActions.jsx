@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EditEntryModal from './EditEntryModal';
-import { useToast } from './alert';
+import { AlertDialog, useToast } from './alert';
 import { formatRemaining } from '../utils/formatDateTime';
 import '../styles/ComponentStyles/EntryActions.css';
 
@@ -134,57 +134,22 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
                 />
             )}
 
-            {canDelete && confirmDelete && (
-                <div style={overlayStyle} onClick={() => !deleting && setConfirmDelete(false)}>
-                    <div style={confirmBoxStyle} onClick={e => e.stopPropagation()}>
-                        <AlertTriangle size={36} style={{ color: '#e74c3c' }} />
-                        <h3 style={{ margin: '0.75rem 0 0.25rem', color: '#25424c' }}>Delete this entry?</h3>
-                        <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', textAlign: 'center' }}>
-                            This action cannot be undone.
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmDelete(false)}
-                                disabled={deleting}
-                                style={cancelBtnStyle}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDelete}
-                                disabled={deleting}
-                                style={deleteBtnStyle}
-                            >
-                                {deleting ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
-                                {deleting ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {canDelete && (
+                <AlertDialog
+                    open={confirmDelete}
+                    onOpenChange={setConfirmDelete}
+                    title="Delete this entry?"
+                    description="This action cannot be undone."
+                    confirmLabel={deleting ? 'Deleting...' : 'Delete'}
+                    cancelLabel="Cancel"
+                    variant="danger"
+                    loading={deleting}
+                    closeOnConfirm={false}
+                    onConfirm={handleDelete}
+                />
             )}
         </div>
     );
-};
-
-const overlayStyle = {
-    position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, padding: '1rem'
-};
-const confirmBoxStyle = {
-    backgroundColor: '#fff', borderRadius: '10px', padding: '1.75rem',
-    width: 'min(360px, 92vw)', display: 'flex', flexDirection: 'column', alignItems: 'center',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.25)'
-};
-const cancelBtnStyle = {
-    padding: '0.55rem 1.1rem', borderRadius: '8px', border: '2px solid #cbd5e1',
-    background: '#fff', color: '#475569', cursor: 'pointer', fontWeight: 600
-};
-const deleteBtnStyle = {
-    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-    padding: '0.55rem 1.2rem', borderRadius: '8px', border: 'none',
-    background: '#e74c3c', color: '#fff', cursor: 'pointer', fontWeight: 600
 };
 
 export default EntryActions;

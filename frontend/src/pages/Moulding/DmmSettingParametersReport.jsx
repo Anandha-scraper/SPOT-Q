@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpenCheck } from 'lucide-react';
-import { FilterButton, ClearButton, MachineDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, MachineDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../context/AuthContext';
+import { useDeviationClass } from '../../utils/deviationDisplay';
+import { validationRanges, keyToRuleField } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';
+import '../../styles/ComponentStyles/Table.css';
 // Redesigned to mirror TensileReport: one consolidated table showing all parameter rows across shifts.
 // Each parameter row gains Date + Machine + Shift context columns.
 const DmmSettingParametersReport = () => {
+  const { isAdmin } = useAuth();
+  const [showDeviations, setShowDeviations] = useState(false);
+  const devClass = useDeviationClass(validationRanges, keyToRuleField, { isAdmin, showDeviations });
+  const { toast } = useToast();
   // Use LOCAL date (not UTC) to avoid off-by-one issues
   const formatDate = (d) => {
     if (!d) return '';
@@ -234,7 +242,7 @@ const DmmSettingParametersReport = () => {
         sheetName: 'DMM',
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -354,6 +362,12 @@ const DmmSettingParametersReport = () => {
         </div>
         <FilterButton onClick={handleFilter} disabled={!isFilterEnabled} />
         <ClearButton onClick={handleClear} />
+        {isAdmin && (
+          <DeviationToggleButton
+            active={showDeviations}
+            onClick={() => setShowDeviations((prev) => !prev)}
+          />
+        )}
         <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
         <ExcelDownloadDialog
           open={showDownloadDialog}
@@ -539,7 +553,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.operatorName}</td>
+                        }} className={devClass('operatorName', row.operatorName)}>{row.operatorName}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -552,7 +566,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.checkedBy}</td>
+                        }} className={devClass('checkedBy', row.checkedBy)}>{row.checkedBy}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -565,7 +579,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.customer || '-'}</td>
+                        }} className={devClass('customer', row.customer)}>{row.customer || '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -578,7 +592,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.itemDescription || '-'}</td>
+                        }} className={devClass('itemDescription', row.itemDescription)}>{row.itemDescription || '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -591,7 +605,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.time || '-'}</td>
+                        }} className={devClass('time', row.time)}>{row.time || '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -604,7 +618,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.ppThickness ?? '-'}</td>
+                        }} className={devClass('ppThickness', row.ppThickness)}>{row.ppThickness ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -617,7 +631,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.ppHeight ?? '-'}</td>
+                        }} className={devClass('ppHeight', row.ppHeight)}>{row.ppHeight ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -630,7 +644,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.spThickness ?? '-'}</td>
+                        }} className={devClass('spThickness', row.spThickness)}>{row.spThickness ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -643,7 +657,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.spHeight ?? '-'}</td>
+                        }} className={devClass('spHeight', row.spHeight)}>{row.spHeight ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -656,7 +670,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.coreMaskThickness ?? '-'}</td>
+                        }} className={devClass('coreMaskThickness', row.coreMaskThickness)}>{row.coreMaskThickness ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -669,7 +683,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.coreMaskHeightOutside ?? '-'}</td>
+                        }} className={devClass('coreMaskHeightOutside', row.coreMaskHeightOutside)}>{row.coreMaskHeightOutside ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -682,7 +696,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.coreMaskHeightInside ?? '-'}</td>
+                        }} className={devClass('coreMaskHeightInside', row.coreMaskHeightInside)}>{row.coreMaskHeightInside ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -695,7 +709,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.sandShotPressureBar ?? '-'}</td>
+                        }} className={devClass('sandShotPressureBar', row.sandShotPressureBar)}>{row.sandShotPressureBar ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -708,7 +722,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.correctionShotTime ?? '-'}</td>
+                        }} className={devClass('correctionShotTime', row.correctionShotTime)}>{row.correctionShotTime ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -721,7 +735,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.squeezePressure ?? '-'}</td>
+                        }} className={devClass('squeezePressure', row.squeezePressure)}>{row.squeezePressure ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -734,7 +748,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.ppStrippingAcceleration ?? '-'}</td>
+                        }} className={devClass('ppStrippingAcceleration', row.ppStrippingAcceleration)}>{row.ppStrippingAcceleration ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -747,7 +761,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.ppStrippingDistance ?? '-'}</td>
+                        }} className={devClass('ppStrippingDistance', row.ppStrippingDistance)}>{row.ppStrippingDistance ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -760,7 +774,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.spStrippingAcceleration ?? '-'}</td>
+                        }} className={devClass('spStrippingAcceleration', row.spStrippingAcceleration)}>{row.spStrippingAcceleration ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -773,7 +787,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.spStrippingDistance ?? '-'}</td>
+                        }} className={devClass('spStrippingDistance', row.spStrippingDistance)}>{row.spStrippingDistance ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -786,7 +800,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.mouldThicknessPlus10 ?? '-'}</td>
+                        }} className={devClass('mouldThicknessPlus10', row.mouldThicknessPlus10)}>{row.mouldThicknessPlus10 ?? '-'}</td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -799,7 +813,7 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }}>{row.closeUpForceMouldCloseUpPressure || '-'}</td>
+                        }} className={devClass('closeUpForceMouldCloseUpPressure', row.closeUpForceMouldCloseUpPressure)}>{row.closeUpForceMouldCloseUpPressure || '-'}</td>
                         <td style={{ 
                           cursor: row.remarks ? 'pointer' : 'default',
                           maxWidth: '200px',

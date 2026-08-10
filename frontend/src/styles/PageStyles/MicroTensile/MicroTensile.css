@@ -155,17 +155,6 @@
   pointer-events: none;
 }
 
-/* ==================== Input Validation Styles ==================== */
-.valid-input {
-  border-color: #10b981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
-}
-
-.invalid-input {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
-}
-
 /* DISA Checklist Styles */
 .microtensile-disa-checklist {
   display: flex;

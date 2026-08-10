@@ -96,13 +96,16 @@ export const validationRanges = [
     field: 'Time of Pouring (Range)',
     required: false,
     type: 'Time Range',
-    max:'60min',
+    // The 60-minute cap is a spec note for the Info card, not a numeric bound —
+    // these are clock times, so a numeric min/max would compare the wrong thing.
+    unit: 'max 60 min',
     pattern: 'HH:MM - HH:MM'
   },
   {
     field: 'Pouring Temp',
     required: false,
     type: 'Number Range',
+    requireMinForMax: true,
     min: 0,
     unit: '°C',
     pattern: 'Min - Max (e.g., 1400 - 1500)'

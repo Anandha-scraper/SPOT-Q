@@ -2,12 +2,12 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
-import { isDeviant } from '../../utils/formValidation';
-import { validationRanges } from './CupolaHolderLogSheet';
+import { useDeviationClass } from '../../utils/deviationDisplay';
+import { validationRanges, keyToRuleField } from '../../deviations/DcupolaHolder';
 import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';
 
@@ -16,18 +16,10 @@ const ITEMS_PER_PAGE = 20;
 const todayISO = () => new Date().toISOString().split('T')[0];
 
 const CupolaHolderLogSheetReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
-  const ruleByKey = useMemo(() => {
-    const map = {};
-    validationRanges.forEach((r) => { map[r.key] = r; });
-    return map;
-  }, []);
-  const devClass = (key, value) => {
-    if (!showDeviations || !isAdmin) return undefined;
-    const rule = ruleByKey[key];
-    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
-  };
+  const devClass = useDeviationClass(validationRanges, keyToRuleField, { isAdmin, showDeviations });
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
 
@@ -204,10 +196,10 @@ const CupolaHolderLogSheetReport = () => {
   // currently selected Shift/Holder dropdowns, then builds a grouped .xlsx.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -231,7 +223,7 @@ const CupolaHolderLogSheetReport = () => {
         return (a.shift || '').localeCompare(b.shift || '');
       });
 
-      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 14, value: (r) => formatDate(r.date) },
@@ -267,7 +259,7 @@ const CupolaHolderLogSheetReport = () => {
         sheetName: 'Cupola Holder',
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }

@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
 import { meltingEditConfig } from '../../utils/editFieldConfigs';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
-import { isDeviant } from '../../utils/formValidation';
+import { useDeviationClass } from '../../utils/deviationDisplay';
 import { validationRanges } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 import '../../styles/ComponentStyles/Table.css';
@@ -51,19 +51,10 @@ const KEY_TO_RULE_FIELD = {
 };
 
 const MeltingLogSheetReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
-  const ruleByField = useMemo(() => {
-    const map = {};
-    validationRanges.forEach((r) => { map[r.field] = r; });
-    return map;
-  }, []);
-  const devClass = (key, value) => {
-    if (!showDeviations || !isAdmin) return undefined;
-    const ruleFieldName = KEY_TO_RULE_FIELD[key];
-    const rule = ruleFieldName && ruleByField[ruleFieldName];
-    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
-  };
+  const devClass = useDeviationClass(validationRanges, KEY_TO_RULE_FIELD, { isAdmin, showDeviations });
 
   // ========================================================================
   // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
@@ -353,7 +344,7 @@ const MeltingLogSheetReport = () => {
         sheetName: 'Melting',
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }

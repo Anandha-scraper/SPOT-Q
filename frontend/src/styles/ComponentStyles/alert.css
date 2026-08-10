@@ -267,6 +267,81 @@
   to { transform: rotate(360deg); }
 }
 
+/* ─── Save success overlay ────────────────────────────────────────────────── */
+.save-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.save-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  min-width: 260px;
+  padding: 2.25rem 2.75rem;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.save-overlay-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #25424c;
+  text-align: center;
+}
+
+.save-overlay-spin {
+  color: #5b9aa9;
+  animation: alert-dialog-spin 0.8s linear infinite;
+}
+
+/* Tick draws itself: the circle sweeps, then the check strokes in. */
+.save-overlay-tick {
+  width: 62px;
+  height: 62px;
+}
+
+.save-overlay-tick-circle {
+  stroke: #16a34a;
+  stroke-width: 3;
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  animation: save-overlay-draw 0.45s ease-out forwards;
+}
+
+.save-overlay-tick-check {
+  stroke: #16a34a;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: save-overlay-draw 0.32s 0.38s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+@keyframes save-overlay-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-overlay-tick-circle,
+  .save-overlay-tick-check {
+    animation-duration: 0.01s;
+    animation-delay: 0s;
+  }
+  .save-overlay-spin { animation-duration: 1.6s; }
+}
+
 /* ─── Excel Download Dialog specifics ─────────────────────────────────────── */
 .excel-dialog-range {
   display: flex;

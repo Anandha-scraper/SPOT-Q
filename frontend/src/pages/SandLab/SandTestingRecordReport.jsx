@@ -1173,14 +1173,8 @@ const SandTestingRecordReport = () => {
         </div>
       )}
 
-      {!loading && entries.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '1rem' }}>
-          No entries found for the selected {isFiltered ? 'date range' : 'date'}{plantFilter !== 'All' ? ' and filters' : ''}.
-        </div>
-      )}
-
-      {/* Combination table — pick a Date/Plant directly */}
-      {!loading && showEntryTable && entries.length > 0 && (
+      {/* Combination table — pick a Date/Plant directly, or an empty table when no data is found */}
+      {!loading && (showEntryTable || entries.length === 0) && (
         <div className="reusable-table-container">
           <table className="reusable-table table-bordered" style={{ minWidth: '500px' }}>
             <thead>
@@ -1192,7 +1186,11 @@ const SandTestingRecordReport = () => {
               </tr>
             </thead>
             <tbody>
-              {entries.map((record, idx) => (
+              {entries.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="reusable-table-no-records">No records found</td>
+                </tr>
+              ) : entries.map((record, idx) => (
                 <tr
                   key={record._id || idx}
                   onClick={() => jumpToEntry(idx)}

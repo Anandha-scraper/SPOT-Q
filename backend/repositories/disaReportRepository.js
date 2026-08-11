@@ -32,7 +32,7 @@ function findReportsInRange(from, to) {
 
     return prisma.disaReport.findMany({
         where: Object.keys(dateWhere).length ? { date: dateWhere } : {},
-        orderBy: { date: 'desc' },
+        orderBy: [{ date: 'desc' }, { shift: 'asc' }],
         include: FULL_INCLUDE,
     });
 }

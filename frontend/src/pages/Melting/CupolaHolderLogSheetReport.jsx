@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton } from '../../Components/Buttons';
+import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, HolderDropdown, ExcelDownloadButton, SectionToggles } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { ExcelDownloadDialog, useToast } from '../../Components/alert';
+import EntryActions from '../../Components/EntryActions';
+import { cupolaEditConfig, cupolaPrimaryEditConfig } from '../../utils/editFieldConfigs';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
@@ -23,19 +25,20 @@ const CupolaHolderLogSheetReport = () => {
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
 
-  // Filter states — Start Date defaults to today (matches the data loaded on mount)
-  const [startDate, setStartDate] = useState(todayISO());
-  const [endDate, setEndDate] = useState('');
+  // Start Date is optional — blank means "just the End Date", which defaults to
+  // today and so matches the data loaded on mount.
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState(todayISO());
   const [selectedShift, setSelectedShift] = useState('');
   const [selectedHolder, setSelectedHolder] = useState('');
 
   // Section visibility toggles
   const [show, setShow] = useState({
-    additions: false,
-    tapping: false,
-    pouring: false,
-    electrical: false,
-    remarks: false
+    additions: true,
+    tapping: true,
+    pouring: true,
+    electrical: true,
+    remarks: true
   });
 
   // Pagination
@@ -76,13 +79,14 @@ const CupolaHolderLogSheetReport = () => {
     }
   };
 
-  const isFilterEnabled = startDate || selectedShift || selectedHolder;
+  // End Date carries the range; a Start Date is only rejected when it post-dates it.
+  const isFilterEnabled = Boolean(endDate) && !(startDate && startDate > endDate);
 
   const loadFilteredData = async () => {
     if (!isFilterEnabled) return;
 
-    const filterStart = startDate || getCurrentDate();
-    const filterEnd = endDate || filterStart;
+    const filterEnd = endDate || getCurrentDate();
+    const filterStart = startDate || filterEnd;
 
     setLoading(true);
     try {
@@ -109,8 +113,8 @@ const CupolaHolderLogSheetReport = () => {
   };
 
   const clearFilters = () => {
-    setStartDate(todayISO());
-    setEndDate('');
+    setStartDate('');
+    setEndDate(todayISO());
     setSelectedShift('');
     setSelectedHolder('');
     setCurrentPage(1);
@@ -119,8 +123,6 @@ const CupolaHolderLogSheetReport = () => {
 
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const anySection = Object.values(show).some(Boolean);
-  const allSections = Object.values(show).every(Boolean);
   const clearSections = () => setShow({ additions: false, tapping: false, pouring: false, electrical: false, remarks: false });
   const checkAllSections = () => setShow({ additions: true, tapping: true, pouring: true, electrical: true, remarks: true });
 
@@ -143,12 +145,54 @@ const CupolaHolderLogSheetReport = () => {
     if (show.pouring) c += 3;
     if (show.electrical) c += 2;
     if (show.remarks) c += 1;
-    return c;
+    return c + 2; // primary + actions
   }, [show]);
 
+  // The API orders entries by date then creation time, so rows of the same
+  // primary can interleave; the Primary cell's rowSpan needs them adjacent.
+  const sortedEntries = useMemo(() => [...entries].sort((a, b) => {
+    const byDate = String(b.date || '').localeCompare(String(a.date || ''));
+    if (byDate !== 0) return byDate;
+    const byShift = String(a.shift || '').localeCompare(String(b.shift || ''));
+    if (byShift !== 0) return byShift;
+    return String(a.holderNumber || '').localeCompare(String(b.holderNumber || ''));
+  }), [entries]);
+
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(entries.length / ITEMS_PER_PAGE));
-  const paginatedData = entries.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(sortedEntries.length / ITEMS_PER_PAGE));
+  const paginatedData = sortedEntries.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const getGroupKey = (row) => `${row.date}-${row.shift}-${row.holderNumber}`;
+
+  // Consecutive runs of one primary within the current page, mirroring MeltingLogSheetReport.
+  const groupInfo = useMemo(() => {
+    const groups = {};
+    let currentKey = null;
+    let groupStartIdx = 0;
+
+    paginatedData.forEach((row, idx) => {
+      const key = getGroupKey(row);
+      if (key !== currentKey) {
+        if (currentKey !== null) groups[groupStartIdx] = { rowspan: idx - groupStartIdx };
+        currentKey = key;
+        groupStartIdx = idx;
+      }
+      if (idx === paginatedData.length - 1) {
+        groups[groupStartIdx] = { rowspan: idx - groupStartIdx + 1 };
+      }
+    });
+    return groups;
+  }, [paginatedData]);
+
+  const primaryRowOf = (row) => ({
+    _id: row.primaryId ?? row._id,
+    date: row.date,
+    shift: row.shift,
+    holderNumber: row.holderNumber
+  });
+
+  // Re-run whichever loader matches the current filter state.
+  const refresh = () => (isFilterEnabled ? loadFilteredData() : loadCurrentData());
 
   const sectionConfig = [
     { key: 'additions', label: 'Additions' },
@@ -280,12 +324,12 @@ const CupolaHolderLogSheetReport = () => {
       {/* Filter Section */}
       <div className="cupola-holder-filter-container">
         <div className="cupola-holder-filter-group">
-          <label>Start Date</label>
-          <CustomDatePicker value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <label>From Date</label>
+          <CustomDatePicker value={startDate} onChange={(e) => setStartDate(e.target.value)} placeholder="From date" />
         </div>
         <div className="cupola-holder-filter-group">
           <label>End Date</label>
-          <CustomDatePicker value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <CustomDatePicker value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="To date" />
         </div>
         <div className="cupola-holder-filter-group">
           <label>Shift</label>
@@ -316,59 +360,14 @@ const CupolaHolderLogSheetReport = () => {
         />
       </div>
 
-      {/* Section Checkboxes */}
-      <div className="chr-checklist-container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {sectionConfig.map(({ key, label }) => (
-            <label
-              key={key}
-              className="chr-check"
-              style={{
-                background: show[key] ? '#0ea5e9' : '#ffffff',
-                color: show[key] ? '#ffffff' : '#334155',
-                borderColor: show[key] ? '#0ea5e9' : '#e2e8f0',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={show[key]}
-                onChange={() => toggle(key)}
-                style={{ width: '17px', height: '17px', accentColor: '#fff' }}
-              />
-              <span style={{ fontSize: '0.9rem', color: 'inherit' }}>{label}</span>
-            </label>
-          ))}
-          {!allSections && (
-            <button
-              onClick={checkAllSections}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                padding: '0.45rem 0.85rem', border: '1.5px solid #0ea5e9',
-                borderRadius: '6px', background: '#f0f9ff', color: '#0ea5e9',
-                fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.2s ease', minHeight: '38px'
-              }}
-            >
-              ✓ Select All
-            </button>
-          )}
-          {anySection && (
-            <button
-              onClick={clearSections}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                padding: '0.45rem 0.85rem', border: '1.5px solid #fca5a5',
-                borderRadius: '6px', background: '#fef2f2', color: '#dc2626',
-                fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.2s ease', minHeight: '38px'
-              }}
-            >
-              ✕ Clear
-            </button>
-          )}
-        </div>
-      </div>
+      {/* Section Toggles */}
+      <SectionToggles
+        sections={sectionConfig}
+        show={show}
+        onToggle={toggle}
+        onSelectAll={checkAllSections}
+        onClear={clearSections}
+      />
 
       {/* Data Table */}
       {loading ? (
@@ -388,7 +387,9 @@ const CupolaHolderLogSheetReport = () => {
                   {show.tapping && <th colSpan={4} style={groupThStyle}>TAPPING</th>}
                   {show.pouring && <th colSpan={3} style={groupThStyle}>POURING</th>}
                   {show.electrical && <th colSpan={2} style={groupThStyle}>ELECTRICAL</th>}
-                  {show.remarks && <th rowSpan={2} style={{ ...groupThStyle, borderRight: 'none' }}>Remarks</th>}
+                  {show.remarks && <th rowSpan={2} style={groupThStyle}>Remarks</th>}
+                  <th rowSpan={2} style={groupThStyle}>Primary</th>
+                  <th rowSpan={2} style={{ ...groupThStyle, borderRight: 'none' }}>Actions</th>
                 </tr>
                 {/* Sub Headers Row */}
                 {(show.additions || show.tapping || show.pouring || show.electrical) && (
@@ -422,7 +423,7 @@ const CupolaHolderLogSheetReport = () => {
                     {show.electrical && (
                       <>
                         <th style={thStyle}>TAP</th>
-                        <th style={{ ...thStyle, borderRight: show.remarks ? '1px solid #e2e8f0' : 'none' }}>KW</th>
+                        <th style={thStyle}>KW</th>
                       </>
                     )}
                   </tr>
@@ -475,7 +476,7 @@ const CupolaHolderLogSheetReport = () => {
                         </>
                       )}
                       {show.remarks && (
-                        <td style={{ ...tdStyle, borderRight: 'none' }}>
+                        <td style={tdStyle}>
                           {row.remarks ? (
                             <span
                               onClick={() => setRemarkModal({ open: true, text: row.remarks })}
@@ -487,6 +488,22 @@ const CupolaHolderLogSheetReport = () => {
                           ) : '-'}
                         </td>
                       )}
+                      {/* Primary — one control per group, spanning its entry rows */}
+                      {groupInfo[idx] && (
+                        <td rowSpan={groupInfo[idx].rowspan} style={{ ...tdStyle, verticalAlign: 'middle' }}>
+                          <EntryActions
+                            entry={primaryRowOf(row)}
+                            editConfig={cupolaPrimaryEditConfig}
+                            onChanged={refresh}
+                          />
+                        </td>
+                      )}
+                      {/* Actions — only real entry rows (not primary-only placeholders) */}
+                      <td style={{ ...tdStyle, borderRight: 'none' }}>
+                        {row.primaryId && (
+                          <EntryActions entry={row} editConfig={cupolaEditConfig} onChanged={refresh} />
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

@@ -4,6 +4,14 @@ import { API_ENDPOINTS } from '../config/api';
 const DISA_OPTIONS = ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'];
 const FC_NO_OPTIONS = ['1', '2', '3', '4', 'H1', 'H2'];
 
+// Must stay byte-identical to Buttons.jsx's dropdowns — these values ARE the
+// primary key, so a mismatch renders the select blank and a save rewrites the
+// combination to ''.
+const SHIFT_OPTIONS = ['Shift 1', 'Shift 2', 'Shift 3'];
+const FURNACE_OPTIONS = ['1', '2', '3', '4'];
+const PANEL_OPTIONS = ['A', 'B', 'C', 'D'];
+const HOLDER_OPTIONS = ['1', '2', '3', '4'];
+
 export const processEditConfig = {
     endpoint: API_ENDPOINTS.process,
     title: 'Edit Process Entry',
@@ -97,6 +105,102 @@ export const meltingEditConfig = {
         { name: 'furnace4Hz', label: 'F4 Hz', type: 'text' },
         { name: 'furnace4Gld', label: 'F4 GLD', type: 'text' },
         { name: 'furnace4KwHr', label: 'F4 kW/Hr', type: 'text' }
+    ]
+};
+
+// The primary (Date + Shift + Furnace + Panel and its five totals). Separate
+// from meltingEditConfig because it targets /primary/:id, not /:id, and because
+// the combination fields are the unique key — POST /primary can't rename them.
+export const meltingPrimaryEditConfig = {
+    endpoint: `${API_ENDPOINTS.meltingLogs}/primary`,
+    title: 'Edit Melting Primary',
+    deleteConfirm: {
+        title: 'Delete this primary combination?',
+        description: 'Every entry recorded under this date, shift, furnace and panel is deleted with it. This action cannot be undone.'
+    },
+    fields: [
+        { name: 'date', label: 'Date', type: 'date', required: true },
+        { name: 'shift', label: 'Shift', type: 'select', options: SHIFT_OPTIONS, required: true },
+        { name: 'furnaceNo', label: 'Furnace No', type: 'select', options: FURNACE_OPTIONS, required: true },
+        { name: 'panel', label: 'Panel', type: 'select', options: PANEL_OPTIONS, required: true },
+        // required guards a NOT NULL Float column, not a validationRanges rule:
+        // a cleared number field posts '' and the backend rejects it.
+        { name: 'cumulativeLiquidMetal', label: 'Cumul. Liquid Metal (kgs)', type: 'number', required: true },
+        { name: 'finalKWHr', label: 'Final KW/Hr', type: 'number', required: true },
+        { name: 'initialKWHr', label: 'Initial KW/Hr', type: 'number', required: true },
+        { name: 'totalUnits', label: 'Total Units', type: 'number', required: true },
+        { name: 'cumulativeUnits', label: 'Cumul. Units', type: 'number', required: true }
+    ]
+};
+
+// Every column is String @default("-") and the form posts the '-' sentinel, so
+// these stay type:'text' — type:'number' would reject valid stored data.
+export const cupolaEditConfig = {
+    endpoint: API_ENDPOINTS.cupolaLogs,
+    title: 'Edit Cupola Holder Entry',
+    fields: [
+        { name: 'heatNo', label: 'Heat No', type: 'text' },
+        { name: 'cpc', label: 'CPC', type: 'text' },
+        { name: 'FeSl', label: 'Fe Sl', type: 'text' },
+        { name: 'feMn', label: 'Fe Mn', type: 'text' },
+        { name: 'sic', label: 'SIC', type: 'text' },
+        { name: 'pureMg', label: 'Pure Mg', type: 'text' },
+        { name: 'cu', label: 'Cu', type: 'text' },
+        { name: 'feCr', label: 'Fe Cr', type: 'text' },
+        { name: 'actualTime', label: 'Actual Time', type: 'text' },
+        { name: 'tappingTime', label: 'Tapping Time', type: 'text' },
+        { name: 'tappingTemp', label: 'Temp °C', type: 'text' },
+        { name: 'metalKg', label: 'Metal (KG)', type: 'text' },
+        { name: 'disaLine', label: 'DISA LINE', type: 'select', options: DISA_OPTIONS, required: true },
+        { name: 'indFur', label: 'IND FUR', type: 'text' },
+        { name: 'bailNo', label: 'BAIL NO', type: 'text' },
+        { name: 'tap', label: 'TAP', type: 'text' },
+        { name: 'kw', label: 'KW', type: 'text' },
+        { name: 'remarks', label: 'Remarks', type: 'textarea' }
+    ]
+};
+
+export const cupolaPrimaryEditConfig = {
+    endpoint: `${API_ENDPOINTS.cupolaLogs}/primary`,
+    title: 'Edit Cupola Primary',
+    deleteConfirm: {
+        title: 'Delete this primary combination?',
+        description: 'Every entry recorded under this date, shift and holder is deleted with it. This action cannot be undone.'
+    },
+    fields: [
+        { name: 'date', label: 'Date', type: 'date', required: true },
+        { name: 'shift', label: 'Shift', type: 'select', options: SHIFT_OPTIONS, required: true },
+        { name: 'holderNumber', label: 'Holder No', type: 'select', options: HOLDER_OPTIONS, required: true }
+    ]
+};
+
+// One DmmParameterEntry row. `required` mirrors DdmmSettingParameters.js, where
+// every parameter field is required — and the 15 numeric ones are NOT NULL
+// Float columns the backend rejects a blank for.
+export const dmmEditConfig = {
+    endpoint: API_ENDPOINTS.mouldingDmm,
+    title: 'Edit DMM Parameters Entry',
+    fields: [
+        { name: 'customer', label: 'Customer', type: 'text', required: true },
+        { name: 'itemDescription', label: 'Item Description', type: 'text', required: true },
+        { name: 'time', label: 'Time', type: 'text', required: true },
+        { name: 'ppThickness', label: 'PP Thickness (mm)', type: 'number', required: true },
+        { name: 'ppHeight', label: 'PP Height (mm)', type: 'number', required: true },
+        { name: 'spThickness', label: 'SP Thickness (mm)', type: 'number', required: true },
+        { name: 'spHeight', label: 'SP Height (mm)', type: 'number', required: true },
+        { name: 'coreMaskThickness', label: 'Core Mask Thickness (mm)', type: 'number', required: true },
+        { name: 'coreMaskHeightOutside', label: 'Core Mask Height Outside (mm)', type: 'number', required: true },
+        { name: 'coreMaskHeightInside', label: 'Core Mask Height Inside (mm)', type: 'number', required: true },
+        { name: 'sandShotPressureBar', label: 'Sand Shot Pressure (Bar)', type: 'number', required: true },
+        { name: 'correctionShotTime', label: 'Correction Shot Time (s)', type: 'number', required: true },
+        { name: 'squeezePressure', label: 'Squeeze Pressure (Kg/cm²)', type: 'number', required: true },
+        { name: 'ppStrippingAcceleration', label: 'PP Stripping Acceleration', type: 'number', required: true },
+        { name: 'ppStrippingDistance', label: 'PP Stripping Distance', type: 'number', required: true },
+        { name: 'spStrippingAcceleration', label: 'SP Stripping Acceleration', type: 'number', required: true },
+        { name: 'spStrippingDistance', label: 'SP Stripping Distance', type: 'number', required: true },
+        { name: 'mouldThicknessPlus10', label: 'Mould Thickness ±10mm', type: 'number', required: true },
+        { name: 'closeUpForceMouldCloseUpPressure', label: 'Close-Up Force / Pressure', type: 'text', required: true },
+        { name: 'remarks', label: 'Remarks', type: 'textarea', required: true }
     ]
 };
 

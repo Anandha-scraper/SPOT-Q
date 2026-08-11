@@ -138,8 +138,8 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
                 <AlertDialog
                     open={confirmDelete}
                     onOpenChange={setConfirmDelete}
-                    title="Delete this entry?"
-                    description="This action cannot be undone."
+                    title={editConfig.deleteConfirm?.title ?? 'Delete this entry?'}
+                    description={editConfig.deleteConfirm?.description ?? 'This action cannot be undone.'}
                     confirmLabel={deleting ? 'Deleting...' : 'Delete'}
                     cancelLabel="Cancel"
                     variant="danger"

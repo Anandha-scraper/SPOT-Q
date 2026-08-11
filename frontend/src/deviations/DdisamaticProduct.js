@@ -31,12 +31,12 @@ export const validationRanges = [
   { field: 'From Time', required: true, type: 'Time', pattern: 'HH:MM AM/PM', description: 'Start time of delay' },
   { field: 'To Time', required: true, type: 'Time', pattern: 'HH:MM AM/PM', description: 'End time of delay' },
 
-  // Mould hardness — each cell holds one or more [from, to] pairs.
+  // Mould hardness — each cell holds one or more single readings.
   { field: 'Component Name (Hardness)', required: true, type: 'Text', description: 'Component name for hardness test' },
-  { field: 'Mould Penetrant (PP)', required: true, type: 'Number Range', requireMinForMax: true, unit: 'N/cm²', description: 'Range pair (From - To) for PP side' },
-  { field: 'Mould Penetrant (SP)', required: true, type: 'Number Range', requireMinForMax: true, unit: 'N/cm²', description: 'Range pair (From - To) for SP side' },
-  { field: 'B-Scale (PP)', required: true, type: 'Number Range', requireMinForMax: true, description: 'Range pair (From - To) for PP side' },
-  { field: 'B-Scale (SP)', required: true, type: 'Number Range', requireMinForMax: true, description: 'Range pair (From - To) for SP side' },
+  { field: 'Mould Penetrant (PP)', required: true, type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the PP side; add more as needed' },
+  { field: 'Mould Penetrant (SP)', required: true, type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the SP side; add more as needed' },
+  { field: 'B-Scale (PP)', required: true, type: 'Number', description: 'One reading per entry for the PP side; add more as needed' },
+  { field: 'B-Scale (SP)', required: true, type: 'Number', description: 'One reading per entry for the SP side; add more as needed' },
   { field: 'Remarks (Hardness)', required: false, type: 'Text', description: 'Hardness test remarks' },
 
   // Pattern temperature
@@ -89,7 +89,7 @@ export const mouldHardnessFieldMapping = {
   'Remarks (Hardness)': 'remarks',
 };
 
-export const HARDNESS_PAIR_RULES = {
+export const HARDNESS_READING_RULES = {
   mpPP: 'Mould Penetrant (PP)',
   mpSP: 'Mould Penetrant (SP)',
   bsPP: 'B-Scale (PP)',

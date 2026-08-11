@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { DeleteButton, DeptTrendDropdown } from "./Buttons";
-import { Eye, EyeOff, UserRoundPen } from "lucide-react";
+import { Eye, EyeOff, UserRoundPen, UserPlus, X } from "lucide-react";
 import "../styles/ComponentStyles/Alert.css";
 import { API_ENDPOINTS } from "../config/api"; //deployment ready API endpoints
 import { useToast } from "./alert";
@@ -60,6 +60,47 @@ const CreatingEmployeeStatus = () => (
   </div>
 );
 
+const PASSWORD_MIN_LENGTH = 6;
+const CREATE_ANIMATION_MS = 3000;
+
+const STRENGTH_LEVELS = [
+  { level: "weak", text: "Weak" },
+  { level: "weak", text: "Weak" },
+  { level: "medium", text: "Medium" },
+  { level: "strong", text: "Strong" },
+  { level: "strong", text: "Strong" },
+];
+
+const getPasswordStrength = (password) => {
+  if (!password) return { score: 0, level: "empty", text: "" };
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  if (password.length < PASSWORD_MIN_LENGTH) score = 0;
+  return { score: Math.max(score, 1), ...STRENGTH_LEVELS[score] };
+};
+
+const PasswordStrengthMeter = ({ password }) => {
+  const { score, level, text } = getPasswordStrength(password);
+  return (
+    <div className="pwd-strength" aria-live="polite">
+      <div className="pwd-strength-bars">
+        {[1, 2, 3, 4].map((slot) => (
+          <span
+            key={slot}
+            className={`pwd-bar ${slot <= score ? `pwd-bar--${level}` : ""}`}
+          />
+        ))}
+      </div>
+      <span className={`pwd-strength-label pwd-strength-label--${level}`}>
+        {text ? `${text} password` : "Enter a password"}
+      </span>
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const { toast } = useToast();
   // Hooks and Context
@@ -70,8 +111,8 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentView, setCurrentView] = useState("add");
   const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Form States
   const [formData, setFormData] = useState({
@@ -79,19 +120,22 @@ const AdminDashboard = () => {
     name: "",
     department: "",
     password: "",
+    confirmPassword: "",
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
-  const [formSuccess, setFormSuccess] = useState("");
   const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Modal States (Crucial missing states)
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   // Delete Modal States
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -107,7 +151,9 @@ const AdminDashboard = () => {
   }, [isAdmin, navigate]);
 
   useEffect(() => {
-    if (isAdmin) fetchDepartments();
+    if (!isAdmin) return;
+    fetchDepartments();
+    fetchUsers();
   }, [isAdmin]);
 
   // Functions
@@ -138,12 +184,18 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleViewChange = (view) => {
-    setCurrentView(view);
-    if (view === "view") {
-      setLoading(true);
-      fetchUsers();
-    }
+  const handleOpenCreateModal = () => {
+    setFormData({
+      employeeId: "",
+      name: "",
+      department: "",
+      password: "",
+      confirmPassword: "",
+    });
+    setFormError("");
+    setShowCreatePassword(false);
+    setShowConfirmPassword(false);
+    setShowCreateModal(true);
   };
 
   const handleInputChange = (e) => {
@@ -153,7 +205,6 @@ const AdminDashboard = () => {
       [name]: name === "employeeId" ? value.toUpperCase() : value,
     }));
     setFormError("");
-    setFormSuccess("");
   };
 
   const handleSubmit = async (e) => {
@@ -162,13 +213,18 @@ const AdminDashboard = () => {
       !formData.employeeId ||
       !formData.name ||
       !formData.department ||
-      !formData.password
+      !formData.password ||
+      !formData.confirmPassword
     ) {
       setFormError("Enter all required fields.");
       return;
     }
-    if (formData.password.length < 6) {
-      setFormError("Password must be at least 6 characters.");
+    if (formData.password.length < PASSWORD_MIN_LENGTH) {
+      setFormError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setFormError("Passwords do not match.");
       return;
     }
     try {
@@ -190,14 +246,21 @@ const AdminDashboard = () => {
       });
       const data = await response.json();
       if (data.success) {
+        const createdName = formData.name;
         setFormLoading(false);
-        setFormData({ employeeId: "", name: "", department: "", password: "" });
-        if (currentView === "view") fetchUsers();
+        setShowCreateModal(false);
+        setFormData({
+          employeeId: "",
+          name: "",
+          department: "",
+          password: "",
+          confirmPassword: "",
+        });
+        fetchUsers();
         setTimeout(() => {
           setIsCreating(false);
-          setFormSuccess(`Employee ${formData.name} created successfully.`);
-          setTimeout(() => setFormSuccess(""), 2000);
-        }, 3000);
+          toast.success(`Employee ${createdName} created successfully.`);
+        }, CREATE_ANIMATION_MS);
       } else {
         setIsCreating(false);
         setFormError(data.message || "Failed to create employee.");
@@ -247,15 +310,23 @@ const AdminDashboard = () => {
   const handleOpenPasswordModal = (targetUser) => {
     setSelectedUser(targetUser);
     setNewPassword("");
+    setConfirmNewPassword("");
     setPasswordError("");
     setShowNewPassword(false);
+    setShowConfirmNewPassword(false);
     setShowPasswordModal(true);
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setPasswordError(
+        `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+      );
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("Passwords do not match.");
       return;
     }
     try {
@@ -289,329 +360,373 @@ const AdminDashboard = () => {
     <div className="admin-dash">
       <div className="admin-dash-header">
         <h2 className="admin-dash-title">Admin Employee Management</h2>
-        <div className="toggle-buttons">
-          <button
-            className={`tog-btn ${currentView === "view" ? "active" : ""}`}
-            onClick={() => handleViewChange("view")}
-          >
-            <span className="admin-toggle"> View Employees</span>
-          </button>
-          <button
-            className={`tog-btn ${currentView === "add" ? "active" : ""}`}
-            onClick={() => handleViewChange("add")}
-          >
-            <span className="admin-toggle"> Add Employees</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="add-emp-btn"
+          onClick={handleOpenCreateModal}
+        >
+          <UserPlus size={18} />
+          <span>Add Employee</span>
+        </button>
       </div>
 
-      {/* VIEW EMPLOYEES TAB */}
-      {currentView === "view" && (
-        <div className="emp-card">
-          <div className="emp-filter-bar">
-            <span className="emp-filter-label">Department</span>
-            <DeptTrendDropdown
-              value={selectedDepartment}
-              onChange={setSelectedDepartment}
-              options={departments.filter((d) => d !== "Admin")}
-            />
-            {selectedDepartment && (
-              <button
-                className="emp-filter-clear"
-                onClick={() => setSelectedDepartment("")}
-                title="Show all departments"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-          {loading ? (
-            <div className="loading-state">Loading employees...</div>
-          ) : (
-            <div className="emp-table-container">
-              <table className="emp-table">
-                <thead>
-                  <tr>
-                    <th
-                      style={{
-                        width: "50px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      S.no
-                    </th>
-                    <th
-                      style={{
-                        width: "130px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      Employee ID
-                    </th>
-                    <th
-                      style={{
-                        width: "250px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      Department
-                    </th>
-                    <th
-                      style={{
-                        width: "250px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      Last Login
-                    </th>
-                    <th
-                      style={{
-                        width: "120px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users
-                    .filter(
-                      (u) =>
-                        u.role !== "admin" &&
-                        (!selectedDepartment ||
-                          u.department === selectedDepartment),
-                    )
-                    .map((u, index) => (
-                      <tr key={u._id}>
-                        <td
-                          style={{
-                            fontSize: "0.95rem",
-                            color: "#2d3748",
-                            textAlign: "center",
-                          }}
-                        >
-                          {index + 1}
-                        </td>
-                        <td
-                          className="emp-id"
-                          style={{
-                            fontSize: "1.25rem",
-                            color: "#000000",
-                            letterSpacing: "0.5px",
-                            textAlign: "center",
-                          }}
-                        >
-                          {u.employeeId}
-                        </td>
-                        <td
-                          style={{
-                            fontSize: "0.95rem",
-                            color: "#2d3748",
-                            textAlign: "center",
-                          }}
-                        >
-                          {u.department}
-                        </td>
-                        <td
-                          style={{
-                            fontSize: "0.95rem",
-                            color: "#2d3748",
-                            textAlign: "center",
-                          }}
-                        >
-                          {u.lastLogin
-                            ? (() => {
-                                const date = new Date(u.lastLogin);
-                                const day = String(date.getDate()).padStart(
-                                  2,
-                                  "0",
-                                );
-                                const month = String(
-                                  date.getMonth() + 1,
-                                ).padStart(2, "0");
-                                const year = String(date.getFullYear()).slice(
-                                  -2,
-                                );
-                                let hours = date.getHours();
-                                const minutes = String(
-                                  date.getMinutes(),
-                                ).padStart(2, "0");
-                                const ampm = hours >= 12 ? "PM" : "AM";
-                                hours = hours % 12 || 12;
-                                return `${day}/${month}/${year} - ${hours}:${minutes} ${ampm}`;
-                              })()
-                            : "Never"}
-                        </td>
-                        <td
-                          className="actions"
-                          style={{
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: "10px",
-                          }}
-                        >
-                          {u.role !== "admin" && (
-                            <>
-                              <button
-                                onClick={() => handleOpenPasswordModal(u)}
-                                className="action-btn edit-btn"
-                                title="Change Password"
-                              >
-                                <UserRoundPen size={20} />
-                              </button>
-                              <DeleteButton
-                                onClick={() =>
-                                  handleOpenDeleteModal(u._id, u.employeeId)
-                                }
-                              />
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
+      {/* EMPLOYEE LIST */}
+      <div className="emp-card">
+        <div className="emp-filter-bar">
+          <span className="emp-filter-label">Department</span>
+          <DeptTrendDropdown
+            value={selectedDepartment}
+            onChange={setSelectedDepartment}
+            options={departments.filter((d) => d !== "Admin")}
+          />
+          {selectedDepartment && (
+            <button
+              className="emp-filter-clear"
+              onClick={() => setSelectedDepartment("")}
+              title="Show all departments"
+            >
+              &times;
+            </button>
           )}
         </div>
-      )}
-
-      {/* ADD EMPLOYEE TAB */}
-      {currentView === "add" && (
-        <div className="emp-card">
-          <div className="emp-header">
-            <h3 className="emp-title">Add New Employee</h3>
+        {loading ? (
+          <div className="loading-state">Loading employees...</div>
+        ) : (
+          <div className="emp-table-container">
+            <table className="emp-table">
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      width: "50px",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    S.no
+                  </th>
+                  <th
+                    style={{
+                      width: "130px",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    Employee ID
+                  </th>
+                  <th
+                    style={{
+                      width: "250px",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    Department
+                  </th>
+                  <th
+                    style={{
+                      width: "250px",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    Last Login
+                  </th>
+                  <th
+                    style={{
+                      width: "120px",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {users
+                  .filter(
+                    (u) =>
+                      u.role !== "admin" &&
+                      (!selectedDepartment ||
+                        u.department === selectedDepartment),
+                  )
+                  .map((u, index) => (
+                    <tr key={u._id}>
+                      <td
+                        style={{
+                          fontSize: "0.95rem",
+                          color: "#2d3748",
+                          textAlign: "center",
+                        }}
+                      >
+                        {index + 1}
+                      </td>
+                      <td
+                        className="emp-id"
+                        style={{
+                          fontSize: "1.25rem",
+                          color: "#000000",
+                          letterSpacing: "0.5px",
+                          textAlign: "center",
+                        }}
+                      >
+                        {u.employeeId}
+                      </td>
+                      <td
+                        style={{
+                          fontSize: "0.95rem",
+                          color: "#2d3748",
+                          textAlign: "center",
+                        }}
+                      >
+                        {u.department}
+                      </td>
+                      <td
+                        style={{
+                          fontSize: "0.95rem",
+                          color: "#2d3748",
+                          textAlign: "center",
+                        }}
+                      >
+                        {u.lastLogin
+                          ? (() => {
+                              const date = new Date(u.lastLogin);
+                              const day = String(date.getDate()).padStart(
+                                2,
+                                "0",
+                              );
+                              const month = String(
+                                date.getMonth() + 1,
+                              ).padStart(2, "0");
+                              const year = String(date.getFullYear()).slice(
+                                -2,
+                              );
+                              let hours = date.getHours();
+                              const minutes = String(
+                                date.getMinutes(),
+                              ).padStart(2, "0");
+                              const ampm = hours >= 12 ? "PM" : "AM";
+                              hours = hours % 12 || 12;
+                              return `${day}/${month}/${year} - ${hours}:${minutes} ${ampm}`;
+                            })()
+                          : "Never"}
+                      </td>
+                      <td
+                        className="actions"
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        {u.role !== "admin" && (
+                          <>
+                            <button
+                              onClick={() => handleOpenPasswordModal(u)}
+                              className="action-btn edit-btn"
+                              title="Change Password"
+                            >
+                              <UserRoundPen size={20} />
+                            </button>
+                            <DeleteButton
+                              onClick={() =>
+                                handleOpenDeleteModal(u._id, u.employeeId)
+                              }
+                            />
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
-          <form onSubmit={handleSubmit} className="emp-form-content">
-            <div
-              className="form-row"
-              style={{ display: "flex", gap: "20px", marginBottom: "15px" }}
-            >
-              <div className="input-block" style={{ flex: 1 }}>
-                <label>Employee ID *</label>
-                <input
-                  name="employeeId"
-                  value={formData.employeeId}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="input-block" style={{ flex: 1 }}>
-                <label>Department *</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">-- Select --</option>
-                  {departments
-                    .filter((d) => d !== "Admin")
-                    .map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
+        )}
+      </div>
 
-            <div
-              className="form-row"
-              style={{ display: "flex", gap: "20px", marginBottom: "15px" }}
-            >
-              <div className="input-block" style={{ flex: 1 }}>
-                <label>Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                />
+      {/* ADD EMPLOYEE MODAL */}
+      {showCreateModal && (
+        <div className="overlay-blur" onClick={() => setShowCreateModal(false)}>
+          <div
+            className="modal-content-box modal-content-box--form"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Add New Employee</h3>
+                <p className="modal-subtitle">
+                  Create a login for a shop-floor or department user.
+                </p>
               </div>
-              <div
-                className="input-block"
-                style={{ flex: 1, position: "relative" }}
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowCreateModal(false)}
+                aria-label="Close"
               >
-                <label>Password *</label>
-                <input
-                  type={showCreatePassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCreatePassword(!showCreatePassword)}
-                  style={{
-                    position: "absolute",
-                    right: "15px",
-                    top: "45px",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {showCreatePassword ? (
-                    <EyeOff size={20} />
-                  ) : (
-                    <Eye size={20} />
-                  )}
-                </button>
-              </div>
+                <X size={20} />
+              </button>
             </div>
-
-            {formError && (
-              <div className="status-msg error" style={{ color: "red" }}>
-                {formError}
+            <form onSubmit={handleSubmit} className="emp-form-content">
+              <div className="form-row form-row--three">
+                <div className="input-block">
+                  <label htmlFor="employeeId">Employee ID *</label>
+                  <input
+                    id="employeeId"
+                    name="employeeId"
+                    value={formData.employeeId}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="input-block">
+                  <label htmlFor="department">Department *</label>
+                  <select
+                    id="department"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {departments
+                      .filter((d) => d !== "Admin")
+                      .map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="input-block">
+                  <label htmlFor="name">Name *</label>
+                  <input
+                    id="name"
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
               </div>
-            )}
-            {formSuccess && (
-              <div className="status-msg success" style={{ color: "green" }}>
-                {formSuccess}
-              </div>
-            )}
 
-            <button
-              type="submit"
-              className="submit-btn-main"
-              disabled={formLoading}
-              style={{
-                marginTop: "20px",
-                padding: "10px 20px",
-                cursor: "pointer",
-              }}
-            >
-              {formLoading ? "Creating..." : "Create Employee"}
-            </button>
-          </form>
+              <div className="form-row form-row--two">
+                <div className="input-block">
+                  <label htmlFor="password">Password *</label>
+                  <div className="pwd-field">
+                    <input
+                      id="password"
+                      type={showCreatePassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      required
+                      minLength={PASSWORD_MIN_LENGTH}
+                    />
+                    <button
+                      type="button"
+                      className="pwd-field-toggle"
+                      onClick={() => setShowCreatePassword(!showCreatePassword)}
+                      aria-label={
+                        showCreatePassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {showCreatePassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="input-block">
+                  <label htmlFor="confirmPassword">Confirm Password *</label>
+                  <div className="pwd-field">
+                    <input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      required
+                      minLength={PASSWORD_MIN_LENGTH}
+                      className={
+                        formData.confirmPassword &&
+                        formData.confirmPassword !== formData.password
+                          ? "pwd-mismatch"
+                          : ""
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="pwd-field-toggle"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={
+                        showConfirmPassword
+                          ? "Hide confirm password"
+                          : "Show confirm password"
+                      }
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                  {formData.confirmPassword &&
+                    formData.confirmPassword !== formData.password && (
+                      <span className="pwd-mismatch-hint">
+                        Passwords do not match
+                      </span>
+                    )}
+                </div>
+              </div>
+
+              {formError && (
+                <div className="status-msg error-bg">{formError}</div>
+              )}
+
+              <div className="emp-form-footer">
+                <PasswordStrengthMeter password={formData.password} />
+                <div className="emp-form-actions">
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => setShowCreateModal(false)}
+                    disabled={formLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="submit-btn-main"
+                    disabled={formLoading}
+                  >
+                    {formLoading ? "Creating..." : "Create Employee"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -622,46 +737,130 @@ const AdminDashboard = () => {
           onClick={() => setShowPasswordModal(false)}
         >
           <div
-            className="modal-content-box"
+            className="modal-content-box modal-content-box--password"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="modal-title">Change Password</h3>
-            <p className="modal-subtitle">
-              Update password for <strong>{selectedUser.employeeId}</strong>
-            </p>
-            <form onSubmit={handleChangePassword} className="modal-form">
-              <div className="input-block">
-                <label>New Password *</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="modal-input"
-                    placeholder="Enter new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="password-toggle"
-                  >
-                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Change Password</h3>
+                <p className="modal-subtitle">
+                  Update password for <strong>{selectedUser.employeeId}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowPasswordModal(false)}
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} className="emp-form-content">
+              <div className="form-row form-row--two">
+                <div className="input-block">
+                  <label htmlFor="newPassword">New Password *</label>
+                  <div className="pwd-field">
+                    <input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      required
+                      minLength={PASSWORD_MIN_LENGTH}
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      className="pwd-field-toggle"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      aria-label={
+                        showNewPassword ? "Hide password" : "Show password"
+                      }
+                    >
+                      {showNewPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="input-block">
+                  <label htmlFor="confirmNewPassword">
+                    Confirm New Password *
+                  </label>
+                  <div className="pwd-field">
+                    <input
+                      id="confirmNewPassword"
+                      type={showConfirmNewPassword ? "text" : "password"}
+                      value={confirmNewPassword}
+                      onChange={(e) => {
+                        setConfirmNewPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      required
+                      minLength={PASSWORD_MIN_LENGTH}
+                      placeholder="Re-enter new password"
+                      className={
+                        confirmNewPassword && confirmNewPassword !== newPassword
+                          ? "pwd-mismatch"
+                          : ""
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="pwd-field-toggle"
+                      onClick={() =>
+                        setShowConfirmNewPassword(!showConfirmNewPassword)
+                      }
+                      aria-label={
+                        showConfirmNewPassword
+                          ? "Hide confirm password"
+                          : "Show confirm password"
+                      }
+                    >
+                      {showConfirmNewPassword ? (
+                        <EyeOff size={18} />
+                      ) : (
+                        <Eye size={18} />
+                      )}
+                    </button>
+                  </div>
+                  {confirmNewPassword && confirmNewPassword !== newPassword && (
+                    <span className="pwd-mismatch-hint">
+                      Passwords do not match
+                    </span>
+                  )}
                 </div>
               </div>
+
               {passwordError && (
                 <div className="modal-error">{passwordError}</div>
               )}
-              <div className="modal-btns">
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="btn-save"
-                >
-                  {passwordLoading ? "Updating..." : "Save Changes"}
-                </button>
+
+              <div className="emp-form-footer">
+                <PasswordStrengthMeter password={newPassword} />
+                <div className="emp-form-actions">
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => setShowPasswordModal(false)}
+                    disabled={passwordLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="btn-save"
+                  >
+                    {passwordLoading ? "Updating..." : "Save Changes"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

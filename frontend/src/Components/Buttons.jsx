@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Table2,
 } from "lucide-react";
 import { Time } from "@internationalized/date";
 import "../styles/ComponentStyles/Buttons.css";
@@ -279,30 +280,92 @@ export const ResetButton = forwardRef(
 );
 ResetButton.displayName = "ResetButton";
 
-export const LockPrimaryButton = ({
-  onClick,
-  disabled = false,
-  isLocked = false,
-  statusMessage = null,
-  statusVariant = "primary",
-}) => (
-  <div className="lock-primary-button-wrapper">
-    <button
-      onClick={onClick}
-      type="button"
-      disabled={disabled || isLocked || !!statusMessage}
-      title={statusMessage || (isLocked ? "Primary Saved" : "Save Primary")}
-      className={statusMessage ? `status-${statusVariant}` : ""}
-      style={
-        !statusMessage && isLocked
-          ? { backgroundColor: "#10b981", cursor: "not-allowed", opacity: 0.8 }
-          : {}
-      }
-    >
-      {statusMessage || (isLocked ? "Primary Saved" : "Save Primary")}
-    </button>
-  </div>
+export const LockPrimaryButton = forwardRef(
+  (
+    {
+      onClick,
+      disabled = false,
+      isLocked = false,
+      statusMessage = null,
+      statusVariant = "primary",
+      label = "Save Primary",
+    },
+    ref,
+  ) => (
+    <div className="lock-primary-button-wrapper">
+      <button
+        ref={ref}
+        onClick={onClick}
+        type="button"
+        disabled={disabled || isLocked || !!statusMessage}
+        title={statusMessage || (isLocked ? "Primary Saved" : label)}
+        className={statusMessage ? `status-${statusVariant}` : ""}
+        style={
+          !statusMessage && isLocked
+            ? { backgroundColor: "#10b981", cursor: "not-allowed", opacity: 0.8 }
+            : {}
+        }
+      >
+        {statusMessage || (isLocked ? "Primary Saved" : label)}
+      </button>
+    </div>
+  ),
 );
+LockPrimaryButton.displayName = "LockPrimaryButton";
+
+// Record navigator for report pages: Prev / Table / Next over a list of
+// combinations, showing one detail view at a time. Extracted from the three
+// SandLab report pages, which still carry their own inline copies.
+const navButtonStyle = (disabled) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: "0.25rem",
+  padding: "0.5rem 0.75rem",
+  borderRadius: "8px",
+  border: "2px solid",
+  background: "#fff",
+  color: disabled ? "#94a3b8" : "#5B9AA9",
+  borderColor: disabled ? "#cbd5e1" : "#5B9AA9",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: 600,
+  fontSize: "0.8rem",
+});
+
+export const EntryNavigator = ({
+  currentIndex,
+  total,
+  showTable = false,
+  onPrev,
+  onNext,
+  onToggleTable,
+}) => {
+  if (total <= 1) return null;
+
+  const atFirst = showTable || currentIndex === 0;
+  const atLast = showTable || currentIndex === total - 1;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <button type="button" onClick={onPrev} disabled={atFirst} style={navButtonStyle(atFirst)} title="Previous">
+        <ChevronLeft size={16} /> Prev
+      </button>
+      <button
+        type="button"
+        onClick={onToggleTable}
+        style={{ ...navButtonStyle(false), ...(showTable ? { background: "#5B9AA9", color: "#fff" } : {}) }}
+        title="Show combinations table"
+      >
+        <Table2 size={16} /> Table
+      </button>
+      <button type="button" onClick={onNext} disabled={atLast} style={navButtonStyle(atLast)} title="Next">
+        Next <ChevronRight size={16} />
+      </button>
+      <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>
+        {currentIndex + 1} / {total}
+      </span>
+    </div>
+  );
+};
 
 // DISA Dropdown Component
 
@@ -1131,8 +1194,10 @@ export const SectionToggles = ({
   show = {},
   onToggle,
   onClear,
+  onSelectAll,
 }) => {
   const anyActive = Object.values(show).some(Boolean);
+  const allActive = sections.length > 0 && sections.every(({ key }) => show[key]);
 
   return (
     <div
@@ -1180,6 +1245,25 @@ export const SectionToggles = ({
           {label}
         </label>
       ))}
+      {onSelectAll && !allActive && (
+        <button
+          onClick={onSelectAll}
+          style={{
+            padding: "0.3rem 0.7rem",
+            borderRadius: "6px",
+            border: "1.5px solid #99f6e4",
+            background: "#f0fdfa",
+            color: "#0f766e",
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            transition: "all 0.2s ease",
+          }}
+        >
+          Select All
+        </button>
+      )}
       {anyActive && (
         <button
           onClick={onClear}

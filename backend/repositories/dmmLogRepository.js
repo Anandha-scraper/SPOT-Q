@@ -45,6 +45,46 @@ function createParameterEntry(machineShiftId, data) {
     return prisma.dmmParameterEntry.create({ data: { ...data, machineShiftId } });
 }
 
+function findEntryAuthInfo(id) {
+    return prisma.dmmParameterEntry.findUnique({
+        where: { id },
+        select: { id: true, createdBy: true, createdAt: true },
+    });
+}
+
+function updateEntry(id, data) {
+    return prisma.dmmParameterEntry.update({ where: { id }, data });
+}
+
+// Mirrors meltingLogRepository#deleteEntry: a machine-shift left with no
+// parameter rows and no operator details is deleted with its last child.
+async function deleteEntry(id) {
+    const entry = await prisma.dmmParameterEntry.findUnique({
+        where: { id },
+        select: { machineShiftId: true },
+    });
+    if (!entry) return null;
+
+    return prisma.$transaction(async (tx) => {
+        const deleted = await tx.dmmParameterEntry.delete({ where: { id } });
+
+        const remaining = await tx.dmmParameterEntry.count({
+            where: { machineShiftId: entry.machineShiftId },
+        });
+        if (remaining === 0) {
+            const shift = await tx.dmmMachineShift.findUnique({
+                where: { id: entry.machineShiftId },
+                select: { operatorName: true, checkedBy: true },
+            });
+            if (shift && !shift.operatorName && !shift.checkedBy) {
+                await tx.dmmMachineShift.delete({ where: { id: entry.machineShiftId } });
+            }
+        }
+
+        return deleted;
+    });
+}
+
 function findMachineShiftsForLog(dmmLogId) {
     return prisma.dmmMachineShift.findMany({
         where: { dmmLogId },
@@ -70,6 +110,9 @@ module.exports = {
     ensureMachineShiftId,
     countParameters,
     createParameterEntry,
+    findEntryAuthInfo,
+    updateEntry,
+    deleteEntry,
     findMachineShiftsForLog,
     findAllMachineShifts,
 };

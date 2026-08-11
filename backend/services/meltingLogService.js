@@ -1,6 +1,8 @@
 const meltingLogRepository = require('../repositories/meltingLogRepository');
 const { AppError } = require('../utils/AppError');
-const { buildColumns, collectMissing, invalidInput, requireEditableFields } = require('../utils/fieldValidation');
+const {
+    buildColumns, collectMissing, invalidInput, isMissing, requireEditableFields,
+} = require('../utils/fieldValidation');
 
 // Wire key -> SQL column for the handful of entry fields that differ from the old FLAT_TO_PATH name; everything else maps to itself.
 const WIRE_TO_COLUMN = {
@@ -43,6 +45,17 @@ const PRIMARY_VALUE_FIELDS = [
 ];
 
 const PROTECTED_ON_UPDATE = ['id', '_id', 'primaryId', 'createdBy', 'createdAt', 'updatedAt'];
+
+const PRIMARY_KEY_FIELDS = ['shift', 'furnaceNo', 'panel'];
+const PRIMARY_WIRE_TO_COLUMN = {
+    cumulativeLiquidMetal: 'cumulativeLiquidMetal',
+    finalKWHr: 'finalKwhr',
+    initialKWHr: 'initialKwhr',
+    totalUnits: 'totalUnits',
+    cumulativeUnits: 'cumulativeUnits',
+};
+const PROTECTED_ON_PRIMARY_UPDATE = ['id', '_id', 'meltingLogId', 'entryCount', 'createdAt', 'updatedAt'];
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function toColumnBody(wireBody) {
     const source = wireBody ?? {};
@@ -216,8 +229,77 @@ function deleteEntry(entryId) {
     return meltingLogRepository.deleteEntry(entryId);
 }
 
+// The five primary values are Float @default(0) NOT NULL, so buildColumns'
+// `numbers` option is deliberately not used here — it maps '' and '-' to null,
+// which Prisma then rejects against a NOT NULL column. isMissing is checked
+// before Number(), which would otherwise turn a cleared field into a silent 0.
+function buildPrimaryValues(body, patch, invalid) {
+    for (const [wireKey, column] of Object.entries(PRIMARY_WIRE_TO_COLUMN)) {
+        if (!Object.prototype.hasOwnProperty.call(body, wireKey)) continue;
+
+        const value = body[wireKey];
+        const parsed = Number(String(value).trim());
+        if (isMissing(value) || !Number.isFinite(parsed)) invalid.push(wireKey);
+        else patch[column] = parsed;
+    }
+}
+
+async function updatePrimary(primaryId, body) {
+    const current = await meltingLogRepository.findPrimaryById(primaryId);
+    if (!current) throw new AppError(404, 'Primary not found.');
+
+    const source = { ...(body ?? {}) };
+    PROTECTED_ON_PRIMARY_UPDATE.forEach((field) => delete source[field]);
+
+    const { data: keyData, invalid } = buildColumns(source, { trimmed: PRIMARY_KEY_FIELDS });
+    // A blank key field would silently collide with every other blank-keyed primary.
+    invalid.push(...collectMissing(keyData, Object.keys(keyData)));
+
+    const patch = { ...keyData };
+    buildPrimaryValues(source, patch, invalid);
+
+    if (typeof source.isLocked === 'boolean') patch.isLocked = source.isLocked;
+
+    let meltingLogId = current.meltingLogId;
+    if (Object.prototype.hasOwnProperty.call(source, 'date')) {
+        const date = String(source.date ?? '').trim();
+        if (!DATE_PATTERN.test(date)) invalid.push('date');
+        else {
+            const meltingLog = await meltingLogRepository.ensureDateRow(date);
+            meltingLogId = meltingLog.id;
+            patch.meltingLogId = meltingLogId;
+        }
+    }
+
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(patch);
+
+    const conflict = await meltingLogRepository.findConflictingPrimary(
+        meltingLogId,
+        patch.shift ?? current.shift,
+        patch.furnaceNo ?? current.furnaceNo,
+        patch.panel ?? current.panel
+    );
+    if (conflict && conflict.id !== primaryId) {
+        throw new AppError(409, 'A primary already exists for this date, shift, furnace and panel.');
+    }
+
+    const updated = await meltingLogRepository.updatePrimary(primaryId, patch);
+    return toWirePrimary(updated, updated.meltingLog.date);
+}
+
+async function deletePrimary(primaryId) {
+    const result = await meltingLogRepository.deletePrimary(primaryId);
+    if (!result) throw new AppError(404, 'Primary not found.');
+    return result;
+}
+
 function loadEntryForAuth(id) {
     return meltingLogRepository.findEntryAuthInfo(id);
+}
+
+function loadPrimaryForAuth(id) {
+    return meltingLogRepository.findPrimaryById(id);
 }
 
 module.exports = {
@@ -227,5 +309,8 @@ module.exports = {
     createOrUpdatePrimary,
     updateEntry,
     deleteEntry,
+    updatePrimary,
+    deletePrimary,
     loadEntryForAuth,
+    loadPrimaryForAuth,
 };

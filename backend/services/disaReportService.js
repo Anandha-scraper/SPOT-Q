@@ -27,18 +27,24 @@ function zipParallelArrays(durationMinutes, fromTime, toTime) {
     }));
 }
 
-function zipPairs(pairs) {
-    if (!Array.isArray(pairs)) return [];
-    return pairs.map(([from, to], position) => ({
+// Readings are single values stored in fromValue; toValue is vestigial (see
+// backend.md). A legacy [from, to] element is still accepted so an older client
+// cannot 500 the endpoint.
+function zipReadings(values) {
+    if (!Array.isArray(values)) return [];
+    return values.map((value, position) => ({
         position,
-        fromValue: withDefault(from, ''),
-        toValue: withDefault(to, ''),
+        fromValue: withDefault(Array.isArray(value) ? value[0] : value, ''),
+        toValue: '',
     }));
 }
 
+// shift is half the @@unique key, so a blank one silently upserts a second
+// report for the same day instead of failing — hence the explicit reject.
 async function ensureReport(date, shift) {
-    if (!date) throw new AppError(400, 'Date is required.');
-    return disaReportRepository.ensureReportRow(String(date).trim(), String(shift ?? '').trim());
+    const trimmedShift = String(shift ?? '').trim();
+    if (!date || !trimmedShift) throw new AppError(400, 'Date and shift are required.');
+    return disaReportRepository.ensureReportRow(String(date).trim(), trimmedShift);
 }
 
 // ── section writes ──────────────────────────────────────────────────────────
@@ -104,10 +110,10 @@ async function saveMouldHardness(date, shift, rows) {
         componentName: withDefault(row.componentName, ''),
         remarks: withDefault(row.remarks, ''),
         readings: [
-            ...zipPairs(row.mpPP).map((r) => ({ ...r, kind: 'mpPP' })),
-            ...zipPairs(row.mpSP).map((r) => ({ ...r, kind: 'mpSP' })),
-            ...zipPairs(row.bsPP).map((r) => ({ ...r, kind: 'bsPP' })),
-            ...zipPairs(row.bsSP).map((r) => ({ ...r, kind: 'bsSP' })),
+            ...zipReadings(row.mpPP).map((r) => ({ ...r, kind: 'mpPP' })),
+            ...zipReadings(row.mpSP).map((r) => ({ ...r, kind: 'mpSP' })),
+            ...zipReadings(row.bsPP).map((r) => ({ ...r, kind: 'bsPP' })),
+            ...zipReadings(row.bsSP).map((r) => ({ ...r, kind: 'bsSP' })),
         ],
     }));
 
@@ -230,10 +236,10 @@ function toWireReport(report) {
         })),
         mouldHardness: report.mouldHardness.map(({ readings, id, disaReportId, createdAt, ...r }) => ({
             ...r,
-            mpPP: readings.filter((rd) => rd.kind === 'mpPP').map((rd) => [rd.fromValue, rd.toValue]),
-            mpSP: readings.filter((rd) => rd.kind === 'mpSP').map((rd) => [rd.fromValue, rd.toValue]),
-            bsPP: readings.filter((rd) => rd.kind === 'bsPP').map((rd) => [rd.fromValue, rd.toValue]),
-            bsSP: readings.filter((rd) => rd.kind === 'bsSP').map((rd) => [rd.fromValue, rd.toValue]),
+            mpPP: readings.filter((rd) => rd.kind === 'mpPP').map((rd) => rd.fromValue),
+            mpSP: readings.filter((rd) => rd.kind === 'mpSP').map((rd) => rd.fromValue),
+            bsPP: readings.filter((rd) => rd.kind === 'bsPP').map((rd) => rd.fromValue),
+            bsSP: readings.filter((rd) => rd.kind === 'bsSP').map((rd) => rd.fromValue),
         })),
         patternTemperature: report.patternTemp.map(({ id, disaReportId, createdAt, ...r }) => r),
         significantEvent: report.significantEvent,

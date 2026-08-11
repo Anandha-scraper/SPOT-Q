@@ -45,3 +45,20 @@ exports.deleteEntry = asyncHandler(async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Melting entry deleted successfully.' });
 });
+
+exports.updatePrimary = asyncHandler(async (req, res) => {
+    const data = await meltingLogService.updatePrimary(req.targetEntry.id, req.body);
+
+    res.status(200).json({ success: true, data, message: 'Primary updated successfully.' });
+});
+
+exports.deletePrimary = asyncHandler(async (req, res) => {
+    const { deletedEntryCount } = await meltingLogService.deletePrimary(req.targetEntry.id);
+
+    res.status(200).json({
+        success: true,
+        message: deletedEntryCount
+            ? `Primary and its ${deletedEntryCount} ${deletedEntryCount === 1 ? 'entry' : 'entries'} deleted successfully.`
+            : 'Primary deleted successfully.',
+    });
+});

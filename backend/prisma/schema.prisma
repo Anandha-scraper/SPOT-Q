@@ -68,12 +68,14 @@ model User {
   microStructureEntries MicroStructureEntry[]
   qcProductionEntries   QcProduction[]
 
-  // Cupola and both Moulding modules never had a createdBy field in Mongoose —
-  // genuinely ownerless, no back-relation here. Sand Lab's three modules
-  // (SandNoteEntry/ReturnSandNoteEntry/SandRecordDay) were ownerless too until
-  // their report pages needed the same ownership+edit-window gating every
-  // other department already has.
+  // Both Moulding modules never had a createdBy field in Mongoose — genuinely
+  // ownerless, no back-relation here. Sand Lab's three modules
+  // (SandNoteEntry/ReturnSandNoteEntry/SandRecordDay) were ownerless too, and
+  // CupolaLogEntry until its report page gained edit/delete — all now carry the
+  // same ownership+edit-window gating every other department already has.
   meltingLogEntries MeltingLogEntry[]
+  cupolaLogEntries  CupolaLogEntry[]
+  dmmParameterEntries DmmParameterEntry[]
 
   sandNoteEntries       SandNoteEntry[]
   returnSandNoteEntries ReturnSandNoteEntry[]
@@ -664,8 +666,9 @@ model MeltingLogEntry {
   @@map("melting_log_entries")
 }
 
-// CupolaHolderLog — same two-level shape, no lock/value fields on the
-// primary, no createdBy on the entry (Mongoose never had one), no /:id route.
+// CupolaHolderLog — same two-level shape, no lock/value fields on the primary.
+// The entry gained createdBy/updatedAt when its report page got edit/delete;
+// rows created before that migration keep a null createdBy and stay admin-only.
 model CupolaLog {
   id   String @id @default(uuid()) @db.VarChar(36)
   date String @unique @db.VarChar(10)
@@ -720,9 +723,12 @@ model CupolaLogEntry {
   kw       String @default("-") @db.VarChar(16)
   remarks  String @default("-") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   primary CupolaLogPrimary @relation(fields: [primaryId], references: [id], onDelete: Cascade)
+  creator User?            @relation(fields: [createdBy], references: [id], onDelete: NoAction)
 
   @@index([primaryId])
   @@map("cupola_log_entries")
@@ -965,9 +971,12 @@ model DmmParameterEntry {
   closeUpForceMouldCloseUpPressure String @default("") @db.VarChar(32)
   remarks                          String @default("") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   machineShift DmmMachineShift @relation(fields: [machineShiftId], references: [id], onDelete: Cascade)
+  creator      User?           @relation(fields: [createdBy], references: [id], onDelete: NoAction)
 
   @@index([machineShiftId])
   @@map("dmm_parameter_entries")

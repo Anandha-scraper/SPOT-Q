@@ -299,3 +299,13 @@ button:disabled {
   25% { transform: translateX(-5px); }
   75% { transform: translateX(5px); }
 }
+
+/* Primary warning/error row — the combination status itself lives inside
+   LockPrimaryButton, so only these two ever render here. */
+.disamatic-primary-messages {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}

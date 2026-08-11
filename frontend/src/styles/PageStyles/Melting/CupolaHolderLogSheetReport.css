@@ -117,22 +117,13 @@
   min-height: 38px;
 }
 
-.chr-checklist-container {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
 .cupola-holder-filter-group {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.cupola-holder-filter-group label,
-.chr-checklist-title {
+.cupola-holder-filter-group label {
   display: block;
   font-size: 0.75rem;
   font-weight: 500;
@@ -148,52 +139,6 @@
 
 .cupola-holder-filter-container > div:has(button) {
   display: inline-block;
-}
-
-/* Checklist styles aligned with filter inputs */
-.chr-checklist-container {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.chr-checklist-title {
-  margin-bottom: 0.25rem;
-}
-
-.chr-checklist {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.chr-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  min-height: 38px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.chr-check input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #0ea5e9;
-}
-
-.chr-check span {
-  font-size: 0.875rem;
-  color: #334155;
-}
-
-.chr-check:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
 }
 
 .cupola-holder-filter-container button {

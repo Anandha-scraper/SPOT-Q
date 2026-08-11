@@ -6,6 +6,8 @@ import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import EntryActions from '../../Components/EntryActions';
+import { dmmEditConfig } from '../../utils/editFieldConfigs';
 import { useDeviationClass } from '../../utils/deviationDisplay';
 import { validationRanges, keyToRuleField } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -162,7 +164,7 @@ const DmmSettingParametersReport = () => {
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
             rows.push({
-              _id: report._id,
+              reportId: report._id,
               date: report.date,
               machine: report.machine,
               shift: shiftKey.replace('shift', 'Shift '),
@@ -170,6 +172,7 @@ const DmmSettingParametersReport = () => {
               rowIndex,
               operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
               checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
+              // spread last: param carries the parameter row's own _id/createdAt/createdBy
               ...param
             });
           });
@@ -259,7 +262,7 @@ const DmmSettingParametersReport = () => {
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
             rows.push({
-              _id: report._id,
+              reportId: report._id,
               date: report.date,
               machine: report.machine,
               shift: shiftKey.replace('shift','Shift '),
@@ -267,6 +270,7 @@ const DmmSettingParametersReport = () => {
               rowIndex,
               operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
               checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
+              // spread last: param carries the parameter row's own _id/createdAt/createdBy
               ...param
             });
           });
@@ -284,7 +288,7 @@ const DmmSettingParametersReport = () => {
 
   // Resolve the full report by id, or fallback to date+machine match
   const resolveReportByRow = (row) => {
-    const byId = allEntries.find(r => r._id === row._id);
+    const byId = allEntries.find(r => r._id === row.reportId);
     if (byId) return byId;
     try {
       const rowDateKey = row.date ? formatDate(row.date) : '';
@@ -409,11 +413,12 @@ const DmmSettingParametersReport = () => {
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Mould Thickness ±10mm</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Close-Up Force/Pressure</th>
                   <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Remarks</th>
+                  <th style={{ padding: '14px 18px', textAlign: 'center', fontWeight: 600, fontSize: '0.875rem', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedRows.length === 0 ? (
-                  <tr><td colSpan="24" className="impact-no-records">{flattenedRows.length === 0 ? 'No parameter rows found' : 'No data on this page'}</td></tr>
+                  <tr><td colSpan="25" className="impact-no-records">{flattenedRows.length === 0 ? 'No parameter rows found' : 'No data on this page'}</td></tr>
                 ) : (
                   paginatedRows.map((row, idx) => {
                     // Calculate group size for this row
@@ -837,6 +842,15 @@ const DmmSettingParametersReport = () => {
                           }}
                           title={row.remarks || 'No remarks'}>
                           {row.remarks || '-'}
+                        </td>
+                        <td style={{
+                          padding: '12px 18px',
+                          textAlign: 'center',
+                          whiteSpace: 'nowrap',
+                          borderTop: isFirstInGroup && idx > 0 ? '2px solid #e2e8f0' : 'none',
+                          borderBottom: isLastInGroup ? '2px solid #e2e8f0' : 'none'
+                        }}>
+                          <EntryActions entry={row} editConfig={dmmEditConfig} onChanged={fetchReports} />
                         </td>
                       </tr>
                     );

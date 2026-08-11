@@ -1029,10 +1029,6 @@ const DmmSettingParameters = () => {
                   <option value="3">Shift 3</option>
                 </select>
               </div>
-          </div>
-
-          {/* Operator Fields Row */}
-          <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
               <div className="dmm-form-group">
                 <label>Operator Name</label>
                 <input
@@ -1050,7 +1046,6 @@ const DmmSettingParameters = () => {
                   }}
                   disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || lockedFields.operatorName || fetchingPrimary}
                   placeholder="Enter operator name"
-                  style={lockedFields.operatorName ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}}
                 />
               </div>
               <div className="dmm-form-group">

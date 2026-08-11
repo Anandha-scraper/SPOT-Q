@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
-import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown } from "../../Components/Buttons";
+import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown, LockPrimaryButton } from "../../Components/Buttons";
 import { InlineLoader } from '../../Components/InlineLoader';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from "../../config/api";
@@ -17,7 +17,7 @@ const initialFormData = {
   productionTable: [{ counterNo: "", componentName: "", produced: "", poured: "", cycleTime: "", mouldsPerHour: "", remarks: "" }],
   nextShiftPlanTable: [{ componentName: "", plannedMoulds: "", remarks: "" }],
   delaysTable: [{ delays: "", durationMinutes: [""], fromTime: [""], toTime: [""] }],
-  mouldHardnessTable: [{ componentName: "", mpPP: [["", ""]], mpSP: [["", ""]], bsPP: [["", ""]], bsSP: [["", ""]], remarks: "" }],
+  mouldHardnessTable: [{ componentName: "", mpPP: [""], mpSP: [""], bsPP: [""], bsSP: [""], remarks: "" }],
   patternTempTable: [{ item: "", pp: "", sp: "" }],
   significantEvent: "",
   maintenance: "",
@@ -82,6 +82,8 @@ const DisamaticProduct = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [savePrimaryLoading, setSavePrimaryLoading] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
+  const [showCombinationAdded, setShowCombinationAdded] = useState(false);
+  const [savingSection, setSavingSection] = useState(null);
   const [productionErrors, setProductionErrors] = useState({});
   const [nextShiftPlanErrors, setNextShiftPlanErrors] = useState({});
   const [delaysErrors, setDelaysErrors] = useState({});
@@ -109,7 +111,6 @@ const DisamaticProduct = () => {
   const [showPrimaryWarning, setShowPrimaryWarning] = useState(false);
 
   // Success alert states
-  const [primarySuccess, setPrimarySuccess] = useState(false);
   const [productionSuccess, setProductionSuccess] = useState(false);
   const [nextShiftPlanSuccess, setNextShiftPlanSuccess] = useState(false);
   const [delaysSuccess, setDelaysSuccess] = useState(false);
@@ -401,6 +402,7 @@ const DisamaticProduct = () => {
       setSavePrimaryLoading(false);
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -661,6 +663,7 @@ const DisamaticProduct = () => {
 
     try {
       setIsLoading(true);
+      setSavingSection('production');
       
       // Filter out empty rows before sending
       const validRows = formData.productionTable.filter(row => 
@@ -676,6 +679,7 @@ const DisamaticProduct = () => {
         },
         body: JSON.stringify({
           date: formData.date,
+          shift: formData.shift,
           section: 'production',
           productionTable: validRows
         })
@@ -715,6 +719,7 @@ const DisamaticProduct = () => {
       setProductionSubmitError(error.message || 'Failed to save production data. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -862,6 +867,7 @@ const DisamaticProduct = () => {
 
     try {
       setIsLoading(true);
+      setSavingSection('nextShiftPlan');
       
       // Filter out empty rows
       const validRows = formData.nextShiftPlanTable.filter(row => 
@@ -877,6 +883,7 @@ const DisamaticProduct = () => {
         },
         body: JSON.stringify({
           date: formData.date,
+          shift: formData.shift,
           section: 'nextShiftPlan',
           nextShiftPlanTable: validRows
         })
@@ -916,6 +923,7 @@ const DisamaticProduct = () => {
       setNextShiftPlanSubmitError(error.message || 'Failed to save next shift plan. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -1238,6 +1246,7 @@ const DisamaticProduct = () => {
     
     try {
       setIsLoading(true);
+      setSavingSection('delays');
       
       // Filter out empty rows
       const validRows = formData.delaysTable.filter(row => 
@@ -1253,6 +1262,7 @@ const DisamaticProduct = () => {
         },
         body: JSON.stringify({
           date: formData.date,
+          shift: formData.shift,
           section: 'delays',
           delaysTable: validRows
         })
@@ -1289,6 +1299,7 @@ const DisamaticProduct = () => {
       setDelaysSubmitError(error.message || 'Failed to save delays. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
   
@@ -1380,7 +1391,7 @@ const DisamaticProduct = () => {
     setMouldHardnessSubmitError('');
     setFormData(prev => ({
       ...prev,
-      mouldHardnessTable: [...prev.mouldHardnessTable, { componentName: "", mpPP: [["", ""]], mpSP: [["", ""]], bsPP: [["", ""]], bsSP: [["", ""]], remarks: "" }]
+      mouldHardnessTable: [...prev.mouldHardnessTable, { componentName: "", mpPP: [""], mpSP: [""], bsPP: [""], bsSP: [""], remarks: "" }]
     }));
   };
 
@@ -1392,10 +1403,10 @@ const DisamaticProduct = () => {
     }));
   };
 
-  const handleMouldHardnessChange = (index, field, value, pairIndex = null, fieldIndex = null) => {
+  const handleMouldHardnessChange = (index, field, value, pairIndex = null) => {
     const newTable = [...formData.mouldHardnessTable];
-    if (pairIndex !== null && fieldIndex !== null && Array.isArray(newTable[index][field])) {
-      newTable[index][field][pairIndex][fieldIndex] = value;
+    if (pairIndex !== null && Array.isArray(newTable[index][field])) {
+      newTable[index][field][pairIndex] = value;
     } else {
       newTable[index][field] = value;
     }
@@ -1409,9 +1420,7 @@ const DisamaticProduct = () => {
       setMouldHardnessErrors(prev => {
         const newErrors = { ...prev };
         if (newErrors[index]) {
-          if (pairIndex !== null && fieldIndex !== null) {
-            // For array fields (mpPP, mpSP, bsPP, bsSP)
-            // Clear both from and to errors for the entire pair when either value changes
+          if (pairIndex !== null) {
             if (newErrors[index][field]?.[pairIndex]) {
               delete newErrors[index][field][pairIndex];
               // If no more pair errors, remove the field error
@@ -1457,75 +1466,40 @@ const DisamaticProduct = () => {
   };
 
   // Handle Enter key navigation for Mould Hardness table
-  const handleMouldHardnessKeyDown = (e, currentRowIndex, currentField, pairIdx = null, fieldIdx = null) => {
+  const handleMouldHardnessKeyDown = (e, currentRowIndex, currentField, pairIdx = null) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       
-      // Auto-format to decimal if it's a PP/SP field
-      if (pairIdx !== null && fieldIdx !== null && ['mpPP', 'mpSP', 'bsPP', 'bsSP'].includes(currentField)) {
-        const currentValue = formData.mouldHardnessTable[currentRowIndex][currentField][pairIdx][fieldIdx];
+      if (pairIdx !== null && ['mpPP', 'mpSP', 'bsPP', 'bsSP'].includes(currentField)) {
+        const currentValue = formData.mouldHardnessTable[currentRowIndex][currentField][pairIdx];
         if (currentValue) {
           const formatted = formatDecimal(currentValue);
-          handleMouldHardnessChange(currentRowIndex, currentField, formatted, pairIdx, fieldIdx);
+          handleMouldHardnessChange(currentRowIndex, currentField, formatted, pairIdx);
         }
       }
-      
+
       const row = formData.mouldHardnessTable[currentRowIndex];
-      const totalPairs = row.mpPP.length;
-      
-      // Define navigation order
+      const totalReadings = row.mpPP.length;
+
       const fields = ['componentName'];
-      
-      // Add all pair fields
-      for (let i = 0; i < totalPairs; i++) {
-        fields.push(`mpPP-${i}-0`, `mpPP-${i}-1`);
-      }
-      for (let i = 0; i < totalPairs; i++) {
-        fields.push(`mpSP-${i}-0`, `mpSP-${i}-1`);
-      }
-      for (let i = 0; i < totalPairs; i++) {
-        fields.push(`bsPP-${i}-0`, `bsPP-${i}-1`);
-      }
-      for (let i = 0; i < totalPairs; i++) {
-        fields.push(`bsSP-${i}-0`, `bsSP-${i}-1`);
-      }
+      ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
+        for (let i = 0; i < totalReadings; i++) fields.push(`${kind}-${i}`);
+      });
       fields.push('remarks');
-      
-      // Determine current field key
-      let currentFieldKey;
-      if (pairIdx !== null && fieldIdx !== null) {
-        currentFieldKey = `${currentField}-${pairIdx}-${fieldIdx}`;
-      } else {
-        currentFieldKey = currentField;
-      }
+
+      const currentFieldKey = pairIdx !== null ? `${currentField}-${pairIdx}` : currentField;
       
       const currentFieldIndex = fields.indexOf(currentFieldKey);
       
       // Move to next field in same row
       if (currentFieldIndex >= 0 && currentFieldIndex < fields.length - 1) {
         const nextFieldKey = fields[currentFieldIndex + 1];
-        const nextFieldParts = nextFieldKey.split('-');
-        
-        if (nextFieldParts.length === 3) {
-          // It's a pair field
-          const fieldName = nextFieldParts[0];
-          const pairIndex = nextFieldParts[1];
-          const fieldIndex = nextFieldParts[2];
-          setFocusedField(`${currentRowIndex}-mouldHardness-${fieldName}-${pairIndex}-${fieldIndex === '0' ? 'from' : 'to'}`);
-          setTimeout(() => {
-            const selector = `[data-field="${currentRowIndex}-mouldHardness-${fieldName}-${pairIndex}-${fieldIndex === '0' ? 'from' : 'to'}"]`;
-            const nextInput = document.querySelector(selector);
-            if (nextInput) nextInput.focus();
-          }, 0);
-        } else {
-          // It's componentName or remarks
-          setFocusedField(`${currentRowIndex}-mouldHardness-${nextFieldKey}`);
-          setTimeout(() => {
-            const selector = `[data-field="${currentRowIndex}-mouldHardness-${nextFieldKey}"]`;
-            const nextInput = document.querySelector(selector);
-            if (nextInput) nextInput.focus();
-          }, 0);
-        }
+        const target = `${currentRowIndex}-mouldHardness-${nextFieldKey}`;
+        setFocusedField(target);
+        setTimeout(() => {
+          const nextInput = document.querySelector(`[data-field="${target}"]`);
+          if (nextInput) nextInput.focus();
+        }, 0);
       }
       // Move to first field of next row
       else if (currentRowIndex < formData.mouldHardnessTable.length - 1) {
@@ -1547,10 +1521,10 @@ const DisamaticProduct = () => {
   const addMouldHardnessPair = (rowIndex) => {
     setMouldHardnessSubmitError('');
     const newTable = [...formData.mouldHardnessTable];
-    newTable[rowIndex].mpPP.push(["", ""]);
-    newTable[rowIndex].mpSP.push(["", ""]);
-    newTable[rowIndex].bsPP.push(["", ""]);
-    newTable[rowIndex].bsSP.push(["", ""]);
+    newTable[rowIndex].mpPP.push("");
+    newTable[rowIndex].mpSP.push("");
+    newTable[rowIndex].bsPP.push("");
+    newTable[rowIndex].bsSP.push("");
     setFormData(prev => ({ ...prev, mouldHardnessTable: newTable }));
   };
 
@@ -1573,7 +1547,6 @@ const DisamaticProduct = () => {
     const errors = {};
     let hasCompleteRow = false;
     let hasAnyData = false;
-    let hasRangeError = false;
     let firstErrorField = null;
 
     formData.mouldHardnessTable.forEach((row, index) => {
@@ -1581,10 +1554,10 @@ const DisamaticProduct = () => {
       
       // Check if row has any data
       const hasRowData = row.componentName || row.remarks || 
-        row.mpPP.some(pair => pair[0] || pair[1]) ||
-        row.mpSP.some(pair => pair[0] || pair[1]) ||
-        row.bsPP.some(pair => pair[0] || pair[1]) ||
-        row.bsSP.some(pair => pair[0] || pair[1]);
+        row.mpPP.some(v => v) ||
+        row.mpSP.some(v => v) ||
+        row.bsPP.some(v => v) ||
+        row.bsSP.some(v => v);
       
       if (hasRowData) {
         hasAnyData = true;
@@ -1592,60 +1565,17 @@ const DisamaticProduct = () => {
         if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-componentName`; }
         if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-remarks`; }
         
-        // Validate each pair in arrays
-        const mpPPErrors = {};
-        const mpSPErrors = {};
-        const bsPPErrors = {};
-        const bsSPErrors = {};
-        
-        row.mpPP.forEach((pair, pairIdx) => {
-          if (!pair[0] || !pair[1]) {
-            mpPPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpPP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
-          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
-            mpPPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
-            hasRangeError = true;
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpPP-${pairIdx}-from`;
-          }
+        ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
+          const kindErrors = {};
+          row[kind].forEach((value, pairIdx) => {
+            if (!value) {
+              kindErrors[pairIdx] = true;
+              if (!firstErrorField) firstErrorField = `${index}-mouldHardness-${kind}-${pairIdx}`;
+            }
+          });
+          if (Object.keys(kindErrors).length > 0) rowErrors[kind] = kindErrors;
         });
-        
-        row.mpSP.forEach((pair, pairIdx) => {
-          if (!pair[0] || !pair[1]) {
-            mpSPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpSP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
-          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
-            mpSPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
-            hasRangeError = true;
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-mpSP-${pairIdx}-from`;
-          }
-        });
-        
-        row.bsPP.forEach((pair, pairIdx) => {
-          if (!pair[0] || !pair[1]) {
-            bsPPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsPP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
-          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
-            bsPPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
-            hasRangeError = true;
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsPP-${pairIdx}-from`;
-          }
-        });
-        
-        row.bsSP.forEach((pair, pairIdx) => {
-          if (!pair[0] || !pair[1]) {
-            bsSPErrors[pairIdx] = { from: !pair[0], to: !pair[1] };
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsSP-${pairIdx}-${!pair[0] ? 'from' : 'to'}`;
-          } else if (parseFloat(pair[1]) !== 0 && parseFloat(pair[0]) > parseFloat(pair[1])) {
-            bsSPErrors[pairIdx] = { from: 'From cannot be greater than To', to: 'To cannot be less than From' };
-            hasRangeError = true;
-            if (!firstErrorField) firstErrorField = `${index}-mouldHardness-bsSP-${pairIdx}-from`;
-          }
-        });
-        
-        if (Object.keys(mpPPErrors).length > 0) rowErrors.mpPP = mpPPErrors;
-        if (Object.keys(mpSPErrors).length > 0) rowErrors.mpSP = mpSPErrors;
-        if (Object.keys(bsPPErrors).length > 0) rowErrors.bsPP = bsPPErrors;
-        if (Object.keys(bsSPErrors).length > 0) rowErrors.bsSP = bsSPErrors;
+
         
         // Check if all required fields are filled
         if (Object.keys(rowErrors).length === 0) {
@@ -1659,35 +1589,11 @@ const DisamaticProduct = () => {
     // If no data at all in any row, show errors on all rows
     if (!hasAnyData) {
       formData.mouldHardnessTable.forEach((row, index) => {
-        const mpPPErrors = {};
-        const mpSPErrors = {};
-        const bsPPErrors = {};
-        const bsSPErrors = {};
-        
-        row.mpPP.forEach((pair, pairIdx) => {
-          mpPPErrors[pairIdx] = { from: true, to: true };
+        const rowErrors = { componentName: true, remarks: true };
+        ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
+          rowErrors[kind] = Object.fromEntries(row[kind].map((_, pairIdx) => [pairIdx, true]));
         });
-        
-        row.mpSP.forEach((pair, pairIdx) => {
-          mpSPErrors[pairIdx] = { from: true, to: true };
-        });
-        
-        row.bsPP.forEach((pair, pairIdx) => {
-          bsPPErrors[pairIdx] = { from: true, to: true };
-        });
-        
-        row.bsSP.forEach((pair, pairIdx) => {
-          bsSPErrors[pairIdx] = { from: true, to: true };
-        });
-        
-        errors[index] = {
-          componentName: true,
-          remarks: true,
-          mpPP: mpPPErrors,
-          mpSP: mpSPErrors,
-          bsPP: bsPPErrors,
-          bsSP: bsSPErrors
-        };
+        errors[index] = rowErrors;
       });
       if (!firstErrorField) firstErrorField = '0-mouldHardness-componentName';
       setMouldHardnessErrors(errors);
@@ -1719,14 +1625,15 @@ const DisamaticProduct = () => {
     // Proceed with save
     try {
       setIsLoading(true);
+      setSavingSection('mouldHardness');
       
       // Filter out empty rows
       const validRows = formData.mouldHardnessTable.filter(row => 
         row.componentName || row.remarks ||
-        row.mpPP.some(pair => pair[0] || pair[1]) ||
-        row.mpSP.some(pair => pair[0] || pair[1]) ||
-        row.bsPP.some(pair => pair[0] || pair[1]) ||
-        row.bsSP.some(pair => pair[0] || pair[1])
+        row.mpPP.some(v => v) ||
+        row.mpSP.some(v => v) ||
+        row.bsPP.some(v => v) ||
+        row.bsSP.some(v => v)
       );
       
       // Save to backend
@@ -1738,6 +1645,7 @@ const DisamaticProduct = () => {
         },
         body: JSON.stringify({
           date: formData.date,
+          shift: formData.shift,
           section: 'mouldHardness',
           mouldHardnessTable: validRows
         })
@@ -1758,7 +1666,7 @@ const DisamaticProduct = () => {
         // Clear table
         setFormData(prev => ({
           ...prev,
-          mouldHardnessTable: [{ componentName: "", mpPP: [["", ""]], mpSP: [["", ""]], bsPP: [["", ""]], bsSP: [["", ""]], remarks: "" }]
+          mouldHardnessTable: [{ componentName: "", mpPP: [""], mpSP: [""], bsPP: [""], bsSP: [""], remarks: "" }]
         }));
         
         setMouldHardnessErrors({});
@@ -1775,6 +1683,7 @@ const DisamaticProduct = () => {
       setMouldHardnessSubmitError(error.message || 'Failed to save mould hardness. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -1786,8 +1695,8 @@ const DisamaticProduct = () => {
     return '#e2e8f0'; // default gray
   };
 
-  const getPairInputBorderColor = (rowIndex, fieldName, pairIdx, position) => {
-    const hasError = mouldHardnessErrors[rowIndex]?.[fieldName]?.[pairIdx]?.[position];
+  const getReadingInputBorderColor = (rowIndex, fieldName, pairIdx) => {
+    const hasError = mouldHardnessErrors[rowIndex]?.[fieldName]?.[pairIdx];
     if (hasError) {
       return '#ef4444'; // red when error
     }
@@ -1948,6 +1857,7 @@ const DisamaticProduct = () => {
     // Proceed with save
     try {
       setIsLoading(true);
+      setSavingSection('patternTemp');
       
       // Filter out empty rows
       const validRows = formData.patternTempTable.filter(row => 
@@ -2003,6 +1913,7 @@ const DisamaticProduct = () => {
       setPatternTempSubmitError(error.message || 'Failed to save pattern temperature data. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -2094,9 +2005,8 @@ const DisamaticProduct = () => {
 
         setIsPrimaryDataSaved(true);
 
-        // Show success alert
-        setPrimarySuccess(true);
-        setTimeout(() => setPrimarySuccess(false), 3000);
+        setShowCombinationAdded(true);
+        setTimeout(() => setShowCombinationAdded(false), 1500);
       } else {
         setPrimarySubmitError(result.message || 'Failed to save primary data.');
       }
@@ -2105,6 +2015,7 @@ const DisamaticProduct = () => {
       setPrimarySubmitError(error.message || 'Failed to save primary data. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -2123,6 +2034,7 @@ const DisamaticProduct = () => {
 
     try {
       setIsLoading(true);
+      setSavingSection('events');
       
       // Save events data to backend
       const response = await fetch(API_ENDPOINTS.mouldingDisa, {
@@ -2173,6 +2085,7 @@ const DisamaticProduct = () => {
       setEventsSubmitError(error.message || 'Failed to save events data. Please try again.');
     } finally {
       setIsLoading(false);
+      setSavingSection(null);
     }
   };
 
@@ -2243,28 +2156,6 @@ const DisamaticProduct = () => {
               }
             }}
           />
-          {(savePrimaryLoading || showCombinationFound) && (
-            <div style={{ 
-              marginTop: '0.75rem',
-              display: 'flex',
-              alignItems: 'flex-start'
-            }}>
-              {savePrimaryLoading && (
-                <InlineLoader 
-                  message="Fetching Date, Shift" 
-                  size="medium" 
-                  variant="primary" 
-                />
-              )}
-              {showCombinationFound && (
-                <InlineLoader 
-                  message="Combination found" 
-                  size="medium" 
-                  variant="success" 
-                />
-              )}
-            </div>
-          )}
         </div>
         {/* onMouseDownCapture on div + pointerEvents:'none' on disabled input = click-through error highlight */}
         <div 
@@ -2348,13 +2239,9 @@ const DisamaticProduct = () => {
             onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterPpOperator(), 'ppOperator')}
           />
         </div>
-      </div>
-      
-      {/* Members Present — same click-through pattern: onMouseDownCapture + pointerEvents:'none' on disabled inputs */}
-      <div className="primary-fields-row">
         <div 
-          className={`disamatic-form-group ${membersErrorHighlight ? 'error-highlight' : ''}`} 
-          style={{ gridColumn: '1 / -1' }}
+          className={`disamatic-form-group ${membersErrorHighlight ? 'error-highlight' : ''}`}
+          style={{ gridColumn: 'span 2' }}
           onMouseDownCapture={(e) => {
             if (e.target.tagName === 'INPUT' && !e.target.disabled) return;
             if (e.target.tagName === 'BUTTON') return;
@@ -2437,41 +2324,35 @@ const DisamaticProduct = () => {
             )}
           </div>
         </div>
+        <div className="disamatic-form-group">
+          <label>&nbsp;</label>
+          <LockPrimaryButton
+            ref={primarySaveButtonRef}
+            onClick={handleSavePrimary}
+            disabled={!formData.date || !formData.shift}
+            label={isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary'}
+            statusMessage={
+              savePrimaryLoading ? 'Fetching Date, Shift'
+                : showCombinationFound ? 'Combination found'
+                : isLoading ? 'Saving...'
+                : showCombinationAdded ? 'Combination Added'
+                : null
+            }
+            statusVariant={savePrimaryLoading || isLoading ? 'primary' : 'success'}
+          />
+        </div>
       </div>
-      
-      {/* Primary Submit Container */}
-      <div className="disamatic-submit-container" style={{ gap: '1rem' }}>
-        {showPrimaryWarning && (
-          <InlineLoader 
-            message="Save Primary Data First" 
-            size="medium" 
-            variant="danger" 
-          />
-        )}
-        {isLoading ? (
-          <div style={{ padding: '0.75rem 1.5rem', color: '#64748b', fontWeight: 500 }}>
-            Loading...
-          </div>
-        ) : (
-          <SubmitButton ref={primarySaveButtonRef} onClick={handleSavePrimary}>
-            {isPrimaryDataSaved ? "Update Primary Data" : "Save Primary"}
-          </SubmitButton>
-        )}
-        {primarySuccess && (
-          <InlineLoader
-            message="Primary data saved successfully!"
-            variant="success"
-            size="medium"
-          />
-        )}
-        {primarySubmitError && (
-          <InlineLoader
-            message={primarySubmitError}
-            variant="danger"
-            size="medium"
-          />
-        )}
-      </div>
+
+      {(showPrimaryWarning || primarySubmitError) && (
+        <div className="disamatic-primary-messages">
+          {showPrimaryWarning && (
+            <InlineLoader message="Save Primary Data First" size="medium" variant="danger" />
+          )}
+          {primarySubmitError && (
+            <InlineLoader message={primarySubmitError} variant="danger" size="medium" />
+          )}
+        </div>
+      )}
 
       {/* Production Table — onMouseDownCapture intercepts clicks when primary not saved */}
       <div className="disamatic-section">
@@ -2695,7 +2576,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitProduction} disabled={!isPrimaryDataSaved}>
+          <SubmitButton onClick={handleSubmitProduction} disabled={!isPrimaryDataSaved} loading={savingSection === 'production'}>
             Save Production Data
           </SubmitButton>
         </div>
@@ -2704,7 +2585,7 @@ const DisamaticProduct = () => {
       {/* Next Shift Plan Table */}
       <div className="disamatic-section">
         <div className="disamatic-section-header">
-          <h3 className="disamatic-section-title">Next Shift Plan {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
+          <h3 className="disamatic-section-title">Next Shift Plan {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
             {formData.nextShiftPlanTable.length > 1 && (
               <button
@@ -2834,7 +2715,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitNextShiftPlan} disabled={!isPrimaryDataSaved}>
+          <SubmitButton onClick={handleSubmitNextShiftPlan} disabled={!isPrimaryDataSaved} loading={savingSection === 'nextShiftPlan'}>
             Save Next Shift Plan
           </SubmitButton>
         </div>
@@ -2843,7 +2724,7 @@ const DisamaticProduct = () => {
       {/* Delays Table */}
       <div className="disamatic-section">
         <div className="disamatic-section-header">
-          <h3 className="disamatic-section-title">Delays {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
+          <h3 className="disamatic-section-title">Delays {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
             {formData.delaysTable.length > 1 && (
               <button
@@ -3016,7 +2897,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitDelays} disabled={!isPrimaryDataSaved}>
+          <SubmitButton onClick={handleSubmitDelays} disabled={!isPrimaryDataSaved} loading={savingSection === 'delays'}>
             Save Delays
           </SubmitButton>
         </div>
@@ -3025,7 +2906,7 @@ const DisamaticProduct = () => {
       {/* Mould Hardness Table */}
       <div className="disamatic-section">
         <div className="disamatic-section-header">
-          <h3 className="disamatic-section-title">Mould Hardness {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
+          <h3 className="disamatic-section-title">Mould Hardness {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
             {formData.mouldHardnessTable.length > 1 && (
               <button
@@ -3114,65 +2995,32 @@ const DisamaticProduct = () => {
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {row.mpPP.map((pair, pairIdx) => (
-                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                      {row.mpPP.map((value, pairIdx) => (
+                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <input
                             type="text"
-                            value={pair[0]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'mpPP', value, pairIdx, 0);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpPP', pairIdx, 0)}
+                            value={value}
+                            onChange={e => handleMouldHardnessChange(index, 'mpPP', cleanDecimalInput(e.target.value), pairIdx)}
+                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpPP', pairIdx)}
                             onBlur={e => {
                               const formatted = formatDecimal(e.target.value);
                               if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'mpPP', formatted, pairIdx, 0);
+                                handleMouldHardnessChange(index, 'mpPP', formatted, pairIdx);
                               }
                               setFocusedField(null);
                             }}
-                            data-field={`${index}-mouldHardness-mpPP-${pairIdx}-from`}
-                            placeholder="From"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
+                            data-field={`${index}-mouldHardness-mpPP-${pairIdx}`}
+                            placeholder="Value"
+                            style={{
+                              width: '90px',
+                              padding: '0.5rem',
+                              borderRadius: '4px',
                               textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'mpPP', pairIdx, 'from')}`,
+                              border: `2px solid ${getReadingInputBorderColor(index, 'mpPP', pairIdx)}`,
                               outline: 'none',
                               transition: 'border-color 0.2s'
                             }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpPP-${pairIdx}-from`)}
-                            disabled={!isPrimaryDataSaved}
-                          />
-                          <span style={{ fontWeight: 600, color: '#64748b' }}>-</span>
-                          <input
-                            type="text"
-                            value={pair[1]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'mpPP', value, pairIdx, 1);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpPP', pairIdx, 1)}
-                            onBlur={e => {
-                              const formatted = formatDecimal(e.target.value);
-                              if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'mpPP', formatted, pairIdx, 1);
-                              }
-                              setFocusedField(null);
-                            }}
-                            data-field={`${index}-mouldHardness-mpPP-${pairIdx}-to`}
-                            placeholder="To"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
-                              textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'mpPP', pairIdx, 'to')}`,
-                              outline: 'none',
-                              transition: 'border-color 0.2s'
-                            }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpPP-${pairIdx}-to`)}
+                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpPP-${pairIdx}`)}
                             disabled={!isPrimaryDataSaved}
                           />
                         </div>
@@ -3181,65 +3029,32 @@ const DisamaticProduct = () => {
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {row.mpSP.map((pair, pairIdx) => (
-                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                      {row.mpSP.map((value, pairIdx) => (
+                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <input
                             type="text"
-                            value={pair[0]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'mpSP', value, pairIdx, 0);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpSP', pairIdx, 0)}
+                            value={value}
+                            onChange={e => handleMouldHardnessChange(index, 'mpSP', cleanDecimalInput(e.target.value), pairIdx)}
+                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpSP', pairIdx)}
                             onBlur={e => {
                               const formatted = formatDecimal(e.target.value);
                               if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'mpSP', formatted, pairIdx, 0);
+                                handleMouldHardnessChange(index, 'mpSP', formatted, pairIdx);
                               }
                               setFocusedField(null);
                             }}
-                            data-field={`${index}-mouldHardness-mpSP-${pairIdx}-from`}
-                            placeholder="From"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
+                            data-field={`${index}-mouldHardness-mpSP-${pairIdx}`}
+                            placeholder="Value"
+                            style={{
+                              width: '90px',
+                              padding: '0.5rem',
+                              borderRadius: '4px',
                               textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'mpSP', pairIdx, 'from')}`,
+                              border: `2px solid ${getReadingInputBorderColor(index, 'mpSP', pairIdx)}`,
                               outline: 'none',
                               transition: 'border-color 0.2s'
                             }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpSP-${pairIdx}-from`)}
-                            disabled={!isPrimaryDataSaved}
-                          />
-                          <span style={{ fontWeight: 600, color: '#64748b' }}>-</span>
-                          <input
-                            type="text"
-                            value={pair[1]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'mpSP', value, pairIdx, 1);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'mpSP', pairIdx, 1)}
-                            onBlur={e => {
-                              const formatted = formatDecimal(e.target.value);
-                              if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'mpSP', formatted, pairIdx, 1);
-                              }
-                              setFocusedField(null);
-                            }}
-                            data-field={`${index}-mouldHardness-mpSP-${pairIdx}-to`}
-                            placeholder="To"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
-                              textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'mpSP', pairIdx, 'to')}`,
-                              outline: 'none',
-                              transition: 'border-color 0.2s'
-                            }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpSP-${pairIdx}-to`)}
+                            onFocus={() => setFocusedField(`${index}-mouldHardness-mpSP-${pairIdx}`)}
                             disabled={!isPrimaryDataSaved}
                           />
                         </div>
@@ -3248,65 +3063,32 @@ const DisamaticProduct = () => {
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {row.bsPP.map((pair, pairIdx) => (
-                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                      {row.bsPP.map((value, pairIdx) => (
+                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <input
                             type="text"
-                            value={pair[0]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'bsPP', value, pairIdx, 0);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsPP', pairIdx, 0)}
+                            value={value}
+                            onChange={e => handleMouldHardnessChange(index, 'bsPP', cleanDecimalInput(e.target.value), pairIdx)}
+                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsPP', pairIdx)}
                             onBlur={e => {
                               const formatted = formatDecimal(e.target.value);
                               if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'bsPP', formatted, pairIdx, 0);
+                                handleMouldHardnessChange(index, 'bsPP', formatted, pairIdx);
                               }
                               setFocusedField(null);
                             }}
-                            data-field={`${index}-mouldHardness-bsPP-${pairIdx}-from`}
-                            placeholder="From"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
+                            data-field={`${index}-mouldHardness-bsPP-${pairIdx}`}
+                            placeholder="Value"
+                            style={{
+                              width: '90px',
+                              padding: '0.5rem',
+                              borderRadius: '4px',
                               textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'bsPP', pairIdx, 'from')}`,
+                              border: `2px solid ${getReadingInputBorderColor(index, 'bsPP', pairIdx)}`,
                               outline: 'none',
                               transition: 'border-color 0.2s'
                             }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsPP-${pairIdx}-from`)}
-                            disabled={!isPrimaryDataSaved}
-                          />
-                          <span style={{ fontWeight: 600, color: '#64748b' }}>-</span>
-                          <input
-                            type="text"
-                            value={pair[1]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'bsPP', value, pairIdx, 1);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsPP', pairIdx, 1)}
-                            onBlur={e => {
-                              const formatted = formatDecimal(e.target.value);
-                              if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'bsPP', formatted, pairIdx, 1);
-                              }
-                              setFocusedField(null);
-                            }}
-                            data-field={`${index}-mouldHardness-bsPP-${pairIdx}-to`}
-                            placeholder="To"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
-                              textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'bsPP', pairIdx, 'to')}`,
-                              outline: 'none',
-                              transition: 'border-color 0.2s'
-                            }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsPP-${pairIdx}-to`)}
+                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsPP-${pairIdx}`)}
                             disabled={!isPrimaryDataSaved}
                           />
                         </div>
@@ -3315,65 +3097,32 @@ const DisamaticProduct = () => {
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {row.bsSP.map((pair, pairIdx) => (
-                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                      {row.bsSP.map((value, pairIdx) => (
+                        <div key={pairIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <input
                             type="text"
-                            value={pair[0]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'bsSP', value, pairIdx, 0);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsSP', pairIdx, 0)}
+                            value={value}
+                            onChange={e => handleMouldHardnessChange(index, 'bsSP', cleanDecimalInput(e.target.value), pairIdx)}
+                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsSP', pairIdx)}
                             onBlur={e => {
                               const formatted = formatDecimal(e.target.value);
                               if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'bsSP', formatted, pairIdx, 0);
+                                handleMouldHardnessChange(index, 'bsSP', formatted, pairIdx);
                               }
                               setFocusedField(null);
                             }}
-                            data-field={`${index}-mouldHardness-bsSP-${pairIdx}-from`}
-                            placeholder="From"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
+                            data-field={`${index}-mouldHardness-bsSP-${pairIdx}`}
+                            placeholder="Value"
+                            style={{
+                              width: '90px',
+                              padding: '0.5rem',
+                              borderRadius: '4px',
                               textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'bsSP', pairIdx, 'from')}`,
+                              border: `2px solid ${getReadingInputBorderColor(index, 'bsSP', pairIdx)}`,
                               outline: 'none',
                               transition: 'border-color 0.2s'
                             }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsSP-${pairIdx}-from`)}
-                            disabled={!isPrimaryDataSaved}
-                          />
-                          <span style={{ fontWeight: 600, color: '#64748b' }}>-</span>
-                          <input
-                            type="text"
-                            value={pair[1]}
-                            onChange={e => {
-                              const value = cleanDecimalInput(e.target.value);
-                              handleMouldHardnessChange(index, 'bsSP', value, pairIdx, 1);
-                            }}
-                            onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'bsSP', pairIdx, 1)}
-                            onBlur={e => {
-                              const formatted = formatDecimal(e.target.value);
-                              if (formatted !== e.target.value) {
-                                handleMouldHardnessChange(index, 'bsSP', formatted, pairIdx, 1);
-                              }
-                              setFocusedField(null);
-                            }}
-                            data-field={`${index}-mouldHardness-bsSP-${pairIdx}-to`}
-                            placeholder="To"
-                            style={{ 
-                              width: '70px', 
-                              padding: '0.5rem', 
-                              borderRadius: '4px', 
-                              textAlign: 'center',
-                              border: `2px solid ${getPairInputBorderColor(index, 'bsSP', pairIdx, 'to')}`,
-                              outline: 'none',
-                              transition: 'border-color 0.2s'
-                            }}
-                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsSP-${pairIdx}-to`)}
+                            onFocus={() => setFocusedField(`${index}-mouldHardness-bsSP-${pairIdx}`)}
                             disabled={!isPrimaryDataSaved}
                           />
                         </div>
@@ -3422,7 +3171,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitMouldHardness} disabled={!isPrimaryDataSaved}>
+          <SubmitButton onClick={handleSubmitMouldHardness} disabled={!isPrimaryDataSaved} loading={savingSection === 'mouldHardness'}>
             Save Mould Hardness
           </SubmitButton>
         </div>
@@ -3431,7 +3180,7 @@ const DisamaticProduct = () => {
       {/* Pattern Temp Table */}
       <div className="disamatic-section">
         <div className="disamatic-section-header">
-          <h3 className="disamatic-section-title">Pattern Temperature {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked)</span>}</h3>
+          <h3 className="disamatic-section-title">Pattern Temperature {!isPrimaryDataSaved && <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#ef4444' }}>(Locked - Save Primary Data First)</span>}</h3>
           <div className="disamatic-section-actions">
             {formData.patternTempTable.length > 1 && (
               <button
@@ -3576,7 +3325,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitPatternTemp} disabled={!isPrimaryDataSaved}>
+          <SubmitButton onClick={handleSubmitPatternTemp} disabled={!isPrimaryDataSaved} loading={savingSection === 'patternTemp'}>
             Save Pattern Temperature
           </SubmitButton>
         </div>
@@ -3671,7 +3420,7 @@ const DisamaticProduct = () => {
               size="medium"
             />
           )}
-          <SubmitButton onClick={handleSubmitEvents} disabled={!isPrimaryDataSaved || isEventsSaved}>
+          <SubmitButton onClick={handleSubmitEvents} disabled={!isPrimaryDataSaved || isEventsSaved} loading={savingSection === 'events'}>
             Save Events
           </SubmitButton>
         </div>

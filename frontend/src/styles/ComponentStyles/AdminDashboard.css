@@ -7,47 +7,44 @@
     color: #333;
 }
 
-/* --- Header & Navigation --- */
+/* --- Header --- */
 .admin-dash-header {
-    text-align: center;
-    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto 22px;
+    flex-wrap: wrap;
 }
 
 .admin-dash-title {
-    font-size: 2rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #1a202c;
-    margin-bottom: 10px;
+    margin: 0;
 }
 
-.toggle-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-}
-
-.tog-btn {
-    padding: 12px 24px;
-    border: 2px solid #e2e8f0;
-    background: white;
+.add-emp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 20px;
+    border: none;
     border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-weight: 600;
-    color: #4a5568;
-}
-
-.tog-btn:hover {
-    border-color: #5b9aa9;
-    background-color: #f7fafc;
-}
-
-/* The magic "Active" class we toggled in React */
-.tog-btn.active {
     background: #5b9aa9;
-    color: white;
-    border-color: #5b9aa9;
-    box-shadow: 0 4px 12px rgba(91, 154, 169, 0.3);
+    color: #fff;
+    font-size: 0.93rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.15s ease,
+        box-shadow 0.2s ease;
+}
+
+.add-emp-btn:hover {
+    background: #4a8896;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(91, 154, 169, 0.32);
 }
 
 /* --- Content Cards --- */
@@ -163,22 +160,64 @@
 }
 
 /* --- Forms --- */
+
+.modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 26px;
+    padding-bottom: 18px;
+    border-bottom: 1.5px solid #edf2f7;
+}
+
+.modal-head .modal-subtitle {
+    margin: 6px 0 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #a0aec0;
+    border-radius: 6px;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.modal-close:hover {
+    color: #4a5568;
+    background: #edf2f7;
+}
+
 .emp-form-content {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 }
 
+/* Grid rather than flex so the 3-up and 2-up rows share one column rhythm and
+   the password pair lines up under the first two fields above it. */
 .form-row {
-    display: flex;
-    gap: 20px;
+    display: grid;
+    gap: 18px;
+}
+
+.form-row--three {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.form-row--two {
+    grid-template-columns: repeat(2, 1fr);
 }
 
 .input-block {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    gap: 8px;
+    min-width: 0;
+    gap: 7px;
 }
 
 .input-block label {
@@ -189,28 +228,173 @@
 
 .input-block input,
 .input-block select {
-    padding: 12px;
+    width: 100%;
+    padding: 11px 12px;
     border: 2px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 1rem;
-    transition: border-color 0.2s;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.input-block input:focus {
+.input-block input:focus,
+.input-block select:focus {
     border-color: #5b9aa9;
+    box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.18);
     outline: none;
+}
+
+/* --- Password fields --- */
+.pwd-field {
+    position: relative;
+    display: flex;
+}
+
+.pwd-field input {
+    padding-right: 42px;
+}
+
+.pwd-field-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #718096;
+}
+
+.pwd-field-toggle:hover {
+    color: #4a5568;
+}
+
+.input-block input.pwd-mismatch {
+    border-color: #fc8181;
+}
+
+.input-block input.pwd-mismatch:focus {
+    box-shadow: 0 0 0 3px rgba(252, 129, 129, 0.22);
+}
+
+.pwd-mismatch-hint {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #c53030;
+}
+
+/* --- Password strength meter --- */
+.emp-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.pwd-strength {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 150px;
+}
+
+.emp-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Cancel carries a 2px border that Save doesn't, so equal padding would still
+   render two different heights — pin both instead. */
+.emp-form-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+}
+
+.btn-cancel {
+    padding: 13px 22px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #4a5568;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+.btn-cancel:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.pwd-strength-bars {
+    display: flex;
+    gap: 5px;
+}
+
+.pwd-bar {
+    width: 30px;
+    height: 6px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    transition: background-color 0.25s ease;
+}
+
+.pwd-bar--weak {
+    background: #fc8181;
+}
+.pwd-bar--medium {
+    background: #f6ad55;
+}
+.pwd-bar--strong {
+    background: #48bb78;
+}
+
+.pwd-strength-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #a0aec0;
+}
+
+.pwd-strength-label--weak {
+    color: #c53030;
+}
+.pwd-strength-label--medium {
+    color: #b7791f;
+}
+.pwd-strength-label--strong {
+    color: #2f855a;
 }
 
 .submit-btn-main {
     background: #5b9aa9;
     color: white;
     border: none;
-    padding: 15px;
+    padding: 13px 30px;
     border-radius: 8px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.submit-btn-main:hover:not(:disabled) {
+    background: #4a8896;
 }
 
 .submit-btn-main:disabled {
@@ -256,10 +440,52 @@
     background: white;
     width: 90%;
     max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
     padding: 30px 30px;
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: slideUp 0.3s ease-out;
+}
+
+/* Both size modifiers are compound (.modal-content-box.modal-content-box--x) so
+   they outrank the 500px base rule above by specificity, not by source order —
+   a single-class version loses to it whenever it appears earlier in the file. */
+.modal-content-box.modal-content-box--form {
+    width: 94%;
+    max-width: 1120px;
+    padding: 44px 52px 48px;
+}
+
+.modal-content-box--form .emp-form-content {
+    gap: 30px;
+}
+
+.modal-content-box--form .form-row {
+    gap: 28px;
+}
+
+.modal-content-box--form .input-block input,
+.modal-content-box--form .input-block select {
+    padding: 14px;
+    font-size: 1rem;
+}
+
+.modal-content-box--form .emp-form-footer {
+    margin-top: 10px;
+}
+
+.modal-content-box.modal-content-box--password {
+    max-width: 660px;
+    padding: 32px 36px 36px;
+}
+
+.modal-content-box--password .emp-form-content {
+    gap: 24px;
+}
+
+.modal-content-box--password .form-row {
+    gap: 22px;
 }
 
 .modal-title {
@@ -277,57 +503,6 @@
 .modal-subtitle strong {
     color: #2d3748;
     font-weight: 600;
-}
-
-.modal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.modal-form .input-block {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.modal-form .input-block label {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #4a5568;
-}
-
-.modal-input {
-    width: 100%;
-    padding: 12px;
-    padding-right: 45px;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.2s;
-}
-
-.modal-input:focus {
-    outline: none;
-    border-color: #5b9aa9;
-}
-
-.password-toggle {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #718096;
-    display: flex;
-    align-items: center;
-    padding: 4px;
-}
-
-.password-toggle:hover {
-    color: #4a5568;
 }
 
 .modal-error {
@@ -406,11 +581,33 @@
 }
 
 /* Responsiveness */
-@media (max-width: 768px) {
-    .form-row {
-        flex-direction: column;
+@media (max-width: 900px) {
+    .form-row--three {
+        grid-template-columns: repeat(2, 1fr);
     }
-    .toggle-buttons {
+}
+
+@media (max-width: 768px) {
+    .modal-content-box.modal-content-box--form,
+    .modal-content-box.modal-content-box--password {
+        padding: 22px 20px 26px;
+    }
+    .form-row--three,
+    .form-row--two {
+        grid-template-columns: 1fr;
+    }
+    .emp-form-footer {
         flex-direction: column;
+        align-items: stretch;
+    }
+    .emp-form-actions {
+        flex-direction: column-reverse;
+    }
+    .emp-form-actions button {
+        width: 100%;
+    }
+    .admin-dash-header {
+        justify-content: center;
+        text-align: center;
     }
 }

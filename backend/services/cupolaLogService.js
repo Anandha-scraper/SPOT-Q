@@ -1,6 +1,8 @@
 const cupolaLogRepository = require('../repositories/cupolaLogRepository');
 const { AppError } = require('../utils/AppError');
-const { buildColumns } = require('../utils/fieldValidation');
+const {
+    buildColumns, collectMissing, invalidInput, requireEditableFields,
+} = require('../utils/fieldValidation');
 
 // Wire key -> column. Only FeSl differs (kept lowercase-s here for casing
 // consistency with the other two-letter element symbols).
@@ -12,6 +14,11 @@ const ENTRY_COLUMNS = [
     'actualTime', 'tappingTime', 'tappingTemp', 'metalKg',
     'disaLine', 'indFur', 'bailNo', 'tap', 'kw', 'remarks',
 ];
+
+const PROTECTED_ON_UPDATE = ['id', '_id', 'primaryId', 'createdBy', 'createdAt', 'updatedAt'];
+const PRIMARY_KEY_FIELDS = ['shift', 'holderNumber'];
+const PROTECTED_ON_PRIMARY_UPDATE = ['id', '_id', 'cupolaLogId', 'entryCount', 'createdAt', 'updatedAt'];
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function toColumnRow(wireRow) {
     const out = {};
@@ -86,7 +93,7 @@ async function filterByDateRange({ startDate, endDate }) {
     return rows;
 }
 
-async function createTableEntry(body) {
+async function createTableEntry(body, userId) {
     const { primaryData, data } = body ?? {};
     if (!data || !primaryData?.date) {
         throw new AppError(400, 'Data and date are required.');
@@ -99,7 +106,7 @@ async function createTableEntry(body) {
 
     const entriesArray = Array.isArray(data) ? data : [data];
     const rows = entriesArray.map(toColumnRow);
-    await cupolaLogRepository.createEntries(primaryId, rows);
+    await cupolaLogRepository.createEntries(primaryId, rows, userId ?? null);
 
     const primary = await cupolaLogRepository.findPrimary(cupolaLog.id, shift, holderNumber);
 
@@ -125,9 +132,87 @@ async function createOrUpdatePrimary({ primaryData }) {
     };
 }
 
+async function updateEntry(entryId, body) {
+    const source = { ...(body ?? {}) };
+    PROTECTED_ON_UPDATE.forEach((field) => delete source[field]);
+
+    const data = toColumnRow(source);
+    requireEditableFields(data);
+
+    return cupolaLogRepository.updateEntry(entryId, data);
+}
+
+function deleteEntry(entryId) {
+    return cupolaLogRepository.deleteEntry(entryId);
+}
+
+async function updatePrimary(primaryId, body) {
+    const current = await cupolaLogRepository.findPrimaryById(primaryId);
+    if (!current) throw new AppError(404, 'Primary not found.');
+
+    const source = { ...(body ?? {}) };
+    PROTECTED_ON_PRIMARY_UPDATE.forEach((field) => delete source[field]);
+
+    const { data: patch, invalid } = buildColumns(source, { trimmed: PRIMARY_KEY_FIELDS });
+    invalid.push(...collectMissing(patch, Object.keys(patch)));
+
+    let cupolaLogId = current.cupolaLogId;
+    if (Object.prototype.hasOwnProperty.call(source, 'date')) {
+        const date = String(source.date ?? '').trim();
+        if (!DATE_PATTERN.test(date)) invalid.push('date');
+        else {
+            const cupolaLog = await cupolaLogRepository.ensureDateRow(date);
+            cupolaLogId = cupolaLog.id;
+            patch.cupolaLogId = cupolaLogId;
+        }
+    }
+
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(patch);
+
+    const conflict = await cupolaLogRepository.findConflictingPrimary(
+        cupolaLogId,
+        patch.shift ?? current.shift,
+        patch.holderNumber ?? current.holderNumber
+    );
+    if (conflict && conflict.id !== primaryId) {
+        throw new AppError(409, 'A primary already exists for this date, shift and holder.');
+    }
+
+    const updated = await cupolaLogRepository.updatePrimary(primaryId, patch);
+
+    return {
+        _id: updated.id,
+        date: updated.cupolaLog.date,
+        shift: updated.shift,
+        holderNumber: updated.holderNumber,
+        entryCount: updated._count.entries,
+    };
+}
+
+async function deletePrimary(primaryId) {
+    const result = await cupolaLogRepository.deletePrimary(primaryId);
+    if (!result) throw new AppError(404, 'Primary not found.');
+    return result;
+}
+
+function loadEntryForAuth(id) {
+    return cupolaLogRepository.findEntryAuthInfo(id);
+}
+
+function loadPrimaryForAuth(id) {
+    return cupolaLogRepository.findPrimaryById(id);
+}
+
 module.exports = {
     fetchPrimaryByDate,
     filterByDateRange,
     createTableEntry,
     createOrUpdatePrimary,
+    updateEntry,
+    deleteEntry,
+    updatePrimary,
+    deletePrimary,
+    loadEntryForAuth,
+    loadPrimaryForAuth,
 };

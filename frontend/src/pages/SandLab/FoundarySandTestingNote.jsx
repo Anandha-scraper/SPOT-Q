@@ -8,9 +8,11 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { buildSubmitError } from '../../utils/submitError';
+import { buildSubmitError } from '../../utils/formValidation';
 import { validationRanges as foundrySandValidationRanges } from '../../deviations/DfoundrySandTestingNote';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
+
+const SectionSubmitIcon = ({ loading }) => (loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />);
 
 const initialFormData = {
   date: "",
@@ -1214,7 +1216,11 @@ export default function FoundrySandTestingNote() {
             value={primaryData.compactibilitySetting}
             onChange={(e) => handlePrimaryChange("compactibilitySetting", e.target.value)}
             disabled={!primaryData.date || !primaryData.shift || !primaryData.sandPlant || lockedFields.compactibilitySetting}
-            style={{ opacity: lockedFields.compactibilitySetting ? 0.6 : 1 }}
+            className={
+              lockedFields.compactibilitySetting ? 'sandlab-locked-input'
+                : (!primaryData.date || !primaryData.shift || !primaryData.sandPlant) ? 'sandlab-pending-input'
+                : ''
+            }
           />
         </div>
         <div className="foundry-form-group">
@@ -1228,37 +1234,49 @@ export default function FoundrySandTestingNote() {
             value={primaryData.shearStrengthSetting}
             onChange={(e) => handlePrimaryChange("shearStrengthSetting", e.target.value)}
             disabled={!primaryData.date || !primaryData.shift || !primaryData.sandPlant || lockedFields.shearStrengthSetting}
-            style={{ opacity: lockedFields.shearStrengthSetting ? 0.6 : 1 }}
+            className={
+              lockedFields.shearStrengthSetting ? 'sandlab-locked-input'
+                : (!primaryData.date || !primaryData.shift || !primaryData.sandPlant) ? 'sandlab-pending-input'
+                : ''
+            }
           />
         </div>
         <div className="foundry-form-group">
           <label>&nbsp;</label>
-          <div className="primary-save-btn-scope">
-            <SubmitButton
-              onClick={handlePrimarySubmit}
-              disabled={
-                checkingData || savePrimaryLoading || showCombinationFound || loadingStates.primary || showCombinationAdded ||
-                !primaryData.date || !primaryData.shift || !primaryData.sandPlant ||
-                (lockedFields.compactibilitySetting && lockedFields.shearStrengthSetting)
-              }
-            >
-              {(checkingData || savePrimaryLoading) ? 'Fetching Date, Shift, Plant'
-                : showCombinationFound ? 'Combination found'
-                : loadingStates.primary ? 'Saving...'
-                : showCombinationAdded ? 'Combination Added'
-                : (isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary')}
-            </SubmitButton>
-          </div>
-          {(showPrimaryWarning || primaryMessage) && (
-            <div style={{ marginTop: '0.5rem' }}>
-              {showPrimaryWarning && (
-                <InlineLoader message="Save Date, Shift, Plant first" size="medium" variant="danger" />
-              )}
-              {primaryMessage && (
-                <InlineLoader message={primaryMessage.text} variant={primaryMessage.variant} size="medium" />
-              )}
+          <div
+            className={`sandlab-primary-btn-wrapper ${
+              checkingData || savePrimaryLoading || showCombinationFound || showCombinationAdded ||
+              !(lockedFields.compactibilitySetting && lockedFields.shearStrengthSetting)
+                ? 'show' : 'hide'
+            }`}
+          >
+            <div className="primary-save-btn-scope">
+              <SubmitButton
+                onClick={handlePrimarySubmit}
+                disabled={
+                  checkingData || savePrimaryLoading || showCombinationFound || loadingStates.primary || showCombinationAdded ||
+                  !primaryData.date || !primaryData.shift || !primaryData.sandPlant ||
+                  (lockedFields.compactibilitySetting && lockedFields.shearStrengthSetting)
+                }
+              >
+                {(checkingData || savePrimaryLoading) ? 'Fetching Date, Shift, Plant'
+                  : showCombinationFound ? 'Combination found'
+                  : loadingStates.primary ? 'Saving...'
+                  : showCombinationAdded ? 'Combination Added'
+                  : (isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary')}
+              </SubmitButton>
             </div>
-          )}
+            {(showPrimaryWarning || primaryMessage) && (
+              <div style={{ marginTop: '0.5rem' }}>
+                {showPrimaryWarning && (
+                  <InlineLoader message="Save Date, Shift, Plant first" size="medium" variant="danger" />
+                )}
+                {primaryMessage && (
+                  <InlineLoader message={primaryMessage.text} variant={primaryMessage.variant} size="medium" />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1285,7 +1303,7 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.clayParameters}
           className="foundry-submit-btn"
         >
-          {loadingStates.clayParameters ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.clayParameters} />
           {loadingStates.clayParameters ? 'Saving...' : 'Save Clay Parameters'}
         </button>
       </div>
@@ -1314,7 +1332,7 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.sieveTesting}
           className="foundry-submit-btn"
         >
-          {loadingStates.sieveTesting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.sieveTesting} />
           {loadingStates.sieveTesting ? 'Saving...' : 'Save Sieve Testing'}
         </button>
       </div>
@@ -1343,7 +1361,7 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.testParameters}
           className="foundry-submit-btn"
         >
-          {loadingStates.testParameters ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.testParameters} />
           {loadingStates.testParameters ? 'Saving...' : 'Save Test Parameters'}
         </button>
       </div>
@@ -1372,7 +1390,7 @@ export default function FoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.additionalData}
           className="foundry-submit-btn"
         >
-          {loadingStates.additionalData ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.additionalData} />
           {loadingStates.additionalData ? 'Saving...' : 'Save Additional Data'}
         </button>
       </div>
@@ -1413,7 +1431,7 @@ export default function FoundrySandTestingNote() {
             disabled={!isPrimaryDataSaved || loadingStates.remarks}
             className="foundry-submit-btn"
           >
-            {loadingStates.remarks ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            <SectionSubmitIcon loading={loadingStates.remarks} />
             {loadingStates.remarks ? 'Saving...' : 'Save Remarks'}
           </button>
         </div>

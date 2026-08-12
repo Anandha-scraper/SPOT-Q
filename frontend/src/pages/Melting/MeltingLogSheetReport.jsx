@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, SectionToggles, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
-import { meltingEditConfig } from '../../utils/editFieldConfigs';
+import { meltingEditConfig, meltingPrimaryEditConfig } from '../../utils/editFieldConfigs';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
-import { isDeviant } from '../../utils/formValidation';
+import { useDeviationClass } from '../../utils/formValidation';
 import { validationRanges } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 import '../../styles/ComponentStyles/Table.css';
@@ -50,20 +50,44 @@ const KEY_TO_RULE_FIELD = {
   furnace4KwHr: 'Furnace 4 KW/Hr'
 };
 
+const SECTIONS = [
+  { key: 'primary', label: 'Primary' },
+  { key: 'table1', label: 'Table 1' },
+  { key: 'table2', label: 'Table 2' },
+  { key: 'table3', label: 'Table 3' },
+  { key: 'table4', label: 'Table 4' },
+  { key: 'table5', label: 'Table 5' }
+];
+
+const allSections = (value) => Object.fromEntries(SECTIONS.map(({ key }) => [key, value]));
+
+// A zero-entry primary arrives as a placeholder row whose own _id IS the primary
+// id, so `primaryId ?? _id` is what makes those rows reachable at all. Built
+// explicitly rather than spread: uses the PRIMARY's own createdBy/createdAt
+// (wire keys primaryCreatedBy/primaryCreatedAt — distinct from the entry's own
+// createdBy/createdAt already on `row`), not the entry's, since they can be
+// different people. entryCount feeds the delete-confirmation's dynamic message.
+const primaryRowOf = (row, entryCount) => ({
+  _id: row.primaryId ?? row._id,
+  date: row.date,
+  shift: row.shift,
+  furnaceNo: row.furnaceNo,
+  panel: row.panel,
+  cumulativeLiquidMetal: row.cumulativeLiquidMetal,
+  finalKWHr: row.finalKWHr,
+  initialKWHr: row.initialKWHr,
+  totalUnits: row.totalUnits,
+  cumulativeUnits: row.cumulativeUnits,
+  createdBy: row.primaryCreatedBy ?? null,
+  createdAt: row.primaryCreatedAt ?? null,
+  entryCount: entryCount ?? 0
+});
+
 const MeltingLogSheetReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
-  const ruleByField = useMemo(() => {
-    const map = {};
-    validationRanges.forEach((r) => { map[r.field] = r; });
-    return map;
-  }, []);
-  const devClass = (key, value) => {
-    if (!showDeviations || !isAdmin) return undefined;
-    const ruleFieldName = KEY_TO_RULE_FIELD[key];
-    const rule = ruleFieldName && ruleByField[ruleFieldName];
-    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
-  };
+  const devClass = useDeviationClass(validationRanges, KEY_TO_RULE_FIELD, { isAdmin, showDeviations });
 
   // ========================================================================
   // FILTER SYSTEM — Reusable pattern for date-range + optional dropdown filter
@@ -121,7 +145,7 @@ const MeltingLogSheetReport = () => {
   const [filteredEntries, setFilteredEntries] = useState([]); // Filtered subset shown in table
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);      // Pagination — reset to 1 on every filter/clear
-  const [show, setShow] = useState({ primary: true, table1: true, table2: true, table3: true, table4: true, table5: true });
+  const [show, setShow] = useState(() => allSections(true));
   const toggle = (key) => setShow(prev => ({ ...prev, [key]: !prev[key] }));
   const [remarksModal, setRemarksModal] = useState({ show: false, content: '', title: 'Reason' });
   const [isDownloading, setIsDownloading] = useState(false);
@@ -352,7 +376,7 @@ const MeltingLogSheetReport = () => {
         sheetName: 'Melting',
       });
     } catch (err) {
-      alert('Download failed. Please try again.');
+      toast.error('Download failed. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -366,7 +390,7 @@ const MeltingLogSheetReport = () => {
     + (show.table3 ? 8 : 0)
     + (show.table4 ? 7 : 0)
     + (show.table5 ? 6 : 0)
-    + 1; // Actions column
+    + 2; // Primary + Actions columns
 
   return (
     <div className="page-wrapper melting-page-wrapper">
@@ -441,17 +465,11 @@ const MeltingLogSheetReport = () => {
 
       {/* Section Toggles */}
       <SectionToggles
-        sections={[
-          { key: 'primary', label: 'Primary' },
-          { key: 'table1', label: 'Table 1' },
-          { key: 'table2', label: 'Table 2' },
-          { key: 'table3', label: 'Table 3' },
-          { key: 'table4', label: 'Table 4' },
-          { key: 'table5', label: 'Table 5' }
-        ]}
+        sections={SECTIONS}
         show={show}
         onToggle={toggle}
-        onClear={() => setShow({ primary: false, table1: false, table2: false, table3: false, table4: false, table5: false })}
+        onSelectAll={() => setShow(allSections(true))}
+        onClear={() => setShow(allSections(false))}
       />
 
       {loading ? <div className="melting-report-loader-container"><div>Loading...</div></div> : (
@@ -470,6 +488,7 @@ const MeltingLogSheetReport = () => {
                 {show.table3 && <th colSpan={8} style={{ textAlign: 'center' }}>Lab Coin &amp; Timing</th>}
                 {show.table4 && <th colSpan={7} style={{ textAlign: 'center' }}>Metal Tapping</th>}
                 {show.table5 && <th colSpan={6} style={{ textAlign: 'center' }}>Electrical Readings</th>}
+                <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Primary</th>
                 <th rowSpan={2} style={{ minWidth: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
               {/* Row 2: Sub Headers */}
@@ -645,6 +664,23 @@ const MeltingLogSheetReport = () => {
                       {show.table5 && <td className={devClass('furnace4Hz', row.furnace4Hz)}>{row.furnace4Hz ?? '-'}</td>}
                       {show.table5 && <td className={devClass('furnace4Gld', row.furnace4Gld)}>{row.furnace4Gld ?? '-'}</td>}
                       {show.table5 && <td className={devClass('furnace4KwHr', row.furnace4KwHr)}>{row.furnace4KwHr ?? '-'}</td>}
+                      {/* Primary — one control per group, spanning its entry rows.
+                          A zero-entry group is a single placeholder row with no
+                          primaryId (see primaryRowOf), so its real entry count is
+                          0, not the placeholder row itself. */}
+                      {isGroupStart && (
+                        <td
+                          rowSpan={isGroupStart.rowspan}
+                          className="melting-report-grouped-cell"
+                          style={{ textAlign: 'center', whiteSpace: 'nowrap' }}
+                        >
+                          <EntryActions
+                            entry={primaryRowOf(row, row.primaryId ? isGroupStart.rowspan : 0)}
+                            editConfig={meltingPrimaryEditConfig}
+                            onChanged={fetchData}
+                          />
+                        </td>
+                      )}
                       {/* Actions — only real entry rows (not primary-only placeholders) */}
                       <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                         {row.primaryId && (

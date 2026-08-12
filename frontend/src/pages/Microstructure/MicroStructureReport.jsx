@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
@@ -14,6 +14,7 @@ import '../../styles/PageStyles/MicroStructure/MicroStructureReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const MicroStructureReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -112,7 +113,7 @@ const MicroStructureReport = () => {
       }
     } catch (error) {
       console.error('Error fetching micro structure data:', error);
-      alert('Failed to load micro structure data. Please refresh.');
+      toast.error('Failed to load micro structure data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -257,8 +258,10 @@ const MicroStructureReport = () => {
   // Excel export — fetch all entries, filter by the chosen range/DISA, then build the sheet.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -287,6 +290,7 @@ const MicroStructureReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },
@@ -314,7 +318,7 @@ const MicroStructureReport = () => {
         sheetName: 'Micro Structure',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }

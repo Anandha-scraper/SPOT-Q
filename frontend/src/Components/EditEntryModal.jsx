@@ -299,24 +299,25 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} ref={containerRef} onKeyDown={handleArrowKeyDown}>
+                <form
+                    onSubmit={handleSubmit}
+                    ref={containerRef}
+                    onKeyDown={(e) => {
+                        handleArrowKeyDown(e);
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                            e.preventDefault();
+                            if (!saving) handleSubmit(e);
+                        }
+                    }}
+                >
                     <div style={gridStyle}>
-                        {config.fields.map(f => (
-                            <div
-                                key={f.name}
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    ...(isListField(f) ? { gridColumn: '1 / -1' } : {})
-                                }}
-                            >
+                        {config.fields.filter(f => !isListField(f)).map(f => (
+                            <div key={f.name} style={{ display: 'flex', flexDirection: 'column' }}>
                                 <label style={labelStyle}>
                                     {f.label}
                                     {f.required && <span style={{ color: '#ef4444', marginLeft: '0.15rem' }}>*</span>}
                                 </label>
-                                {isListField(f) ? (
-                                    renderList(f)
-                                ) : f.type === 'select' ? (
+                                {f.type === 'select' ? (
                                     <select
                                         value={form[f.name] ?? ''}
                                         onChange={e => handleChange(f.name, e.target.value)}
@@ -349,6 +350,19 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                             </div>
                         ))}
                     </div>
+
+                    {/* List fields (numberList/rangeList, e.g. TS/YS/EL) render as their own
+                        full-width blocks below the grid — kept out of the CSS grid entirely so
+                        their label-to-input positioning can't drift from grid column/auto-fill math. */}
+                    {config.fields.filter(isListField).map(f => (
+                        <div key={f.name} style={{ display: 'flex', flexDirection: 'column', padding: '0 1.75rem 1.1rem' }}>
+                            <label style={labelStyle}>
+                                {f.label}
+                                {f.required && <span style={{ color: '#ef4444', marginLeft: '0.15rem' }}>*</span>}
+                            </label>
+                            {renderList(f)}
+                        </div>
+                    ))}
 
                     <div style={footerStyle}>
                         {submitError && <span style={submitErrorStyle}>{submitError}</span>}

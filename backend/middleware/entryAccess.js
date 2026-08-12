@@ -1,7 +1,8 @@
 const { getEditWindowMs } = require('../utils/duration');
 
 // Prisma replacement for the old middleware/editWindow.js — same response strings, ownership is a plain string compare (not ObjectId.equals()).
-function authorizeEntry({ loadEntry, action = 'edit' } = {}) {
+// `ownerless` is for records with no createdBy column at all (the primaries); without it they fall into the ownership branch and report a creator that cannot exist.
+function authorizeEntry({ loadEntry, action = 'edit', ownerless = false } = {}) {
     return async (req, res, next) => {
         try {
             const entry = await loadEntry(req.params.id);
@@ -17,6 +18,13 @@ function authorizeEntry({ loadEntry, action = 'edit' } = {}) {
                     return res.status(403).json({
                         success: false,
                         message: 'Only admins can delete entries.',
+                    });
+                }
+            } else if (ownerless) {
+                if (!isAdmin) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Only admins can edit this record.',
                     });
                 }
             } else if (!isAdmin) {

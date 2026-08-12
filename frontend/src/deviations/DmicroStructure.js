@@ -62,6 +62,7 @@ export const validationRanges = [
     key: ['countMin', 'countMax'],
     required: false,
     type: 'NumberRange',
+    requireMinForMax: true,
     min: 0,
     unit: 'count'
   },
@@ -70,6 +71,7 @@ export const validationRanges = [
     key: ['sizeMin', 'sizeMax'],
     required: false,
     type: 'NumberRange',
+    requireMinForMax: true,
     min: 0,
     unit: 'μm'
   },
@@ -78,6 +80,7 @@ export const validationRanges = [
     key: ['ferriteMin', 'ferriteMax'],
     required: false,
     type: 'NumberRange',
+    requireMinForMax: true,
     min: 0,
     max: 100,
     unit: '%'
@@ -87,6 +90,7 @@ export const validationRanges = [
     key: ['pearliteMin', 'pearliteMax'],
     required: false,
     type: 'NumberRange',
+    requireMinForMax: true,
     min: 0,
     max: 100,
     unit: '%'
@@ -96,6 +100,7 @@ export const validationRanges = [
     key: ['carbideMin', 'carbideMax'],
     required: false,
     type: 'NumberRange',
+    requireMinForMax: true,
     min: 0,
     max: 100,
     unit: '%'

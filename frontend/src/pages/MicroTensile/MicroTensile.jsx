@@ -9,8 +9,8 @@ import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
-import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
-import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, FORMATS, buildNumericGuardMap } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/formValidation';
 import { validationRanges, fieldMapping } from '../../deviations/DmicroTensile';
 import '../../styles/PageStyles/MicroTensile/MicroTensile.css';
 
@@ -32,12 +32,10 @@ const DECIMAL_FIELDS = validationRanges
   .map(r => fieldMapping[r.field]);
 
 const requiredFields = getRequiredFields(validationRanges, fieldMapping);
+const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
 
-// "343/34/56" — exactly three numeric segments.
-const isItemSecondValid = (value) => {
-  const parts = value.split('/');
-  return parts.length === 3 && parts.every(p => p.trim() !== '' && !isNaN(p));
-};
+// "343/34/56" — exactly three numeric segments; live-typing UX only, never blocks submit.
+const isItemSecondValid = (value) => FORMATS.itemSecond.re.test(value.trim());
 
 const MicroTensile = () => {
   const { isOpen, openModal, closeModal } = useInfoModal();
@@ -185,18 +183,12 @@ const MicroTensile = () => {
       skip: ['Date', 'DISA']
     });
 
-    // The three-segment Item (Optional) rule is form-specific.
-    const itemSecondBad = formData.itemSecond?.trim() && !isItemSecondValid(formData.itemSecond);
-    if (itemSecondBad) states.itemSecond = false;
-
     setFieldStates(states);
 
-    if (!ok || itemSecondBad) {
-      const finalMessage = ok ? 'Enter data in correct format' : message;
-      const focusField = ok ? 'itemSecond' : firstErrorField;
-      setSubmitError(finalMessage);
-      toast.error(finalMessage);
-      inputRefs.current[focusField]?.focus();
+    if (!ok) {
+      setSubmitError(message);
+      toast.error(message);
+      inputRefs.current[firstErrorField]?.focus();
       return;
     }
 
@@ -373,7 +365,8 @@ const MicroTensile = () => {
             name="heatCode"
             value={formData.heatCode}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'heatCode')}
+            onPaste={numericGuards.heatCode?.onPaste}
+            onKeyDown={e => { numericGuards.heatCode?.onKeyDown(e); handleKeyDown(e, 'heatCode'); }}
             placeholder="e.g: 1"
             disabled={!isPrimarySaved}
             className={invalidClass('heatCode')}
@@ -388,7 +381,8 @@ const MicroTensile = () => {
             name="barDia"
             value={formData.barDia}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'barDia')}
+            onPaste={numericGuards.barDia?.onPaste}
+            onKeyDown={e => { numericGuards.barDia?.onKeyDown(e); handleKeyDown(e, 'barDia'); }}
             onBlur={() => formatDecimalValue('barDia')}
             step="0.01"
             placeholder="e.g: 6.0"
@@ -405,7 +399,8 @@ const MicroTensile = () => {
             name="gaugeLength"
             value={formData.gaugeLength}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'gaugeLength')}
+            onPaste={numericGuards.gaugeLength?.onPaste}
+            onKeyDown={e => { numericGuards.gaugeLength?.onKeyDown(e); handleKeyDown(e, 'gaugeLength'); }}
             onBlur={() => formatDecimalValue('gaugeLength')}
             step="0.01"
             placeholder="e.g: 30.0"
@@ -422,7 +417,8 @@ const MicroTensile = () => {
             name="maxLoad"
             value={formData.maxLoad}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'maxLoad')}
+            onPaste={numericGuards.maxLoad?.onPaste}
+            onKeyDown={e => { numericGuards.maxLoad?.onKeyDown(e); handleKeyDown(e, 'maxLoad'); }}
             onBlur={() => formatDecimalValue('maxLoad')}
             step="0.01"
             placeholder="e.g: 1560"
@@ -439,7 +435,8 @@ const MicroTensile = () => {
             name="yieldLoad"
             value={formData.yieldLoad}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'yieldLoad')}
+            onPaste={numericGuards.yieldLoad?.onPaste}
+            onKeyDown={e => { numericGuards.yieldLoad?.onKeyDown(e); handleKeyDown(e, 'yieldLoad'); }}
             onBlur={() => formatDecimalValue('yieldLoad')}
             step="0.01"
             placeholder="e.g: 1290"
@@ -456,7 +453,8 @@ const MicroTensile = () => {
             name="tensileStrength"
             value={formData.tensileStrength}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'tensileStrength')}
+            onPaste={numericGuards.tensileStrength?.onPaste}
+            onKeyDown={e => { numericGuards.tensileStrength?.onKeyDown(e); handleKeyDown(e, 'tensileStrength'); }}
             onBlur={() => formatDecimalValue('tensileStrength')}
             step="0.01"
             placeholder="e.g: 550"
@@ -473,7 +471,8 @@ const MicroTensile = () => {
             name="yieldStrength"
             value={formData.yieldStrength}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'yieldStrength')}
+            onPaste={numericGuards.yieldStrength?.onPaste}
+            onKeyDown={e => { numericGuards.yieldStrength?.onKeyDown(e); handleKeyDown(e, 'yieldStrength'); }}
             onBlur={() => formatDecimalValue('yieldStrength')}
             step="0.01"
             placeholder="e.g: 455"
@@ -490,7 +489,8 @@ const MicroTensile = () => {
             name="elongation"
             value={formData.elongation}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'elongation')}
+            onPaste={numericGuards.elongation?.onPaste}
+            onKeyDown={e => { numericGuards.elongation?.onKeyDown(e); handleKeyDown(e, 'elongation'); }}
             onBlur={() => formatDecimalValue('elongation')}
             step="0.01"
             placeholder="e.g: 18.5"

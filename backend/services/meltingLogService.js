@@ -1,6 +1,8 @@
 const meltingLogRepository = require('../repositories/meltingLogRepository');
 const { AppError } = require('../utils/AppError');
-const { buildColumns, collectMissing, invalidInput, requireEditableFields } = require('../utils/fieldValidation');
+const {
+    buildColumns, collectMissing, invalidInput, isMissing, requireEditableFields,
+} = require('../utils/fieldValidation');
 
 // Wire key -> SQL column for the handful of entry fields that differ from the old FLAT_TO_PATH name; everything else maps to itself.
 const WIRE_TO_COLUMN = {
@@ -43,6 +45,23 @@ const PRIMARY_VALUE_FIELDS = [
 ];
 
 const PROTECTED_ON_UPDATE = ['id', '_id', 'primaryId', 'createdBy', 'createdAt', 'updatedAt'];
+
+const PRIMARY_KEY_FIELDS = ['shift', 'furnaceNo', 'panel'];
+const PRIMARY_WIRE_TO_COLUMN = {
+    cumulativeLiquidMetal: 'cumulativeLiquidMetal',
+    finalKWHr: 'finalKwhr',
+    initialKWHr: 'initialKwhr',
+    totalUnits: 'totalUnits',
+    cumulativeUnits: 'cumulativeUnits',
+};
+// shift/furnaceNo/panel/date define the combination key — edit only ever
+// touches the 5 primary values now; re-keying a primary is done by deleting
+// it (cascades its entries) and starting over, not by renaming it in place.
+const PROTECTED_ON_PRIMARY_UPDATE = [
+    'id', '_id', 'meltingLogId', 'entryCount', 'createdBy', 'createdAt', 'updatedAt',
+    'date', 'shift', 'furnaceNo', 'panel',
+];
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function toColumnBody(wireBody) {
     const source = wireBody ?? {};
@@ -100,6 +119,8 @@ function toWireEntryRow(entry, primary, meltingLogDate) {
         entryCount: primary._count.entries,
         createdAt: entry.createdAt,
         createdBy: entry.createdBy,
+        primaryCreatedBy: primary.createdBy,
+        primaryCreatedAt: primary.createdAt,
     };
 
     for (const column of ENTRY_COLUMNS) {
@@ -123,6 +144,8 @@ function toWireEmptyPrimaryRow(primary, meltingLogDate) {
         cumulativeUnits: primary.cumulativeUnits,
         isLocked: primary.isLocked,
         entryCount: 0,
+        primaryCreatedBy: primary.createdBy,
+        primaryCreatedAt: primary.createdAt,
     };
 }
 
@@ -169,7 +192,8 @@ async function createTableEntry(body, userId) {
         meltingLog.id,
         primaryData.shift || '',
         primaryData.furnaceNo || '',
-        primaryData.panel || ''
+        primaryData.panel || '',
+        userId
     );
 
     const entryData = buildEntryData(data);
@@ -182,7 +206,7 @@ async function createTableEntry(body, userId) {
     return { entry, entryCount: primary._count.entries };
 }
 
-async function createOrUpdatePrimary({ primaryData, isLocked }) {
+async function createOrUpdatePrimary({ primaryData, isLocked }, userId) {
     if (!primaryData?.date) throw new AppError(400, 'Date is required.');
 
     const meltingLog = await meltingLogRepository.ensureDateRow(String(primaryData.date).trim());
@@ -197,7 +221,7 @@ async function createOrUpdatePrimary({ primaryData, isLocked }) {
     }
     if (isLocked !== undefined) patch.isLocked = isLocked;
 
-    const primary = await meltingLogRepository.upsertPrimary(meltingLog.id, shift, furnaceNo, panel, patch);
+    const primary = await meltingLogRepository.upsertPrimary(meltingLog.id, shift, furnaceNo, panel, patch, userId);
 
     return toWirePrimary(primary, meltingLog.date);
 }
@@ -216,8 +240,108 @@ function deleteEntry(entryId) {
     return meltingLogRepository.deleteEntry(entryId);
 }
 
+// The five primary values are Float @default(0) NOT NULL, so buildColumns'
+// `numbers` option is deliberately not used here — it maps '' and '-' to null,
+// which Prisma then rejects against a NOT NULL column. isMissing is checked
+// before Number(), which would otherwise turn a cleared field into a silent 0.
+function buildPrimaryValues(body, patch, invalid) {
+    for (const [wireKey, column] of Object.entries(PRIMARY_WIRE_TO_COLUMN)) {
+        if (!Object.prototype.hasOwnProperty.call(body, wireKey)) continue;
+
+        const value = body[wireKey];
+        const parsed = Number(String(value).trim());
+        if (isMissing(value) || !Number.isFinite(parsed)) invalid.push(wireKey);
+        else patch[column] = parsed;
+    }
+}
+
+async function updatePrimary(primaryId, body) {
+    const current = await meltingLogRepository.findPrimaryById(primaryId);
+    if (!current) throw new AppError(404, 'Primary not found.');
+
+    const source = { ...(body ?? {}) };
+    PROTECTED_ON_PRIMARY_UPDATE.forEach((field) => delete source[field]);
+
+    const { data: keyData, invalid } = buildColumns(source, { trimmed: PRIMARY_KEY_FIELDS });
+    // A blank key field would silently collide with every other blank-keyed primary.
+    invalid.push(...collectMissing(keyData, Object.keys(keyData)));
+
+    const patch = { ...keyData };
+    buildPrimaryValues(source, patch, invalid);
+
+    if (typeof source.isLocked === 'boolean') patch.isLocked = source.isLocked;
+
+    let meltingLogId = current.meltingLogId;
+    if (Object.prototype.hasOwnProperty.call(source, 'date')) {
+        const date = String(source.date ?? '').trim();
+        if (!DATE_PATTERN.test(date)) invalid.push('date');
+        else {
+            const meltingLog = await meltingLogRepository.ensureDateRow(date);
+            meltingLogId = meltingLog.id;
+            patch.meltingLogId = meltingLogId;
+        }
+    }
+
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(patch);
+
+    const conflict = await meltingLogRepository.findConflictingPrimary(
+        meltingLogId,
+        patch.shift ?? current.shift,
+        patch.furnaceNo ?? current.furnaceNo,
+        patch.panel ?? current.panel
+    );
+    if (conflict && conflict.id !== primaryId) {
+        throw new AppError(409, 'A primary already exists for this date, shift, furnace and panel.');
+    }
+
+    const updated = await meltingLogRepository.updatePrimary(primaryId, patch);
+    return toWirePrimary(updated, updated.meltingLog.date);
+}
+
+async function deletePrimary(primaryId) {
+    const result = await meltingLogRepository.deletePrimary(primaryId);
+    if (!result) throw new AppError(404, 'Primary not found.');
+    return result;
+}
+
 function loadEntryForAuth(id) {
     return meltingLogRepository.findEntryAuthInfo(id);
+}
+
+function loadPrimaryForAuth(id) {
+    return meltingLogRepository.findPrimaryById(id);
+}
+
+// One-off backfill for primaries saved before MeltingLogPrimary gained
+// createdBy (migration 20260812055955, see backend.md). Attributes each
+// ownerless primary to whoever created its earliest entry — the only signal
+// in the data for "who this belongs to". Primaries with no entries, or whose
+// earliest entry is also ownerless, are left alone (stay admin-only, same as
+// any primary saved after the migration with no creator). Read-only unless
+// `apply` is true; called from scripts/backfillMeltingPrimaryCreatedBy.js.
+async function backfillPrimaryCreatedBy({ apply = false } = {}) {
+    const ownerless = await meltingLogRepository.findOwnerlessPrimariesWithEarliestEntryCreator();
+
+    const plan = ownerless
+        .map((p) => ({
+            date: p.meltingLog.date, shift: p.shift, furnaceNo: p.furnaceNo, panel: p.panel,
+            primaryId: p.id, creator: p.entries[0]?.createdBy ?? null,
+        }))
+        .filter((row) => row.creator);
+
+    if (apply) {
+        for (const row of plan) {
+            await meltingLogRepository.updatePrimary(row.primaryId, { createdBy: row.creator });
+        }
+    }
+
+    return {
+        ownerlessCount: ownerless.length,
+        plan,
+        skippedCount: ownerless.length - plan.length,
+        applied: apply,
+    };
 }
 
 module.exports = {
@@ -227,5 +351,9 @@ module.exports = {
     createOrUpdatePrimary,
     updateEntry,
     deleteEntry,
+    updatePrimary,
+    deletePrimary,
     loadEntryForAuth,
+    loadPrimaryForAuth,
+    backfillPrimaryCreatedBy,
 };

@@ -9,6 +9,10 @@ const TEXT_LIKE_TYPES = ['text', 'search', 'url', 'tel', 'password', 'email'];
 
 const isVisible = (el) => {
   if (el.disabled) return false;
+  // tabIndex={-1} is how readOnly-but-locked fields (e.g. Melting's primary
+  // value fields) opt out of the native Tab order when `disabled` can't be
+  // used — respect the same signal here so they're not arrow-reachable either.
+  if (el.tabIndex === -1) return false;
   const rect = el.getBoundingClientRect();
   return rect.width > 0 || rect.height > 0;
 };
@@ -18,7 +22,7 @@ const getNavigableElements = (container) =>
 
 // Returns true when focus should move to a neighbouring control for this key.
 // Returns false to let the control keep the keypress (caret movement / line movement).
-const shouldNavigate = (el, key) => {
+const shouldNavigate = (el, key, shiftKey) => {
   const tag = el.tagName;
   const type = (el.type || '').toLowerCase();
 
@@ -39,7 +43,16 @@ const shouldNavigate = (el, key) => {
     return start === value.length; // ArrowRight
   }
 
-  // Number inputs (caret API unavailable) and selects: all arrows navigate.
+  // Selects: plain ↑/↓ navigate like every other field; Shift+↑/↓ cycles the
+  // native option list instead — without the Shift gate, arrowing through a
+  // mixed form gets stuck on every dropdown instead of moving past it.
+  // ←/→ always navigate.
+  if (tag === 'SELECT') {
+    if (key === 'ArrowUp' || key === 'ArrowDown') return !shiftKey;
+    return true;
+  }
+
+  // Number inputs (caret API unavailable): all arrows navigate.
   return true;
 };
 
@@ -142,7 +155,7 @@ export function useArrowNavigation() {
       e.preventDefault();
     }
 
-    if (!shouldNavigate(el, e.key)) return;
+    if (!shouldNavigate(el, e.key, e.shiftKey)) return;
 
     const container = containerRef.current || el.closest('form') || document.body;
     const next = findNearest(el, container, e.key);

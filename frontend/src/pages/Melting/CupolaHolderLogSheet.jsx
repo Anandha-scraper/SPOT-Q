@@ -1,40 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Loader2, CheckCircle } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, HolderDropdown, PlusButton, MinusButton } from '../../Components/Buttons';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { InlineLoader } from '../../Components/InlineLoader';
+import { useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { blockNonNumericKeyDown, sanitizeNumericPaste } from '../../utils/formValidation';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheet.css';
 
-// Single source of truth for both the Info modal and field validation.
-// Each entry's `key` matches the input row field name so validateField can
-// look it up. Module-scope (not component-local) so
-// CupolaHolderLogSheetReport.jsx can import it for admin-only deviation highlighting.
-export const validationRanges = [
-  { key: 'heatNo', field: 'Heat No', type: 'Auto', description: 'Auto-incremented per holder & date' },
-  { key: 'cpc',    field: 'CPC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'mFeSl',  field: 'Fe Sl',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'feMn',   field: 'Fe Mn',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'sic',    field: 'SIC',     type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'pureMg', field: 'Pure Mg', type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'cu',     field: 'Cu',      type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'feCr',   field: 'Fe Cr',   type: 'Number', min: 0, max: 1000, unit: 'Kgs' },
-  { key: 'actualTime',  field: 'Actual Time',  type: 'Time', pattern: 'HH:MM' },
-  { key: 'tappingTime', field: 'Tapping Time', type: 'Time', pattern: 'HH:MM' },
-  { key: 'tappingTemp', field: 'Temp', type: 'Number', min: 1, max: 1700, unit: '°C' },
-  { key: 'metalKg',     field: 'Metal', type: 'Number', min: 0, max: 5000, unit: 'Kgs' },
-  { key: 'disaLine', field: 'DISA Line', type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'],required:true },
-  { key: 'indFur', field: 'IND FUR', type: 'Text' },
-  { key: 'bailNo', field: 'BAIL NO', type: 'Text' },
-  { key: 'tap',    field: 'TAP',     type: 'Text' },
-  { key: 'kw',     field: 'KW',      type: 'Number', min: 0, max: 5000, unit: 'KW' },
-  { key: 'remarks', field: 'Remarks', type: 'Text' },
-];
+// Rules live in src/deviations/ with every other department's; re-exported here
+// so existing importers of this module keep resolving.
+import { validationRanges } from '../../deviations/DcupolaHolder';
+
+export { validationRanges };
 
 const CupolaHolderLogSheet = () => {
+  const { toast } = useToast();
   // Validation-range info modal (driven by the same validationRanges that powers validation)
   const { isOpen, openModal, closeModal } = useInfoModal();
 
@@ -43,11 +27,8 @@ const CupolaHolderLogSheet = () => {
   const { primaryData, setPrimaryData, inputRows, setInputRows } = useDepartmentForm('cupola-holder-log-sheet');
 
   const [primaryLoading, setPrimaryLoading] = useState(false);
-  const [primarySavedVisual, setPrimarySavedVisual] = useState(false);
-  const [primaryId, setPrimaryId] = useState(null);
   const [fetchingPrimary, setFetchingPrimary] = useState(false);
   const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
-  const [dynamicCheckAlert, setDynamicCheckAlert] = useState(false);
   const [showCombinationFound, setShowCombinationFound] = useState(false);
   const [showCombinationSaved, setShowCombinationSaved] = useState(false);
   // Controls the exit animation phase before fully hiding the message
@@ -76,16 +57,15 @@ const CupolaHolderLogSheet = () => {
 
   // Handle Enter/Tab key navigation for primary section
   const handlePrimaryKeyDown = (e, nextRef, currentField = null) => {
-    // Block e, E, +, - keys for numeric inputs
-    if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
-      e.preventDefault();
-      return;
-    }
-    
-    // Handle Enter and Tab for navigation within primary section
+    // Handle Enter and Tab for navigation within primary section. stopPropagation
+    // keeps this self-contained — without it, the same keypress also bubbles to
+    // the grid wrapper's handleEnterFocusNext, which recomputes "next focusable
+    // in DOM order" from the original e.target and silently overrides the focus
+    // just set here.
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
-      
+      e.stopPropagation();
+
       // Navigate to next field
       if (nextRef?.current) {
         nextRef.current.focus();
@@ -116,16 +96,6 @@ const CupolaHolderLogSheet = () => {
     return holderRef; // Stay on holder if not filled
   };
 
-  // Auto-dismiss dynamic check alert
-  useEffect(() => {
-    if (dynamicCheckAlert) {
-      const timer = setTimeout(() => {
-        setDynamicCheckAlert(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [dynamicCheckAlert]);
-
   // Auto-incremented Heat No
   const [heatNo, setHeatNo] = useState(1);
 
@@ -142,9 +112,6 @@ const CupolaHolderLogSheet = () => {
   // inputRows draft state now comes from the shared context (see destructure above).
 
   const [submitLoading, setSubmitLoading] = useState(false);
-
-  // Submitted rows displayed above the input rows
-  const [submittedRows, setSubmittedRows] = useState([]);
 
   // Validation states
   const [validationErrors, setValidationErrors] = useState({}); // { rowIndex: { fieldName: true/false } }
@@ -324,9 +291,7 @@ const CupolaHolderLogSheet = () => {
       fetchPrimaryData(primaryData.date, primaryData.shift, primaryData.holderNumber);
     } else {
       // Reset when any key field is missing
-      setPrimaryId(null);
       setIsPrimaryDataSaved(false);
-      setSubmittedRows([]);
       setHeatNo(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,7 +314,6 @@ const CupolaHolderLogSheet = () => {
 
       if (response.success && response.data) {
         const data = response.data;
-        setPrimaryId(data._id);
         setIsPrimaryDataSaved(true);
         setShowCombinationFound(true);
         setClosingCombinationMsg(false);
@@ -363,25 +327,32 @@ const CupolaHolderLogSheet = () => {
         } else {
           setHeatNo(1);
         }
-        // Keep submittedRows empty - don't show previous data
-        setSubmittedRows([]);
       } else {
         // No existing primary for this combo
-        setPrimaryId(null);
         setIsPrimaryDataSaved(false);
-        setSubmittedRows([]);
         setHeatNo(1);
       }
     } catch (error) {
       console.error('Error fetching primary data:', error);
-      setPrimaryId(null);
       setIsPrimaryDataSaved(false);
-      setSubmittedRows([]);
       setHeatNo(1);
     } finally {
       setFetchingPrimary(false);
-      setDynamicCheckAlert(true);
     }
+  };
+
+  // Cascading reset shared by every combination-defining field (Date/Shift/Holder):
+  // switching to a different value invalidates whatever primary lock and row
+  // data were entered against the old combination, so both must drop together
+  // — mirrors MeltingLogSheet.jsx's resetPrimaryAndTables() (see formrule.md §3).
+  const resetPrimaryAndRows = () => {
+    setIsPrimaryDataSaved(false);
+    setHeatNo(1);
+    setInputRows([createEmptyRow()]);
+    setValidationErrors({});
+    setSubmitAttempted(false);
+    setErrorMessage('');
+    setFocusedField(null);
   };
 
   const handlePrimaryChange = (field, value) => {
@@ -403,10 +374,7 @@ const CupolaHolderLogSheet = () => {
         shift: '',
         holderNumber: ''
       });
-      setPrimaryId(null);
-      setIsPrimaryDataSaved(false);
-      setSubmittedRows([]);
-      setHeatNo(1);
+      resetPrimaryAndRows();
       setPrimarySubmitted(false);
       // Reset error highlights
       setDateErrorHighlight(false);
@@ -415,26 +383,19 @@ const CupolaHolderLogSheet = () => {
       return;
     }
 
+    // Shift/Holder define the same combination as Date does — overwriting an
+    // already-chosen one (not the first-time fill-in of the chain) points at a
+    // different, unsaved combination, so whatever was typed into the table for
+    // the OLD combination must not silently follow along and get submitted
+    // against it.
+    if (['shift', 'holderNumber'].includes(field) && primaryData[field] && primaryData[field] !== value) {
+      resetPrimaryAndRows();
+    }
+
     setPrimaryData(prev => ({
       ...prev,
       [field]: value
     }));
-  };
-
-  // Handler for when holder field is focused - check if prerequisites are filled
-  const handleHolderFieldFocus = (e) => {
-    if (!primaryData.date) {
-      setDateErrorHighlight(true);
-      e?.preventDefault();
-      e?.stopPropagation();
-      return;
-    }
-    if (!primaryData.shift) {
-      setShiftErrorHighlight(true);
-      e?.preventDefault();
-      e?.stopPropagation();
-      return;
-    }
   };
 
   const handlePrimarySubmit = async () => {
@@ -457,7 +418,6 @@ const CupolaHolderLogSheet = () => {
       const response = await res.json();
       
       if (response.success) {
-        setPrimaryId(response.data._id);
         setIsPrimaryDataSaved(true);
         setShowCombinationSaved(true);
         setClosingCombinationMsg(false);
@@ -465,7 +425,7 @@ const CupolaHolderLogSheet = () => {
         setTimeout(() => setClosingCombinationMsg(true), 2600);
         setTimeout(() => { setShowCombinationSaved(false); setClosingCombinationMsg(false); }, 3000);
       } else {
-        alert('Error: ' + response.message);
+        toast.error('Error: ' + response.message);
       }
     } catch (error) {
       console.error('Error saving primary data:', error);
@@ -571,7 +531,6 @@ const CupolaHolderLogSheet = () => {
       const result = await response.json();
 
       if (result.success) {
-        // Update Heat No counter (don't add to submittedRows)
         setHeatNo(prev => prev + inputRows.length);
         setIsPrimaryDataSaved(true);
         // Reset input rows for next entry
@@ -582,13 +541,13 @@ const CupolaHolderLogSheet = () => {
         setErrorMessage('');
         setFocusedField(null);
         // Show branded loader after successful entry save
-        alert('Entry saved successfully.');
+        toast.success('Entry saved successfully.');
       } else {
-        alert('Error: ' + result.message);
+        toast.error('Error: ' + result.message);
       }
     } catch (error) {
       console.error('Error saving cupola holder log:', error);
-      alert('Failed to save entry: ' + error.message);
+      toast.error('Failed to save entry: ' + error.message);
     } finally {
       setSubmitLoading(false);
     }
@@ -644,6 +603,18 @@ const CupolaHolderLogSheet = () => {
     }
   };
 
+  // Ctrl/Cmd+S submits the same "Save Entry" action as the button at the
+  // bottom of the form, guarded by the exact same condition the button's own
+  // `disabled` prop uses, so the shortcut can never fire when the button couldn't.
+  const handlePageKeyDown = (e) => {
+    handleEnterFocusNext(e);
+    handleArrowKeyDown(e);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (!(submitLoading || !isPrimaryDataSaved)) handleAllTablesSubmit();
+    }
+  };
+
   // Common cell/input styles
   const thStyle = {
     padding: '0.5rem 0.4rem',
@@ -691,22 +662,13 @@ const CupolaHolderLogSheet = () => {
     height: '34px'
   };
 
-  const lockedCellStyle = {
-    ...tdStyle,
-    background: '#f1f5f9',
-    color: '#64748b',
-    fontWeight: 500
-  };
-
-  const fmtVal = (v) => (v !== undefined && v !== null && v !== '' && v !== 0) ? v : '-';
-
   return (
     <>
       {/* Entry save loader overlay */}
     <div
       className="page-wrapper melting-page-wrapper"
       ref={gridRef}
-      onKeyDown={(e) => { handleEnterFocusNext(e); handleArrowKeyDown(e); }}
+      onKeyDown={handlePageKeyDown}
     >
       {/* Header */}
       <div className="cupola-holder-header">
@@ -875,30 +837,6 @@ const CupolaHolderLogSheet = () => {
           </thead>
 
           <tbody>
-            {/* Submitted Rows (read-only) */}
-            {submittedRows.map((row, idx) => (
-              <tr key={`submitted-${idx}`} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                <td style={lockedCellStyle}>{fmtVal(row.heatNo)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.cpc)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.FeSl)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.feMn)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.sic)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.pureMg)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.cu)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.feCr)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.actualTime)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.tappingTime)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.tappingTemp)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.metalKg)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.disaLine)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.indFur)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.bailNo)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.tap)}</td>
-                <td style={lockedCellStyle}>{fmtVal(row.kw)}</td>
-                <td style={{ ...lockedCellStyle, borderRight: 'none' }}>{fmtVal(row.remarks)}</td>
-              </tr>
-            ))}
-
             {/* Active Input Rows */}
             {inputRows.map((row, rowIdx) => (
               <tr key={`input-${rowIdx}`} style={{ background: '#fff' }}>
@@ -911,6 +849,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('cpc')}
                     value={row.cpc}
                     onChange={(e) => handleRowChange(rowIdx, 'cpc', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'cpc' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'cpc') }} />
@@ -919,6 +860,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('mFeSl')}
                     value={row.mFeSl}
                     onChange={(e) => handleRowChange(rowIdx, 'mFeSl', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'mFeSl' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'mFeSl') }} />
@@ -927,6 +871,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('feMn')}
                     value={row.feMn}
                     onChange={(e) => handleRowChange(rowIdx, 'feMn', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'feMn' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'feMn') }} />
@@ -935,6 +882,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('sic')}
                     value={row.sic}
                     onChange={(e) => handleRowChange(rowIdx, 'sic', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'sic' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'sic') }} />
@@ -943,6 +893,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('pureMg')}
                     value={row.pureMg}
                     onChange={(e) => handleRowChange(rowIdx, 'pureMg', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'pureMg' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'pureMg') }} />
@@ -951,6 +904,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('cu')}
                     value={row.cu}
                     onChange={(e) => handleRowChange(rowIdx, 'cu', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'cu' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'cu') }} />
@@ -959,6 +915,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="0" title={rangeHint('feCr')}
                     value={row.feCr}
                     onChange={(e) => handleRowChange(rowIdx, 'feCr', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'feCr' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'feCr') }} />
@@ -969,6 +928,7 @@ const CupolaHolderLogSheet = () => {
                     hasError={hasTimeError(rowIdx, 'actualTimeHour', 'actualTimeMinute')}
                     value={createTimeFromHourMinute(row.actualTimeHour, row.actualTimeMinute)}
                     onChange={(time) => handleTimeChange(rowIdx, 'actualTimeHour', 'actualTimeMinute', time)}
+                    disabled={!isPrimaryDataSaved}
                   />
                 </td>
                 <td style={tdStyle}>
@@ -976,12 +936,16 @@ const CupolaHolderLogSheet = () => {
                     hasError={hasTimeError(rowIdx, 'tappingTimeHour', 'tappingTimeMinute')}
                     value={createTimeFromHourMinute(row.tappingTimeHour, row.tappingTimeMinute)}
                     onChange={(time) => handleTimeChange(rowIdx, 'tappingTimeHour', 'tappingTimeMinute', time)}
+                    disabled={!isPrimaryDataSaved}
                   />
                 </td>
                 <td style={tdStyle}>
                   <input type="number" step="0.1" placeholder="1500" title={rangeHint('tappingTemp')}
                     value={row.tappingTemp}
                     onChange={(e) => handleRowChange(rowIdx, 'tappingTemp', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'tappingTemp' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'tappingTemp') }} />
@@ -990,6 +954,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="2000" title={rangeHint('metalKg')}
                     value={row.metalKg}
                     onChange={(e) => handleRowChange(rowIdx, 'metalKg', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'metalKg' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'metalKg') }} />
@@ -999,6 +966,7 @@ const CupolaHolderLogSheet = () => {
                   <select
                     value={row.disaLine}
                     onChange={(e) => handleRowChange(rowIdx, 'disaLine', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'disaLine' })}
                     onBlur={() => setFocusedField(null)}
                     style={{
@@ -1024,6 +992,7 @@ const CupolaHolderLogSheet = () => {
                   <input type="text" placeholder="IND-1"
                     value={row.indFur} 
                     onChange={(e) => handleRowChange(rowIdx, 'indFur', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'indFur' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'indFur') }} />
@@ -1032,6 +1001,7 @@ const CupolaHolderLogSheet = () => {
                   <input type="text" placeholder="B-001"
                     value={row.bailNo} 
                     onChange={(e) => handleRowChange(rowIdx, 'bailNo', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'bailNo' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'bailNo') }} />
@@ -1041,6 +1011,7 @@ const CupolaHolderLogSheet = () => {
                   <input type="text" placeholder="TAP"
                     value={row.tap} 
                     onChange={(e) => handleRowChange(rowIdx, 'tap', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'tap' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'tap') }} />
@@ -1049,6 +1020,9 @@ const CupolaHolderLogSheet = () => {
                   <input type="number" step="0.1" placeholder="2500" title={rangeHint('kw')}
                     value={row.kw}
                     onChange={(e) => handleRowChange(rowIdx, 'kw', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
+                    onKeyDown={blockNonNumericKeyDown}
+                    onPaste={sanitizeNumericPaste}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'kw' })}
                     onBlur={() => setFocusedField(null)}
                     style={{ ...inputStyle, borderColor: getBorderColor(rowIdx, 'kw') }} />
@@ -1058,6 +1032,7 @@ const CupolaHolderLogSheet = () => {
                   <input type="text" placeholder="Remarks"
                     value={row.remarks} 
                     onChange={(e) => handleRowChange(rowIdx, 'remarks', e.target.value)}
+                    disabled={!isPrimaryDataSaved}
                     onFocus={() => setFocusedField({ rowIndex: rowIdx, fieldName: 'remarks' })}
                     onBlur={() => setFocusedField(null)}
                     maxLength={80} 

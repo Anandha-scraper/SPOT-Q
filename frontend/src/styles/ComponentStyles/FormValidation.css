@@ -1,0 +1,61 @@
+/* Canonical form-validation + focus styles for every department.
+   Imported once from main.jsx — do not re-declare these per page stylesheet.
+   Department aliases (.disa-error-outline, .cupola-error-outline) are kept so
+   existing markup keeps working without a rename. */
+
+/* ─── Focus: the field the user is actually in ────────────────────────────── */
+/* Deliberately stronger than the old 1px tint — this is the "where am I" cue on
+   forms that are 50+ inputs long. */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #5b9aa9 !important;
+  background-color: #f5fbfc !important;
+  box-shadow:
+    0 0 0 3px rgba(91, 154, 169, 0.28),
+    0 1px 2px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Explicit class for components that track focus in JS rather than :focus. */
+.focused-input {
+  outline: none;
+  border-color: #5b9aa9 !important;
+  background-color: #f5fbfc !important;
+  box-shadow: 0 0 0 3px rgba(91, 154, 169, 0.28) !important;
+}
+
+/* ─── Invalid: blocks the save ────────────────────────────────────────────── */
+.invalid-input,
+.disa-error-outline,
+.cupola-error-outline,
+.error-highlight {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.invalid-input:focus,
+.disa-error-outline:focus,
+.cupola-error-outline:focus,
+.error-highlight:focus {
+  outline: none;
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ─── Valid: opt-in only ──────────────────────────────────────────────────── */
+/* No department renders green on merely-valid input (null is the neutral state);
+   this exists for the few places that opt in explicitly, e.g. a locked field. */
+.valid-input {
+  border-color: #22c55e !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12) !important;
+}
+
+.valid-input:focus {
+  outline: none;
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.28) !important;
+}

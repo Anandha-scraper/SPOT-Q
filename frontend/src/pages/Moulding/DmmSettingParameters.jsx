@@ -5,7 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
-import { buildSubmitError } from '../../utils/submitError';
+import { buildSubmitError } from '../../utils/formValidation';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
@@ -1025,10 +1025,6 @@ const DmmSettingParameters = () => {
                   <option value="3">Shift 3</option>
                 </select>
               </div>
-          </div>
-
-          {/* Operator Fields Row */}
-          <div className="primary-fields-row" style={{ marginTop: '1rem' }}>
               <div className="dmm-form-group">
                 <label>Operator Name</label>
                 <input
@@ -1046,7 +1042,6 @@ const DmmSettingParameters = () => {
                   }}
                   disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || lockedFields.operatorName || fetchingPrimary}
                   placeholder="Enter operator name"
-                  style={lockedFields.operatorName ? { backgroundColor: '#f1f5f9', cursor: 'not-allowed' } : {}}
                 />
               </div>
               <div className="dmm-form-group">
@@ -1109,10 +1104,10 @@ const DmmSettingParameters = () => {
           {/* Warning / submit feedback messages */}
           {primaryFieldMessage && !fetchingPrimary && !showCombinationFound && (
             <div style={{ marginTop: '0.75rem' }}>
-              <InlineLoader 
-                message={primaryFieldMessage} 
-                size="medium" 
-                variant="warning" 
+              <InlineLoader
+                message={primaryFieldMessage}
+                size="medium"
+                variant="danger"
               />
             </div>
           )}

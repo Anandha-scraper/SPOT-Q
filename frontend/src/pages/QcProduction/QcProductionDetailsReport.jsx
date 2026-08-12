@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
@@ -16,6 +16,7 @@ import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 // Report-column key -> Info.jsx rule display name.
 const KEY_TO_RULE_FIELD = {
+  noOfMoulds: 'No. of Moulds',
   cPercent: 'C % (Carbon)',
   siPercent: 'Si % (Silicon)',
   mnPercent: 'Mn % (Manganese)',
@@ -51,6 +52,7 @@ const FROM_TO_KEYS = {
 const ARRAY_KEYS = { ts: false, ys: true, el: true };
 
 const QcProductionDetailsReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -74,9 +76,11 @@ const QcProductionDetailsReport = () => {
       return isDeviant(numRule, item[fromKey]) || isDeviant(numRule, item[toKey]);
     }
     if (colKey in ARRAY_KEYS) {
-      const arr = item[colKey];
-      if (!Array.isArray(arr)) return false;
+      const arr = Array.isArray(item[colKey]) ? item[colKey] : [];
       const isRange = ARRAY_KEYS[colKey];
+      // No rows entered at all is itself checked against the rule's spec —
+      // matches isDeviant's "blank on a field with min/max is a deviation" behavior.
+      if (arr.length === 0) return isDeviant(numRule, '');
       return arr.some((v) => {
         if (!isRange) return isDeviant(numRule, v);
         return String(v).split('-').map((p) => p.trim()).some((p) => isDeviant(numRule, p));
@@ -143,7 +147,7 @@ const QcProductionDetailsReport = () => {
       setAllEntries(combined);
       setFilteredEntries(computeFiltered(combined));
     } catch (error) {
-      alert('Failed to load QC production data. Please refresh.');
+      toast.error('Failed to load QC production data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -289,10 +293,10 @@ const QcProductionDetailsReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
-    if (from > to) { alert('From date cannot be after To date.'); return; }
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
-      alert('Maximum 2 months of data can be downloaded. Please narrow the date range.');
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -318,7 +322,7 @@ const QcProductionDetailsReport = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      if (rows.length === 0) { alert('No data to export for the selected range.'); return; }
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = tableColumns.map(c => ({
         header: c.label, key: c.key, width: c.xlsWidth, value: c.render
@@ -334,7 +338,7 @@ const QcProductionDetailsReport = () => {
         sheetName: 'QC Production',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }

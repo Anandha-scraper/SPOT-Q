@@ -16,6 +16,7 @@ const Table = ({
   showHeader = true,
   bordered = false,
   renderCell = null,
+  renderCellClassName = null,
   groupByColumn = null
 }) => {
   const calculateRowspans = () => {
@@ -118,7 +119,11 @@ const Table = ({
                     <td
                       key={col.key || colIndex}
                       rowSpan={rowSpan}
-                      className={col.cellClassName ? col.cellClassName(item, rowIndex) : undefined}
+                      className={
+                        template && renderCellClassName
+                          ? renderCellClassName(rowIndex, colIndex, col.key)
+                          : (col.cellClassName ? col.cellClassName(item, rowIndex) : undefined)
+                      }
                       style={{
                         width: col.width || 'auto',
                         textAlign: col.align || defaultAlign,

@@ -9,8 +9,8 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
-import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, buildNumericGuardMap } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/formValidation';
 import { validationRanges, fieldMapping } from '../../deviations/Dtensile';
 import '../../styles/PageStyles/Tensile/Tensile.css';
 
@@ -29,6 +29,7 @@ const Tensile = () => {
 
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+  const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
 
   // Draft form/validation state persists across Form <-> Report navigation (shared context).
   const {
@@ -293,7 +294,8 @@ const Tensile = () => {
             name="heatCode"
             value={formData.heatCode}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'heatCode')}
+            onPaste={numericGuards.heatCode?.onPaste}
+            onKeyDown={e => { numericGuards.heatCode?.onKeyDown(e); handleKeyDown(e, 'heatCode'); }}
             placeholder="Enter number only"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -309,7 +311,8 @@ const Tensile = () => {
             name="dia"
             value={formData.dia}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'dia')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.dia?.onPaste}
+            onKeyDown={e => { numericGuards.dia?.onKeyDown(e); handleKeyDown(e, 'dia'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 10.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -325,7 +328,8 @@ const Tensile = () => {
             name="lo"
             value={formData.lo}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'lo')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.lo?.onPaste}
+            onKeyDown={e => { numericGuards.lo?.onKeyDown(e); handleKeyDown(e, 'lo'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 50.0"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -341,7 +345,8 @@ const Tensile = () => {
             name="li"
             value={formData.li}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'li')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.li?.onPaste}
+            onKeyDown={e => { numericGuards.li?.onKeyDown(e); handleKeyDown(e, 'li'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 52.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -357,7 +362,8 @@ const Tensile = () => {
             name="breakingLoad"
             value={formData.breakingLoad}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'breakingLoad')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.breakingLoad?.onPaste}
+            onKeyDown={e => { numericGuards.breakingLoad?.onKeyDown(e); handleKeyDown(e, 'breakingLoad'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 45.5"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -373,7 +379,8 @@ const Tensile = () => {
             name="yieldLoad"
             value={formData.yieldLoad}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'yieldLoad')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.yieldLoad?.onPaste}
+            onKeyDown={e => { numericGuards.yieldLoad?.onKeyDown(e); handleKeyDown(e, 'yieldLoad'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 38.2"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -389,7 +396,8 @@ const Tensile = () => {
             name="uts"
             value={formData.uts}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'uts')} onBlur={handleNumericBlur} step="0.01"
+            onPaste={numericGuards.uts?.onPaste}
+            onKeyDown={e => { numericGuards.uts?.onKeyDown(e); handleKeyDown(e, 'uts'); }} onBlur={handleNumericBlur} step="0.01"
             placeholder="e.g: 550"
             autoComplete="off"
             disabled={!isDateSelected}
@@ -405,7 +413,8 @@ const Tensile = () => {
             name="ys"
             value={formData.ys}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'ys')}
+            onPaste={numericGuards.ys?.onPaste}
+            onKeyDown={e => { numericGuards.ys?.onKeyDown(e); handleKeyDown(e, 'ys'); }}
             onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 460"
@@ -423,7 +432,8 @@ const Tensile = () => {
             name="elongation"
             value={formData.elongation}
             onChange={handleChange}
-            onKeyDown={e => handleKeyDown(e, 'elongation')}
+            onPaste={numericGuards.elongation?.onPaste}
+            onKeyDown={e => { numericGuards.elongation?.onKeyDown(e); handleKeyDown(e, 'elongation'); }}
             onBlur={handleNumericBlur}
             step="0.01"
             placeholder="e.g: 18.5"

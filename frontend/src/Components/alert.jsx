@@ -286,6 +286,72 @@ function AlertDialog({
   );
 }
 
+// Centered save-progress overlay: a spinner while the request is in flight, then a
+// self-drawing check mark. Callers drive it with useSaveSuccess (hooks/useSaveSuccess.js),
+// which holds the tick for a minimum dwell so a fast save still reads as confirmed.
+
+function SaveSuccessOverlay({
+  open,
+  status = "saving",
+  savingLabel = "Saving...",
+  successLabel = "Saved successfully",
+}) {
+  const done = status === "success";
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="save-overlay"
+          variants={OVERLAY_VARIANTS}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={TRANSITION}
+        >
+          <motion.div
+            className="save-overlay-card"
+            role="status"
+            aria-live="polite"
+            variants={DIALOG_VARIANTS}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={TRANSITION}
+          >
+            {done ? (
+              <svg
+                className="save-overlay-tick"
+                viewBox="0 0 52 52"
+                aria-hidden="true"
+              >
+                <circle
+                  className="save-overlay-tick-circle"
+                  cx="26"
+                  cy="26"
+                  r="24"
+                  fill="none"
+                />
+                <path
+                  className="save-overlay-tick-check"
+                  fill="none"
+                  d="M14 26.5 l8.5 8.5 l15.5 -16.5"
+                />
+              </svg>
+            ) : (
+              <Loader2 className="save-overlay-spin" size={46} strokeWidth={2.5} />
+            )}
+            <p className="save-overlay-label">
+              {done ? successLabel : savingLabel}
+            </p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
 // A confirmation dialog for Excel downloads with an optional From/To range; a blank range falls back to the caller's default (see utils/exportToExcel.js#getExportRange).
 
 const todayYMD = () => {
@@ -358,4 +424,4 @@ function ExcelDownloadDialog({
   );
 }
 
-export { AlertDialog, ExcelDownloadDialog };
+export { AlertDialog, ExcelDownloadDialog, SaveSuccessOverlay };

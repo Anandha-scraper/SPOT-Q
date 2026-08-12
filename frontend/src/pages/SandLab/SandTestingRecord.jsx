@@ -57,6 +57,8 @@ const SandTestingRecord = () => {
   const showTableMessage = (tableNum, text, variant) => {
     setTableMessages(prev => ({ ...prev, [tableNum]: { text, variant } }));
   };
+  // Per-table busy flag, drives SubmitButton's spinner (mirrors FoundarySandTestingNote.jsx's loadingStates).
+  const [tableSaving, setTableSaving] = useState({});
   const [table1Locked, setTable1Locked] = useState(false);
   const [table2Locked, setTable2Locked] = useState(false);
   const [table3Locked, setTable3Locked] = useState(false);
@@ -422,6 +424,7 @@ const SandTestingRecord = () => {
       return;
     }
 
+    setTableSaving(prev => ({ ...prev, 5: true }));
     try {
       // Transform data to match backend model structure
       const dataToSave = {
@@ -507,6 +510,8 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error saving Table 5 data:', error);
       showTableMessage(5, 'Error submitting Table 5 data. Please try again.', 'danger');
+    } finally {
+      setTableSaving(prev => ({ ...prev, 5: false }));
     }
   };
 
@@ -1203,6 +1208,7 @@ const SandTestingRecord = () => {
   // Handlers for Table 1
   const handleTable1Submit = async () => {
     setTableMessages(prev => ({ ...prev, 1: null }));
+    setTableSaving(prev => ({ ...prev, 1: true }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
@@ -1263,12 +1269,15 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error submitting Table 1:', error);
       showTableMessage(1, 'Error submitting Table 1 data. Please try again.', 'danger');
+    } finally {
+      setTableSaving(prev => ({ ...prev, 1: false }));
     }
   };
 
   // Handlers for Table 2
   const handleTable2Submit = async () => {
     setTableMessages(prev => ({ ...prev, 2: null }));
+    setTableSaving(prev => ({ ...prev, 2: true }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
@@ -1330,12 +1339,15 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error submitting Table 2:', error);
       showTableMessage(2, 'Error submitting Table 2 data. Please try again.', 'danger');
+    } finally {
+      setTableSaving(prev => ({ ...prev, 2: false }));
     }
   };
 
   // Handlers for Table 3
   const handleTable3Submit = async () => {
     setTableMessages(prev => ({ ...prev, 3: null }));
+    setTableSaving(prev => ({ ...prev, 3: true }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
@@ -1396,12 +1408,15 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error submitting Table 3:', error);
       showTableMessage(3, 'Error submitting Table 3 data. Please try again.', 'danger');
+    } finally {
+      setTableSaving(prev => ({ ...prev, 3: false }));
     }
   };
 
   // Handlers for Table 4
   const handleTable4Submit = async () => {
     setTableMessages(prev => ({ ...prev, 4: null }));
+    setTableSaving(prev => ({ ...prev, 4: true }));
     try {
       // Validate date before making API call
       if (!selectedDate || selectedDate.trim() === '' || !/\d{4}-\d{2}-\d{2}/.test(selectedDate)) {
@@ -1462,6 +1477,8 @@ const SandTestingRecord = () => {
     } catch (error) {
       console.error('Error submitting Table 4:', error);
       showTableMessage(4, 'Error submitting Table 4 data. Please try again.', 'danger');
+    } finally {
+      setTableSaving(prev => ({ ...prev, 4: false }));
     }
   };
 
@@ -1712,7 +1729,7 @@ const SandTestingRecord = () => {
           {tableMessages[1] && (
             <InlineLoader message={tableMessages[1].text} variant={tableMessages[1].variant} size="medium" />
           )}
-          <SubmitButton onClick={handleTable1Submit} disabled={!isPrimaryDataSaved} />
+          <SubmitButton onClick={handleTable1Submit} disabled={!isPrimaryDataSaved} loading={!!tableSaving[1]} />
         </div>
       </div>
       </div>
@@ -1787,7 +1804,7 @@ const SandTestingRecord = () => {
           {tableMessages[2] && (
             <InlineLoader message={tableMessages[2].text} variant={tableMessages[2].variant} size="medium" />
           )}
-          <SubmitButton onClick={handleTable2Submit} disabled={!isPrimaryDataSaved} />
+          <SubmitButton onClick={handleTable2Submit} disabled={!isPrimaryDataSaved} loading={!!tableSaving[2]} />
         </div>
       </div>
       </div>
@@ -1933,7 +1950,7 @@ const SandTestingRecord = () => {
           {tableMessages[3] && (
             <InlineLoader message={tableMessages[3].text} variant={tableMessages[3].variant} size="medium" />
           )}
-          <SubmitButton onClick={handleTable3Submit} disabled={!isPrimaryDataSaved} />
+          <SubmitButton onClick={handleTable3Submit} disabled={!isPrimaryDataSaved} loading={!!tableSaving[3]} />
         </div>
       </div>
       </div>
@@ -2090,7 +2107,7 @@ const SandTestingRecord = () => {
           {tableMessages[4] && (
             <InlineLoader message={tableMessages[4].text} variant={tableMessages[4].variant} size="medium" />
           )}
-          <SubmitButton onClick={handleTable4Submit} disabled={!isPrimaryDataSaved} />
+          <SubmitButton onClick={handleTable4Submit} disabled={!isPrimaryDataSaved} loading={!!tableSaving[4]} />
         </div>
       </div>
       </div>
@@ -2568,7 +2585,7 @@ const SandTestingRecord = () => {
           {tableMessages[5] && (
             <InlineLoader message={tableMessages[5].text} variant={tableMessages[5].variant} size="medium" />
           )}
-          <SubmitButton ref={submitButtonRef} onClick={handleTable5Submit} disabled={!isPrimaryDataSaved} />
+          <SubmitButton ref={submitButtonRef} onClick={handleTable5Submit} disabled={!isPrimaryDataSaved} loading={!!tableSaving[5]} />
         </div>
       </div>
       </div>

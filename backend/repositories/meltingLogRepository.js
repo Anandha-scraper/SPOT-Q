@@ -19,19 +19,22 @@ function findPrimary(meltingLogId, shift, furnaceNo, panel) {
     });
 }
 
-function upsertPrimary(meltingLogId, shift, furnaceNo, panel, data) {
+// createdBy is only ever applied on `create` — `data` alone (no createdBy) is
+// reused verbatim for `update` so re-saving an existing primary never reassigns
+// the original creator to whoever happens to save it next.
+function upsertPrimary(meltingLogId, shift, furnaceNo, panel, data, createdBy) {
     return prisma.meltingLogPrimary.upsert({
         where: { meltingLogId_shift_furnaceNo_panel: { meltingLogId, shift, furnaceNo, panel } },
-        create: { meltingLogId, shift, furnaceNo, panel, ...data },
+        create: { meltingLogId, shift, furnaceNo, panel, ...data, createdBy: createdBy ?? null },
         update: data,
         include: { _count: { select: { entries: true } } },
     });
 }
 
-async function ensurePrimaryId(meltingLogId, shift, furnaceNo, panel) {
+async function ensurePrimaryId(meltingLogId, shift, furnaceNo, panel, createdBy) {
     const primary = await prisma.meltingLogPrimary.upsert({
         where: { meltingLogId_shift_furnaceNo_panel: { meltingLogId, shift, furnaceNo, panel } },
-        create: { meltingLogId, shift, furnaceNo, panel },
+        create: { meltingLogId, shift, furnaceNo, panel, createdBy: createdBy ?? null },
         update: {},
         select: { id: true },
     });
@@ -63,6 +66,7 @@ async function findEntries({ from, to } = {}) {
                         id: true, shift: true, furnaceNo: true, panel: true,
                         cumulativeLiquidMetal: true, finalKwhr: true, initialKwhr: true,
                         totalUnits: true, cumulativeUnits: true, isLocked: true,
+                        createdBy: true, createdAt: true,
                         meltingLog: { select: { date: true } },
                         _count: { select: { entries: true } },
                     },
@@ -78,6 +82,57 @@ async function findEntries({ from, to } = {}) {
     return { entries, emptyPrimaries };
 }
 
+function findConflictingPrimary(meltingLogId, shift, furnaceNo, panel) {
+    return prisma.meltingLogPrimary.findUnique({
+        where: { meltingLogId_shift_furnaceNo_panel: { meltingLogId, shift, furnaceNo, panel } },
+        select: { id: true },
+    });
+}
+
+function findPrimaryById(id) {
+    return prisma.meltingLogPrimary.findUnique({
+        where: { id },
+        select: {
+            id: true, meltingLogId: true, shift: true, furnaceNo: true, panel: true,
+            createdBy: true, createdAt: true,
+        },
+    });
+}
+
+// Primaries left over from before MeltingLogPrimary gained createdBy — each
+// paired with its earliest entry's createdBy, the only signal available to
+// infer an owner for backfill.
+function findOwnerlessPrimariesWithEarliestEntryCreator() {
+    return prisma.meltingLogPrimary.findMany({
+        where: { createdBy: null },
+        include: {
+            entries: { select: { createdBy: true, createdAt: true }, orderBy: { createdAt: 'asc' }, take: 1 },
+            meltingLog: { select: { date: true } },
+        },
+    });
+}
+
+function updatePrimary(id, data) {
+    return prisma.meltingLogPrimary.update({
+        where: { id },
+        data,
+        include: { meltingLog: { select: { date: true } }, _count: { select: { entries: true } } },
+    });
+}
+
+// The entries go with it via the onDelete: Cascade FK; the count is read first
+// only so the response can say how many rows the admin actually removed.
+async function deletePrimary(id) {
+    const primary = await prisma.meltingLogPrimary.findUnique({
+        where: { id },
+        select: { _count: { select: { entries: true } } },
+    });
+    if (!primary) return null;
+
+    await prisma.meltingLogPrimary.delete({ where: { id } });
+    return { deletedEntryCount: primary._count.entries };
+}
+
 function findEntryAuthInfo(id) {
     return prisma.meltingLogEntry.findUnique({
         where: { id },
@@ -89,8 +144,20 @@ function updateEntry(id, data) {
     return prisma.meltingLogEntry.update({ where: { id }, data });
 }
 
-function deleteEntry(id) {
-    return prisma.meltingLogEntry.delete({ where: { id } });
+async function deleteEntry(id) {
+    const entry = await prisma.meltingLogEntry.findUnique({ where: { id }, select: { primaryId: true } });
+    if (!entry) return null;
+
+    return prisma.$transaction(async (tx) => {
+        const deleted = await tx.meltingLogEntry.delete({ where: { id } });
+
+        const remaining = await tx.meltingLogEntry.count({ where: { primaryId: entry.primaryId } });
+        if (remaining === 0) {
+            await tx.meltingLogPrimary.delete({ where: { id: entry.primaryId } });
+        }
+
+        return deleted;
+    });
 }
 
 module.exports = {
@@ -101,6 +168,11 @@ module.exports = {
     ensurePrimaryId,
     createEntry,
     findEntries,
+    findConflictingPrimary,
+    findPrimaryById,
+    findOwnerlessPrimariesWithEarliestEntryCreator,
+    updatePrimary,
+    deletePrimary,
     findEntryAuthInfo,
     updateEntry,
     deleteEntry,

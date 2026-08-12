@@ -63,3 +63,12 @@ exports.savePrimaryData = asyncHandler(async (req, res) => {
 
     res.status(200).json({ success: true, data, message: 'Primary data saved successfully.' });
 });
+
+// Admin-only one-off repair for reports forked by the missing-shift write bug
+// — see backend.md. `apply: true` writes; anything else (including omitted)
+// is a dry-run preview of what would change.
+exports.repairShiftSplit = asyncHandler(async (req, res) => {
+    const data = await disaReportService.repairShiftSplit({ apply: req.body?.apply === true });
+
+    res.status(200).json({ success: true, data });
+});

@@ -9,8 +9,8 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
-import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT } from '../../utils/formValidation';
-import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT, buildNumericGuardMap, numericFieldGuards, sanitizeNumericString } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/formValidation';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { validationRanges, fieldMapping } from '../../deviations/Dprocess';
 import ComponentShowcase from './ComponentShowcase';
@@ -47,6 +47,9 @@ export default function ProcessControl() {
 
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+  const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
+  // Qty. Of Moulds' From/To pair lives outside fieldMapping (bespoke-validated below), so it isn't in numericGuards.
+  const qtyMouldsGuards = numericFieldGuards({ type: 'Number' });
 
   const [dateValid, setDateValid] = useState(null);
   const [disaValid, setDisaValid] = useState(null);
@@ -128,7 +131,6 @@ export default function ProcessControl() {
     'resMgConvertor': setResMgConvertorValid,
     'recOfMg': setRecOfMgValid,
     'streamInoculant': setStreamInoculantValid,
-    'pTime': setPTimeValid,
     'remarks': setRemarksValid
   };
 
@@ -218,7 +220,7 @@ export default function ProcessControl() {
     'metalCompositionCr', 'pouringTemperatureMin', 'pouringTemperatureMax', 'ppCode', 'treatmentNo', 'fcNo', 'heatNo', 'conNo', 'tappingTime',
     'correctiveAdditionC', 'correctiveAdditionSi', 'correctiveAdditionMn', 'correctiveAdditionS',
     'correctiveAdditionCr', 'correctiveAdditionCu', 'correctiveAdditionSn', 'tappingWt', 'mg', 'resMgConvertor',
-    'recOfMg', 'streamInoculant', 'pTime', 'remarks'];
+    'recOfMg', 'streamInoculant', 'pTimeFrom', 'pTimeTo', 'remarks'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -241,7 +243,7 @@ export default function ProcessControl() {
           correctiveAdditionMn: '', correctiveAdditionS: '', correctiveAdditionCr: '',
           correctiveAdditionCu: '', correctiveAdditionSn: '', tappingWt: '',
           mg: '', resMgConvertor: '', recOfMg: '', streamInoculant: '',
-          pTime: '', remarks: ''
+          pTimeFrom: '', pTimeTo: '', remarks: ''
         }));
 
         setPouringFromTime(null);
@@ -378,7 +380,8 @@ export default function ProcessControl() {
       case 'streamInoculant':
         setStreamInoculantValid(null);
         break;
-      case 'pTime':
+      case 'pTimeFrom':
+      case 'pTimeTo':
         setPTimeValid(null);
         break;
       case 'remarks':
@@ -413,11 +416,10 @@ export default function ProcessControl() {
     }
 
     if (name === 'partName') {
-      const sanitizedValue = value.toUpperCase();
-      setFormData({...formData, [name]: sanitizedValue});
-      if (sanitizedValue) {
+      setFormData({...formData, [name]: value});
+      if (value) {
         const filtered = partNameSuggestions.filter(pn =>
-          pn.toUpperCase().includes(sanitizedValue)
+          pn.toUpperCase().includes(value.toUpperCase())
         ).slice(0, 2);
         setFilteredPartNames(filtered);
         setShowPartNameDropdown(filtered.length > 0);
@@ -429,7 +431,7 @@ export default function ProcessControl() {
     }
 
     if (name === 'ppCode' || name === 'treatmentNo') {
-      const sanitizedValue = value.replace(/[^0-9]/g, '');
+      const sanitizedValue = sanitizeNumericString(value, { allowDecimal: false });
       setFormData({...formData, [name]: sanitizedValue});
       return;
     }
@@ -541,16 +543,23 @@ export default function ProcessControl() {
       inputRefs
     });
 
-    // Feed the per-field validity setters; the Pouring Temp range shares one setter.
+    // Feed the per-field validity setters; the Pouring Temp and P.Time ranges each share one setter.
     Object.entries(fieldStates).forEach(([key, state]) => {
       if (key === 'pouringTemperatureMin' || key === 'pouringTemperatureMax') {
         if (state === false) setPouringTempValid(false);
+        return;
+      }
+      if (key === 'pTimeFrom' || key === 'pTimeTo') {
+        if (state === false) setPTimeValid(false);
         return;
       }
       validationSetters[key]?.(state);
     });
     if (fieldStates.pouringTemperatureMin === null && fieldStates.pouringTemperatureMax === null) {
       setPouringTempValid(null);
+    }
+    if (fieldStates.pTimeFrom === null && fieldStates.pTimeTo === null) {
+      setPTimeValid(null);
     }
 
     const anyMissing = time.missing || tappingMissing || qtyRange.missing || (!ok && message === MESSAGE_REQUIRED);
@@ -602,6 +611,18 @@ export default function ProcessControl() {
 
       payload.timeOfPouring = timeOfPouring || '-';
       payload.tappingTime = tappingTimeStr || '-';
+
+      // pTime is a single VarChar column backing the From/To pair — compose it
+      // the same way timeOfPouring/tappingTime compose their two-part inputs.
+      const hasPTimeFrom = formData.pTimeFrom !== '' && formData.pTimeFrom != null;
+      const hasPTimeTo = formData.pTimeTo !== '' && formData.pTimeTo != null;
+      payload.pTime = hasPTimeFrom && hasPTimeTo
+        ? `${formData.pTimeFrom}-${formData.pTimeTo}`
+        : hasPTimeFrom
+        ? `${formData.pTimeFrom}`
+        : '-';
+      delete payload.pTimeFrom;
+      delete payload.pTimeTo;
 
       for (const rule of validationRanges) {
         const mappedField = fieldMapping[rule.field];
@@ -862,7 +883,7 @@ export default function ProcessControl() {
                     handleKeyDown(e, 'partName');
                   }
                 }}
-                placeholder="AUTO-CAPITALIZED"
+                placeholder="e.g., ABC-123"
                 disabled={!isPrimarySaved}
                 className={getInputClassName('partName', partNameValid)}
                 autoComplete="off"
@@ -924,7 +945,8 @@ export default function ProcessControl() {
                 name="heatcode"
                 value={formData.heatcode}
                 onChange={handleChange}
-                onKeyDown={e => handleKeyDown(e, 'heatcode')}
+                onPaste={numericGuards.heatcode?.onPaste}
+                onKeyDown={e => { numericGuards.heatcode?.onKeyDown(e); handleKeyDown(e, 'heatcode'); }}
                 placeholder="Enter number only"
                 disabled={!isPrimarySaved}
                 className={getInputClassName('heatcode', heatcodeValid)}
@@ -940,7 +962,8 @@ export default function ProcessControl() {
                   name="quantityOfMouldsFrom"
                   value={formData.quantityOfMouldsFrom}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'quantityOfMouldsFrom')}
+                  onPaste={qtyMouldsGuards.onPaste}
+                  onKeyDown={e => { qtyMouldsGuards.onKeyDown(e); handleKeyDown(e, 'quantityOfMouldsFrom'); }}
                   placeholder="From"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('quantityOfMouldsFrom', qtyMouldsRangeValid)}
@@ -953,7 +976,8 @@ export default function ProcessControl() {
                   name="quantityOfMouldsTo"
                   value={formData.quantityOfMouldsTo}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'quantityOfMouldsTo')}
+                  onPaste={qtyMouldsGuards.onPaste}
+                  onKeyDown={e => { qtyMouldsGuards.onKeyDown(e); handleKeyDown(e, 'quantityOfMouldsTo'); }}
                   placeholder="To"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('quantityOfMouldsTo', qtyMouldsRangeValid)}
@@ -985,7 +1009,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionC}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionC')}
+                  onPaste={numericGuards.metalCompositionC?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionC?.onKeyDown(e); handleKeyDown(e, 'metalCompositionC'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionC', metalCValid)}
@@ -999,7 +1024,8 @@ export default function ProcessControl() {
                   name="metalCompositionSi"
                   value={formData.metalCompositionSi}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionSi')}
+                  onPaste={numericGuards.metalCompositionSi?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionSi?.onKeyDown(e); handleKeyDown(e, 'metalCompositionSi'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionSi', metalSiValid)}
@@ -1014,7 +1040,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionMn}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionMn')}
+                  onPaste={numericGuards.metalCompositionMn?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionMn?.onKeyDown(e); handleKeyDown(e, 'metalCompositionMn'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionMn', metalMnValid)}
@@ -1029,7 +1056,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionP}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionP')}
+                  onPaste={numericGuards.metalCompositionP?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionP?.onKeyDown(e); handleKeyDown(e, 'metalCompositionP'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionP', metalPValid)}
@@ -1044,7 +1072,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionS}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionS')}
+                  onPaste={numericGuards.metalCompositionS?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionS?.onKeyDown(e); handleKeyDown(e, 'metalCompositionS'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionS', metalSValid)}
@@ -1059,7 +1088,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionMgFL}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionMgFL')}
+                  onPaste={numericGuards.metalCompositionMgFL?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionMgFL?.onKeyDown(e); handleKeyDown(e, 'metalCompositionMgFL'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionMgFL', metalMgFLValid)}
@@ -1074,7 +1104,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionCu}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionCu')}
+                  onPaste={numericGuards.metalCompositionCu?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionCu?.onKeyDown(e); handleKeyDown(e, 'metalCompositionCu'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionCu', metalCuValid)}
@@ -1089,7 +1120,8 @@ export default function ProcessControl() {
                   step="0.001"
                   value={formData.metalCompositionCr}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'metalCompositionCr')}
+                  onPaste={numericGuards.metalCompositionCr?.onPaste}
+                  onKeyDown={e => { numericGuards.metalCompositionCr?.onKeyDown(e); handleKeyDown(e, 'metalCompositionCr'); }}
                   placeholder="%"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('metalCompositionCr', metalCrValid)}
@@ -1137,7 +1169,8 @@ export default function ProcessControl() {
                     step="0.01"
                     value={formData.pouringTemperatureMin}
                     onChange={handleChange}
-                    onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMin')}
+                    onPaste={numericGuards.pouringTemperatureMin?.onPaste}
+                    onKeyDown={e => { numericGuards.pouringTemperatureMin?.onKeyDown(e); handleKeyDown(e, 'pouringTemperatureMin'); }}
                     placeholder="Min"
                     disabled={!isPrimarySaved}
                     className={getInputClassName('pouringTemperatureMin', pouringTempValid)}
@@ -1151,7 +1184,8 @@ export default function ProcessControl() {
                     step="0.01"
                     value={formData.pouringTemperatureMax}
                     onChange={handleChange}
-                    onKeyDown={e => handleKeyDown(e, 'pouringTemperatureMax')}
+                    onPaste={numericGuards.pouringTemperatureMax?.onPaste}
+                    onKeyDown={e => { numericGuards.pouringTemperatureMax?.onKeyDown(e); handleKeyDown(e, 'pouringTemperatureMax'); }}
                     placeholder="Max"
                     disabled={!isPrimarySaved}
                     className={getInputClassName('pouringTemperatureMax', pouringTempValid)}
@@ -1221,7 +1255,8 @@ export default function ProcessControl() {
                   name="heatNo"
                   value={formData.heatNo}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'heatNo')}
+                  onPaste={numericGuards.heatNo?.onPaste}
+                  onKeyDown={e => { numericGuards.heatNo?.onKeyDown(e); handleKeyDown(e, 'heatNo'); }}
                   placeholder="Enter Heat No"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('heatNo', heatNoValid)}
@@ -1235,7 +1270,8 @@ export default function ProcessControl() {
                   name="conNo"
                   value={formData.conNo}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'conNo')}
+                  onPaste={numericGuards.conNo?.onPaste}
+                  onKeyDown={e => { numericGuards.conNo?.onKeyDown(e); handleKeyDown(e, 'conNo'); }}
                   placeholder="Enter number only"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('conNo', conNoValid)}
@@ -1266,7 +1302,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionC}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionC')}
+                  onPaste={numericGuards.correctiveAdditionC?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionC?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionC'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionC', corrCValid)}
@@ -1281,7 +1318,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionSi}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSi')}
+                  onPaste={numericGuards.correctiveAdditionSi?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionSi?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionSi'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionSi', corrSiValid)}
@@ -1296,7 +1334,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionMn}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionMn')}
+                  onPaste={numericGuards.correctiveAdditionMn?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionMn?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionMn'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionMn', corrMnValid)}
@@ -1311,7 +1350,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionS}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionS')}
+                  onPaste={numericGuards.correctiveAdditionS?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionS?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionS'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionS', corrSValid)}
@@ -1326,7 +1366,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionCr}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCr')}
+                  onPaste={numericGuards.correctiveAdditionCr?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionCr?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionCr'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionCr', corrCrValid)}
@@ -1341,7 +1382,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionCu}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionCu')}
+                  onPaste={numericGuards.correctiveAdditionCu?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionCu?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionCu'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionCu', corrCuValid)}
@@ -1356,7 +1398,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.correctiveAdditionSn}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'correctiveAdditionSn')}
+                  onPaste={numericGuards.correctiveAdditionSn?.onPaste}
+                  onKeyDown={e => { numericGuards.correctiveAdditionSn?.onKeyDown(e); handleKeyDown(e, 'correctiveAdditionSn'); }}
                   placeholder="Kgs"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('correctiveAdditionSn', corrSnValid)}
@@ -1374,7 +1417,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.tappingWt}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'tappingWt')}
+                  onPaste={numericGuards.tappingWt?.onPaste}
+                  onKeyDown={e => { numericGuards.tappingWt?.onKeyDown(e); handleKeyDown(e, 'tappingWt'); }}
                   placeholder="Enter weight"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('tappingWt', tappingWtValid)}
@@ -1389,7 +1433,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.mg}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'mg')}
+                  onPaste={numericGuards.mg?.onPaste}
+                  onKeyDown={e => { numericGuards.mg?.onKeyDown(e); handleKeyDown(e, 'mg'); }}
                   placeholder="Enter Mg"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('mg', mgValid)}
@@ -1404,7 +1449,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.resMgConvertor}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'resMgConvertor')}
+                  onPaste={numericGuards.resMgConvertor?.onPaste}
+                  onKeyDown={e => { numericGuards.resMgConvertor?.onKeyDown(e); handleKeyDown(e, 'resMgConvertor'); }}
                   placeholder="Enter %"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('resMgConvertor', resMgConvertorValid)}
@@ -1419,7 +1465,8 @@ export default function ProcessControl() {
                   step="0.01"
                   value={formData.recOfMg}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'recOfMg')}
+                  onPaste={numericGuards.recOfMg?.onPaste}
+                  onKeyDown={e => { numericGuards.recOfMg?.onKeyDown(e); handleKeyDown(e, 'recOfMg'); }}
                   placeholder="Enter %"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('recOfMg', recOfMgValid)}
@@ -1433,27 +1480,47 @@ export default function ProcessControl() {
                   name="streamInoculant"
                   value={formData.streamInoculant}
                   onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'streamInoculant')}
+                  onPaste={numericGuards.streamInoculant?.onPaste}
+                  onKeyDown={e => { numericGuards.streamInoculant?.onKeyDown(e); handleKeyDown(e, 'streamInoculant'); }}
                   step="0.1"
                   placeholder="e.g., 5.5"
                   disabled={!isPrimarySaved}
                   className={getInputClassName('streamInoculant', streamInoculantValid)}
                 />
               </div>
-              <div className="process-form-group" style={{ flex: '1', minWidth: '150px' }}>
+              <div className="process-form-group" style={{ flex: '1', minWidth: '280px' }}>
                 <label>P.Time (sec)</label>
-                <input
-                  ref={el => inputRefs.current.pTime = el}
-                  type="number"
-                  name="pTime"
-                  value={formData.pTime}
-                  onChange={handleChange}
-                  onKeyDown={e => handleKeyDown(e, 'pTime')}
-                  step="0.1"
-                  placeholder="e.g., 120"
-                  disabled={!isPrimarySaved}
-                  className={getInputClassName('pTime', pTimeValid)}
-                />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    ref={el => inputRefs.current.pTimeFrom = el}
+                    type="number"
+                    name="pTimeFrom"
+                    step="0.1"
+                    value={formData.pTimeFrom}
+                    onChange={handleChange}
+                    onPaste={numericGuards.pTimeFrom?.onPaste}
+                    onKeyDown={e => { numericGuards.pTimeFrom?.onKeyDown(e); handleKeyDown(e, 'pTimeFrom'); }}
+                    placeholder="From"
+                    disabled={!isPrimarySaved}
+                    className={getInputClassName('pTimeFrom', pTimeValid)}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontWeight: '600', color: '#64748b' }}>-</span>
+                  <input
+                    ref={el => inputRefs.current.pTimeTo = el}
+                    type="number"
+                    name="pTimeTo"
+                    step="0.1"
+                    value={formData.pTimeTo}
+                    onChange={handleChange}
+                    onPaste={numericGuards.pTimeTo?.onPaste}
+                    onKeyDown={e => { numericGuards.pTimeTo?.onKeyDown(e); handleKeyDown(e, 'pTimeTo'); }}
+                    placeholder="To"
+                    disabled={!isPrimarySaved}
+                    className={getInputClassName('pTimeTo', pTimeValid)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
               </div>
             </div>
 

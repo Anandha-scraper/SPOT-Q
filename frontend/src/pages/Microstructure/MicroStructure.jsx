@@ -8,8 +8,8 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { usePrimaryLock, PRIMARY_STATUS } from '../../utils/primaryLock';
-import { runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
-import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, buildNumericGuardMap } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/formValidation';
 import { API_ENDPOINTS } from '../../config/api';
 import { validationRanges, fieldMapping } from '../../deviations/DmicroStructure';
 import '../../styles/PageStyles/MicroStructure/MicroStructure.css';
@@ -58,6 +58,7 @@ const MicroStructure = () => {
 
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+  const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
 
   // Date + DISA must be saved before the entry fields unlock.
   const { status, highlightPrimaryFields, savePrimary } = usePrimaryLock({
@@ -379,7 +380,8 @@ const MicroStructure = () => {
             type="text"
             value={formData.heatCode}
             onChange={handleInputChange('heatCode')}
-            onKeyDown={e => handleKeyDown(e, 'heatCode')}
+            onPaste={numericGuards.heatCode?.onPaste}
+            onKeyDown={e => { numericGuards.heatCode?.onKeyDown(e); handleKeyDown(e, 'heatCode'); }}
             name="heatCode"
             placeholder="Enter heat code"
             disabled={!isPrimarySaved}
@@ -393,7 +395,8 @@ const MicroStructure = () => {
             type="number"
             value={formData.nodularity}
             onChange={handleInputChange('nodularity')}
-            onKeyDown={e => handleKeyDown(e, 'nodularity')}
+            onPaste={numericGuards.nodularity?.onPaste}
+            onKeyDown={e => { numericGuards.nodularity?.onKeyDown(e); handleKeyDown(e, 'nodularity'); }}
             name="nodularity"
             placeholder="0-100"
             min="0"
@@ -428,7 +431,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.countMin}
               onChange={handleInputChange('countMin')}
-              onKeyDown={e => handleKeyDown(e, 'countMin')}
+              onPaste={numericGuards.countMin?.onPaste}
+              onKeyDown={e => { numericGuards.countMin?.onKeyDown(e); handleKeyDown(e, 'countMin'); }}
               name="countMin"
               placeholder="Min"
               min="0"
@@ -442,7 +446,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.countMax}
               onChange={handleInputChange('countMax')}
-              onKeyDown={e => handleKeyDown(e, 'countMax')}
+              onPaste={numericGuards.countMax?.onPaste}
+              onKeyDown={e => { numericGuards.countMax?.onKeyDown(e); handleKeyDown(e, 'countMax'); }}
               name="countMax"
               placeholder="Max"
               min="0"
@@ -460,7 +465,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.sizeMin}
               onChange={handleInputChange('sizeMin')}
-              onKeyDown={e => handleKeyDown(e, 'sizeMin')}
+              onPaste={numericGuards.sizeMin?.onPaste}
+              onKeyDown={e => { numericGuards.sizeMin?.onKeyDown(e); handleKeyDown(e, 'sizeMin'); }}
               name="sizeMin"
               placeholder="Min"
               min="0"
@@ -474,7 +480,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.sizeMax}
               onChange={handleInputChange('sizeMax')}
-              onKeyDown={e => handleKeyDown(e, 'sizeMax')}
+              onPaste={numericGuards.sizeMax?.onPaste}
+              onKeyDown={e => { numericGuards.sizeMax?.onKeyDown(e); handleKeyDown(e, 'sizeMax'); }}
               name="sizeMax"
               placeholder="Max"
               min="0"
@@ -492,7 +499,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.ferriteMin}
               onChange={handleInputChange('ferriteMin')}
-              onKeyDown={e => handleKeyDown(e, 'ferriteMin')}
+              onPaste={numericGuards.ferriteMin?.onPaste}
+              onKeyDown={e => { numericGuards.ferriteMin?.onKeyDown(e); handleKeyDown(e, 'ferriteMin'); }}
               name="ferriteMin"
               placeholder="Min"
               min="0"
@@ -506,7 +514,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.ferriteMax}
               onChange={handleInputChange('ferriteMax')}
-              onKeyDown={e => handleKeyDown(e, 'ferriteMax')}
+              onPaste={numericGuards.ferriteMax?.onPaste}
+              onKeyDown={e => { numericGuards.ferriteMax?.onKeyDown(e); handleKeyDown(e, 'ferriteMax'); }}
               name="ferriteMax"
               placeholder="Max"
               min="0"
@@ -524,7 +533,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.pearliteMin}
               onChange={handleInputChange('pearliteMin')}
-              onKeyDown={e => handleKeyDown(e, 'pearliteMin')}
+              onPaste={numericGuards.pearliteMin?.onPaste}
+              onKeyDown={e => { numericGuards.pearliteMin?.onKeyDown(e); handleKeyDown(e, 'pearliteMin'); }}
               name="pearliteMin"
               placeholder="Min"
               min="0"
@@ -538,7 +548,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.pearliteMax}
               onChange={handleInputChange('pearliteMax')}
-              onKeyDown={e => handleKeyDown(e, 'pearliteMax')}
+              onPaste={numericGuards.pearliteMax?.onPaste}
+              onKeyDown={e => { numericGuards.pearliteMax?.onKeyDown(e); handleKeyDown(e, 'pearliteMax'); }}
               name="pearliteMax"
               placeholder="Max"
               min="0"
@@ -556,7 +567,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.carbideMin}
               onChange={handleInputChange('carbideMin')}
-              onKeyDown={e => handleKeyDown(e, 'carbideMin')}
+              onPaste={numericGuards.carbideMin?.onPaste}
+              onKeyDown={e => { numericGuards.carbideMin?.onKeyDown(e); handleKeyDown(e, 'carbideMin'); }}
               name="carbideMin"
               placeholder="Min"
               min="0"
@@ -570,7 +582,8 @@ const MicroStructure = () => {
               type="number"
               value={formData.carbideMax}
               onChange={handleInputChange('carbideMax')}
-              onKeyDown={e => handleKeyDown(e, 'carbideMax')}
+              onPaste={numericGuards.carbideMax?.onPaste}
+              onKeyDown={e => { numericGuards.carbideMax?.onKeyDown(e); handleKeyDown(e, 'carbideMax'); }}
               name="carbideMax"
               placeholder="Max"
               min="0"

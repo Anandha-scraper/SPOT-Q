@@ -7,9 +7,11 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { buildSubmitError } from '../../utils/submitError';
+import { buildSubmitError } from '../../utils/formValidation';
 import { validationRanges as returnSandValidationRanges } from '../../deviations/DreturnSandFoundrySandTestingNote';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
+
+const SectionSubmitIcon = ({ loading }) => (loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />);
 
 const initialFormData = {
   date: "",
@@ -921,7 +923,7 @@ export default function ReturnSandFoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.clayParameters}
           className="foundry-submit-btn"
         >
-          {loadingStates.clayParameters ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.clayParameters} />
           {loadingStates.clayParameters ? 'Saving...' : 'Save Clay Parameters'}
         </button>
       </div>
@@ -950,7 +952,7 @@ export default function ReturnSandFoundrySandTestingNote() {
           disabled={!isPrimaryDataSaved || loadingStates.sieveTesting}
           className="foundry-submit-btn"
         >
-          {loadingStates.sieveTesting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          <SectionSubmitIcon loading={loadingStates.sieveTesting} />
           {loadingStates.sieveTesting ? 'Saving...' : 'Save Sieve Testing'}
         </button>
       </div>

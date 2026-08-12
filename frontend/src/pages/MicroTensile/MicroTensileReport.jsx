@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, FilterDisaDropdown, CustomPagination, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog } from '../../Components/alert';
+import { ExcelDownloadDialog, useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import EntryActions from '../../Components/EntryActions';
@@ -14,6 +14,7 @@ import '../../styles/PageStyles/MicroTensile/MicroTensileReport.css';
 import '../../styles/ComponentStyles/Table.css';
 
 const MicroTensileReport = () => {
+  const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
@@ -90,7 +91,7 @@ const MicroTensileReport = () => {
         setFilteredEntries(computeFiltered(validEntries));
       }
     } catch (error) {
-      alert('Failed to load micro tensile data. Please refresh.');
+      toast.error('Failed to load micro tensile data. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -221,8 +222,10 @@ const MicroTensileReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -248,6 +251,7 @@ const MicroTensileReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date || r.dateOfInspection) },
@@ -276,7 +280,7 @@ const MicroTensileReport = () => {
         sheetName: 'Micro Tensile',
       });
     } catch (err) {
-      alert('Download failed due to a network/connectivity issue. Please check your connection and try again.');
+      toast.error('Download failed due to a network/connectivity issue. Please check your connection and try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -389,9 +393,9 @@ const MicroTensileReport = () => {
                           {item.disa || '-'}
                         </td>
                       ) : null}
-                      <td>{renderItem(item)}</td>
+                      <td className={devClass('Item (Optional)', item.item?.it2?.replace(/^\(|\)$/g, ''))}>{renderItem(item)}</td>
                       <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
-                      <td>{item.heatCode || '-'}</td>
+                      <td className={devClass('Heat Code', item.heatCode)}>{item.heatCode || '-'}</td>
                       <td className={devClass('Bar Dia', item.barDia)}>{item.barDia ?? '-'}</td>
                       <td className={devClass('Gauge Length', item.gaugeLength)}>{item.gaugeLength ?? '-'}</td>
                       <td className={devClass('Max Load', item.maxLoad)}>{item.maxLoad ?? '-'}</td>

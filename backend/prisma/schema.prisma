@@ -577,7 +577,10 @@ model MeltingLogPrimary {
 
   meltingLog MeltingLog        @relation(fields: [meltingLogId], references: [id], onDelete: Cascade)
   entries    MeltingLogEntry[]
-  creator    User?             @relation(fields: [createdBy], references: [id], onDelete: NoAction)
+  // onUpdate: NoAction too — entries already carry their own createdBy back to User
+  // (onDelete: Cascade via primary), so leaving this at the implicit onUpdate: Cascade
+  // default would open a second cascade path into MeltingLogEntry, which mssql rejects.
+  creator    User?             @relation(fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([meltingLogId, shift, furnaceNo, panel])
   @@map("melting_log_primaries")

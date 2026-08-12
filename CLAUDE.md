@@ -236,19 +236,42 @@ rather than bugs — worth knowing when something misbehaves in production:
 
 ## Known gaps
 
+- **`scripts/package-release.sh` does not exist in this checkout** — not on disk, not anywhere in
+  git history (`git log --all -- scripts/package-release.sh` is empty). This doc still describes
+  it as the merge/release guard (see "Merging from `sql`" and "Deploying") because that's the
+  intended procedure; the script itself apparently never actually got committed, the same gap
+  `CLAUDE.md` itself had until it was fixed. Until it's rebuilt, `npx prisma validate` plus a
+  manual check of the four invariants is the only guard after a merge.
+- `backend/prisma/migrations/` is **empty again** after merging in `sql`'s deviation/edit-option
+  work (2026-08-12): `sql` added real `createdBy`/`updatedAt` columns to `MeltingLogPrimary`,
+  `CupolaLogEntry`, and `DmmParameterEntry`, each with its own Postgres migration. Those were
+  deleted per invariant 4 rather than kept. The next `npx prisma migrate dev` against the local
+  VM needs to produce a baseline covering the full current schema (not just these three columns)
+  — still blocked on the same VM/SQL Server connectivity issue as before.
+- That merge also surfaced a real mssql-specific schema bug, now fixed: adding
+  `MeltingLogPrimary.creator` gave `User` two cascade paths into `MeltingLogEntry` (direct, and
+  via `MeltingLogPrimary`'s cascade to its entries) because `onUpdate` defaults to `Cascade` even
+  when `onDelete: NoAction` is set explicitly. Postgres allows this, so `sql` never surfaces it;
+  SQL Server doesn't. Fixed with an explicit `onUpdate: NoAction` on the new relation
+  (`schema.prisma` around the `MeltingLogPrimary.creator` field). Worth remembering as a pattern:
+  any new `creator` relation added on `sql` that creates a second path to a model already reached
+  another way needs the same explicit `onUpdate: NoAction`, and `sql`'s own Postgres testing will
+  never catch it.
 - `backend/prisma/schema.prisma` header cites `INFO.md` for its decision record. **That file has
   never existed** in any checkout; the content lives in `backend.md` in a sibling working copy.
   The pointer is left untouched on purpose so `schema.prisma` differs from `sql` by exactly one
   line (the `datasource` block), keeping merges trivial.
 - `utils/prismaError.js` maps `P2002` index names to field names via `INDEX_TO_FIELDS`, keyed on
-  the **Postgres** name `users_employeeId_key`. SQL Server generates a different constraint name,
-  so duplicate-employee-ID errors currently show the generic "A record with these values already
-  exists" instead of naming the field. Fix by reading the real name from the generated migration
-  once the baseline exists. Cosmetic only — no data risk.
+  **Postgres** names — `users_employeeId_key`, and now also
+  `melting_log_primaries_meltingLogId_shift_furnaceNo_panel_key` and
+  `cupola_log_primaries_cupolaLogId_shift_holderNumber_key` (added by the same `sql` merge). SQL
+  Server generates different constraint names, so these lookups currently miss and fall back to
+  the generic "A record with these values already exists" message. Fix by reading the real names
+  from the generated migration once the baseline exists. Cosmetic only — no data risk.
 - `package-lock.json` is gitignored, so a `git clone` of this repo cannot use `npm ci`. This
-  does not affect the company deployment: releases ship as a ZIP, and `package-release.sh`
-  includes the lockfiles deliberately, so the server gets reproducible installs. It does mean
-  a fresh clone and a release ZIP can resolve different dependency versions.
+  does not affect the company deployment: releases ship as a ZIP, and `package-release.sh` (once
+  it exists again) includes the lockfiles deliberately, so the server gets reproducible installs.
+  It does mean a fresh clone and a release ZIP can resolve different dependency versions.
 - `npm run lint` is configured but no ESLint config exists, and `npm run build` will not catch a
   dangling identifier.
 - `backend.md` / `frontend.md` are referenced by ~12 source comments but are gitignored and

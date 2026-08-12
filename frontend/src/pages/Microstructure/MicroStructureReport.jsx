@@ -258,8 +258,10 @@ const MicroStructureReport = () => {
   // Excel export — fetch all entries, filter by the chosen range/DISA, then build the sheet.
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -288,6 +290,7 @@ const MicroStructureReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },

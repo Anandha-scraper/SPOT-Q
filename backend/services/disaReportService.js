@@ -254,6 +254,44 @@ async function getReportsInRange(startDate, endDate) {
     return reports.map(toWireReport);
 }
 
+// One-off repair for reports forked by the missing-shift write bug (see
+// backend.md's 2026-08-10 entry): a phantom is mergeable only when its date
+// has exactly one real-shift sibling to merge into — an ambiguous date (0 or
+// 2+ siblings) is listed as skipped and never guessed at. Read-only unless
+// `apply` is true; called from scripts/repairDisaShiftSplit.js.
+async function repairShiftSplit({ apply = false } = {}) {
+    const phantoms = await disaReportRepository.findPhantomShiftReports();
+
+    // One entry per phantom, in the same order phantoms were found (date
+    // ascending) — kept as a single stream, not split into two arrays, so a
+    // caller printing them can reproduce the original interleaved MERGE/SKIP
+    // report exactly rather than grouping all merges before all skips.
+    const results = [];
+    for (const phantom of phantoms) {
+        const siblings = await disaReportRepository.findSiblingReports(phantom.date);
+        const counts = await disaReportRepository.countReportChildren(phantom.id);
+
+        if (siblings.length === 1) {
+            results.push({
+                type: 'merge', date: phantom.date, phantomId: phantom.id,
+                targetId: siblings[0].id, targetShift: siblings[0].shift, counts,
+            });
+        } else {
+            results.push({ type: 'skip', date: phantom.date, siblingShifts: siblings.map((s) => s.shift), counts });
+        }
+    }
+
+    const plan = results.filter((r) => r.type === 'merge');
+
+    if (apply) {
+        for (const row of plan) {
+            await disaReportRepository.mergePhantomReport(row.phantomId, row.targetId);
+        }
+    }
+
+    return { phantomCount: phantoms.length, results, mergedCount: plan.length, applied: apply };
+}
+
 module.exports = {
     saveProduction,
     saveNextShiftPlan,
@@ -265,4 +303,5 @@ module.exports = {
     savePrimary,
     getReportsForDate,
     getReportsInRange,
+    repairShiftSplit,
 };

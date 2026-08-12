@@ -299,7 +299,17 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} ref={containerRef} onKeyDown={handleArrowKeyDown}>
+                <form
+                    onSubmit={handleSubmit}
+                    ref={containerRef}
+                    onKeyDown={(e) => {
+                        handleArrowKeyDown(e);
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                            e.preventDefault();
+                            if (!saving) handleSubmit(e);
+                        }
+                    }}
+                >
                     <div style={gridStyle}>
                         {config.fields.filter(f => !isListField(f)).map(f => (
                             <div key={f.name} style={{ display: 'flex', flexDirection: 'column' }}>

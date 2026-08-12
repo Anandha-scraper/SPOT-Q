@@ -19,19 +19,22 @@ function findPrimary(meltingLogId, shift, furnaceNo, panel) {
     });
 }
 
-function upsertPrimary(meltingLogId, shift, furnaceNo, panel, data) {
+// createdBy is only ever applied on `create` — `data` alone (no createdBy) is
+// reused verbatim for `update` so re-saving an existing primary never reassigns
+// the original creator to whoever happens to save it next.
+function upsertPrimary(meltingLogId, shift, furnaceNo, panel, data, createdBy) {
     return prisma.meltingLogPrimary.upsert({
         where: { meltingLogId_shift_furnaceNo_panel: { meltingLogId, shift, furnaceNo, panel } },
-        create: { meltingLogId, shift, furnaceNo, panel, ...data },
+        create: { meltingLogId, shift, furnaceNo, panel, ...data, createdBy: createdBy ?? null },
         update: data,
         include: { _count: { select: { entries: true } } },
     });
 }
 
-async function ensurePrimaryId(meltingLogId, shift, furnaceNo, panel) {
+async function ensurePrimaryId(meltingLogId, shift, furnaceNo, panel, createdBy) {
     const primary = await prisma.meltingLogPrimary.upsert({
         where: { meltingLogId_shift_furnaceNo_panel: { meltingLogId, shift, furnaceNo, panel } },
-        create: { meltingLogId, shift, furnaceNo, panel },
+        create: { meltingLogId, shift, furnaceNo, panel, createdBy: createdBy ?? null },
         update: {},
         select: { id: true },
     });
@@ -63,6 +66,7 @@ async function findEntries({ from, to } = {}) {
                         id: true, shift: true, furnaceNo: true, panel: true,
                         cumulativeLiquidMetal: true, finalKwhr: true, initialKwhr: true,
                         totalUnits: true, cumulativeUnits: true, isLocked: true,
+                        createdBy: true, createdAt: true,
                         meltingLog: { select: { date: true } },
                         _count: { select: { entries: true } },
                     },
@@ -88,7 +92,23 @@ function findConflictingPrimary(meltingLogId, shift, furnaceNo, panel) {
 function findPrimaryById(id) {
     return prisma.meltingLogPrimary.findUnique({
         where: { id },
-        select: { id: true, meltingLogId: true, shift: true, furnaceNo: true, panel: true },
+        select: {
+            id: true, meltingLogId: true, shift: true, furnaceNo: true, panel: true,
+            createdBy: true, createdAt: true,
+        },
+    });
+}
+
+// Primaries left over from before MeltingLogPrimary gained createdBy — each
+// paired with its earliest entry's createdBy, the only signal available to
+// infer an owner for backfill.
+function findOwnerlessPrimariesWithEarliestEntryCreator() {
+    return prisma.meltingLogPrimary.findMany({
+        where: { createdBy: null },
+        include: {
+            entries: { select: { createdBy: true, createdAt: true }, orderBy: { createdAt: 'asc' }, take: 1 },
+            meltingLog: { select: { date: true } },
+        },
     });
 }
 
@@ -150,6 +170,7 @@ module.exports = {
     findEntries,
     findConflictingPrimary,
     findPrimaryById,
+    findOwnerlessPrimariesWithEarliestEntryCreator,
     updatePrimary,
     deletePrimary,
     findEntryAuthInfo,

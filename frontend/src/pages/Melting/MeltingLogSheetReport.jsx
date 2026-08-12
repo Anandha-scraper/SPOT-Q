@@ -8,7 +8,7 @@ import EntryActions from '../../Components/EntryActions';
 import { meltingEditConfig, meltingPrimaryEditConfig } from '../../utils/editFieldConfigs';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
-import { useDeviationClass } from '../../utils/deviationDisplay';
+import { useDeviationClass } from '../../utils/formValidation';
 import { validationRanges } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheetReport.css';
 import '../../styles/ComponentStyles/Table.css';
@@ -63,9 +63,11 @@ const allSections = (value) => Object.fromEntries(SECTIONS.map(({ key }) => [key
 
 // A zero-entry primary arrives as a placeholder row whose own _id IS the primary
 // id, so `primaryId ?? _id` is what makes those rows reachable at all. Built
-// explicitly rather than spread: carrying the entry's createdAt/createdBy would
-// show a non-admin owner a pencil the backend then refuses.
-const primaryRowOf = (row) => ({
+// explicitly rather than spread: uses the PRIMARY's own createdBy/createdAt
+// (wire keys primaryCreatedBy/primaryCreatedAt — distinct from the entry's own
+// createdBy/createdAt already on `row`), not the entry's, since they can be
+// different people. entryCount feeds the delete-confirmation's dynamic message.
+const primaryRowOf = (row, entryCount) => ({
   _id: row.primaryId ?? row._id,
   date: row.date,
   shift: row.shift,
@@ -75,7 +77,10 @@ const primaryRowOf = (row) => ({
   finalKWHr: row.finalKWHr,
   initialKWHr: row.initialKWHr,
   totalUnits: row.totalUnits,
-  cumulativeUnits: row.cumulativeUnits
+  cumulativeUnits: row.cumulativeUnits,
+  createdBy: row.primaryCreatedBy ?? null,
+  createdAt: row.primaryCreatedAt ?? null,
+  entryCount: entryCount ?? 0
 });
 
 const MeltingLogSheetReport = () => {
@@ -660,7 +665,10 @@ const MeltingLogSheetReport = () => {
                       {show.table5 && <td className={devClass('furnace4Hz', row.furnace4Hz)}>{row.furnace4Hz ?? '-'}</td>}
                       {show.table5 && <td className={devClass('furnace4Gld', row.furnace4Gld)}>{row.furnace4Gld ?? '-'}</td>}
                       {show.table5 && <td className={devClass('furnace4KwHr', row.furnace4KwHr)}>{row.furnace4KwHr ?? '-'}</td>}
-                      {/* Primary — one control per group, spanning its entry rows */}
+                      {/* Primary — one control per group, spanning its entry rows.
+                          A zero-entry group is a single placeholder row with no
+                          primaryId (see primaryRowOf), so its real entry count is
+                          0, not the placeholder row itself. */}
                       {isGroupStart && (
                         <td
                           rowSpan={isGroupStart.rowspan}
@@ -668,7 +676,7 @@ const MeltingLogSheetReport = () => {
                           style={{ textAlign: 'center', whiteSpace: 'nowrap' }}
                         >
                           <EntryActions
-                            entry={primaryRowOf(row)}
+                            entry={primaryRowOf(row, row.primaryId ? isGroupStart.rowspan : 0)}
                             editConfig={meltingPrimaryEditConfig}
                             onChanged={fetchData}
                           />

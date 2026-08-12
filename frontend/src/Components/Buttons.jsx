@@ -988,9 +988,12 @@ export const CustomTimeInput = forwardRef(
         if (idx > -1 && idx < allFocusables.length - 1) {
           allFocusables[idx + 1].focus();
         }
-      } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-        handlePeriodChange(period === "AM" ? "PM" : "AM");
+      } else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && e.shiftKey) {
+        // Plain ↑/↓ (no Shift) is left alone so it bubbles to the grid's
+        // spatial navigation instead of being trapped here — matches every
+        // other <select> in the app (arrowNavigation.js). Shift+↑/↓ falls
+        // through to the browser's own two-option cycling, which already
+        // toggles AM/PM correctly, so no manual handlePeriodChange is needed.
       } else if (e.key.toLowerCase() === "a") {
         e.preventDefault();
         handlePeriodChange("AM");

@@ -26,223 +26,165 @@ export const validationRanges = [
   },
   {
     field: 'Heat Code',
-    required: false,
-    type: 'Number'
+    type: 'Number',
+    unit: '°C',
   },
   {
     field: 'Qty. Of Moulds',
-    required: false,
     type: 'Number',
-    min: 0
   },
   {
     field: 'Metal Composition - C',
-    required: false,
     type: 'Number',
-    min: 0,
-    max:100,
-    unit: '%'
+    unit: '%',
   },
   {
     field: 'Metal Composition - Si',
-    required: false,
     type: 'Number',
-    unit: '%'
+    unit: '%',
+    
   },
   {
     field: 'Metal Composition - Mn',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Metal Composition - P',
-    required: false,
     type: 'Number',
-    min: 0,
-    max: 100,
     unit: '%'
   },
   {
     field: 'Metal Composition - S',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Metal Composition - Mg F/L',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Metal Composition - Cu',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Metal Composition - Cr',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Time of Pouring (Range)',
-    required: false,
     type: 'Time Range',
-    // The 60-minute cap is a spec note for the Info card, not a numeric bound —
-    // these are clock times, so a numeric min/max would compare the wrong thing.
-    unit: 'max 60 min',
+    unit: '60 min',
     pattern: 'HH:MM - HH:MM'
   },
   {
     field: 'Pouring Temp',
-    required: false,
     type: 'Number Range',
     requireMinForMax: true,
-    min: 0,
     unit: '°C',
     pattern: 'Min - Max (e.g., 1400 - 1500)'
   },
   {
     field: 'PP Code',
-    required: false,
     type: 'Integer'
   },
   {
     field: 'Treatment No',
-    required: false,
-    type: 'Integer'
+    type: 'Integer',
   },
   {
     field: 'F/C No.',
-    required: false,
     type: 'Select',
     allowedValues: ['1', '2', '3', '4','H1','H2']
   },
   {
     field: 'Heat No',
-    required: false,
-    type:'Number',
-    min:0
+    type: 'Number'
   },
   {
     field: 'Con No',
-    required: false,
     type: 'Number'
   },
   {
     field: 'Tapping Time',
-    required: false,
     type: 'Time',
     pattern: 'HH:MM'
   },
   {
     field: 'Corrective Addition - C',
-    required: false,
     type: 'Number',
-    min: 0,
-    max:100,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - Si',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - Mn',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - S',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - Cr',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - Cu',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Corrective Addition - Sn',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Tapping Wt',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Mg',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'Kgs'
   },
   {
     field: 'Res. Mg. Convertor',
-    required: false,
     type: 'Number',
-    min: 0,
-    max: 100,
     unit: '%'
   },
   {
     field: 'Rec. Of Mg',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: '%'
   },
   {
     field: 'Stream Inoculant',
-    required: false,
     type: 'Number',
-    min: 0,
     unit: 'gm/Sec',
     pattern: 'e.g., 5.5'
   },
   {
     field: 'P.Time',
-    required: false,
-    type: 'Number',
-    min: 0,
+    type: 'Number Range',
+    requireMinForMax: true,
     unit: 'sec',
-    pattern: 'e.g., 120'
+    pattern: 'From - To (e.g., 12 - 14)'
   },
   {
     field: 'Remarks',
     required: false,
     type: 'Text',
-    maxLength: 200
   }
 ];
 
@@ -279,6 +221,6 @@ export const fieldMapping = {
   'Res. Mg. Convertor': 'resMgConvertor',
   'Rec. Of Mg': 'recOfMg',
   'Stream Inoculant': 'streamInoculant',
-  'P.Time': 'pTime',
+  'P.Time': ['pTimeFrom', 'pTimeTo'],
   'Remarks': 'remarks'
 };

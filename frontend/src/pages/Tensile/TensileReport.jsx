@@ -25,7 +25,8 @@ const KEY_TO_RULE_FIELD = {
   yieldLoad: 'Yield Load',
   uts: 'UTS',
   ys: 'YS',
-  elongation: 'Elongation'
+  elongation: 'Elongation',
+  remarks: 'Remarks'
 };
 
 const TensileReport = () => {

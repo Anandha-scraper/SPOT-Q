@@ -43,7 +43,8 @@ export const departmentFormConfig = {
       resMgConvertor: '',
       recOfMg: '',
       streamInoculant: '',
-      pTime: '',
+      pTimeFrom: '',
+      pTimeTo: '',
       remarks: ''
     },
     initialMeta: {

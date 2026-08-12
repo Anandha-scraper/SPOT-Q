@@ -234,8 +234,10 @@ const ProcessReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -260,6 +262,7 @@ const ProcessReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const pouringTemp = (r) =>
         r.pouringTemperatureMin && r.pouringTemperatureMax
@@ -480,7 +483,7 @@ const ProcessReport = () => {
                       ) : null}
                       <td>{item.partName || '-'}</td>
                       <td className={devClass('Date Code', item.datecode)}>{item.datecode || '-'}</td>
-                      <td>{item.heatcode || '-'}</td>
+                      <td className={devClass('Heat Code', item.heatcode)}>{item.heatcode || '-'}</td>
                       <td className={devClass('Qty. Of Moulds', item.quantityOfMoulds)}>{item.quantityOfMoulds || '-'}</td>
                       {show.metalComposition && (
                         <>
@@ -500,11 +503,11 @@ const ProcessReport = () => {
                           : '-'}
                       </td>
                       <td>{item.timeOfPouring || '-'}</td>
-                      <td>{item.ppCode || '-'}</td>
-                      <td>{item.treatmentNo || '-'}</td>
-                      <td>{item.fcNo || '-'}</td>
+                      <td className={devClass('PP Code', item.ppCode)}>{item.ppCode || '-'}</td>
+                      <td className={devClass('Treatment No', item.treatmentNo)}>{item.treatmentNo || '-'}</td>
+                      <td className={devClass('F/C No.', item.fcNo)}>{item.fcNo || '-'}</td>
                       <td className={devClass('Heat No', item.heatNo)}>{item.heatNo || '-'}</td>
-                      <td>{item.conNo || '-'}</td>
+                      <td className={devClass('Con No', item.conNo)}>{item.conNo || '-'}</td>
                       {show.correctiveAdditions && (
                         <>
                           <td className={devClass('Corrective Addition - C', item.correctiveAdditionC)}>{item.correctiveAdditionC || '-'}</td>
@@ -522,7 +525,7 @@ const ProcessReport = () => {
                       <td className={devClass('Res. Mg. Convertor', item.resMgConvertor)}>{item.resMgConvertor || '-'}</td>
                       <td className={devClass('Rec. Of Mg', item.recOfMg)}>{item.recOfMg || '-'}</td>
                       <td className={devClass('Stream Inoculant', item.streamInoculant)}>{item.streamInoculant || '-'}</td>
-                      <td className={devClass('P.Time', item.pTime)}>{item.pTime || '-'}</td>
+                      <td>{item.pTime || '-'}</td>
                       <td
                         className={`process-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'} ${devClass('Remarks', item.remarks) || ''}`}
                         onClick={() => item.remarks && showRemarksPopup(item.remarks)}

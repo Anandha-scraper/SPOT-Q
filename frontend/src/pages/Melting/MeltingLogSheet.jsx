@@ -3,16 +3,19 @@ import { Save, Loader2 } from 'lucide-react';
 import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, ShiftDropdown, FurnaceDropdown, PanelDropdown, DisaDropdown, SgFgDropdown } from '../../Components/Buttons';
 import { InlineLoader } from '../../Components/InlineLoader';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useToast } from '../../Components/alert';
 import { API_ENDPOINTS } from '../../config/api';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { checkNumber } from '../../utils/formValidation';
+import { blockNonNumericKeyDown, sanitizeNumericPaste } from '../../utils/formValidation';
 import { validationRanges, fieldMapping } from '../../deviations/Dmelting';
 import '../../styles/PageStyles/Melting/MeltingLogSheet.css';
 
 const MeltingLogSheet = () => {
   const { toast } = useToast();
+  const { isOpen, openModal, closeModal } = useInfoModal();
   // Primary: Date, Shift, Furnace No., Panel, Cumulative Liquid metal, Final KWHr, Initial KWHr, Total Units, Cumulative Units
   // Draft containers persist across Form <-> Report navigation (shared context).
   const {
@@ -620,6 +623,7 @@ const MeltingLogSheet = () => {
     
     let hasErrors = false;
     let firstErrorField = null;
+    let firstErrorMessage = null;
 
     // Map of field names to refs for auto-focus on first error
     const fieldRefs = {
@@ -707,6 +711,7 @@ const MeltingLogSheet = () => {
             if (!firstErrorField) {
               const refKey = Array.isArray(mappedFields) ? mappedFields[0] : mappedFields;
               firstErrorField = fieldRefs[refKey];
+              firstErrorMessage = result.message || null;
             }
           } else {
             setter(null);
@@ -716,7 +721,7 @@ const MeltingLogSheet = () => {
     }
 
     if (hasErrors) {
-      setValidationErrorMessage('Fill required Fields in Correct format');
+      setValidationErrorMessage(firstErrorMessage || 'Fill required Fields in Correct format');
       // Auto-focus on first error field
       if (firstErrorField && firstErrorField.current) {
         firstErrorField.current.focus();
@@ -1004,6 +1009,83 @@ const MeltingLogSheet = () => {
     return null; // Valid input stays neutral (no green)
   };
 
+  // Cascading reset shared by every combination-defining field (Date/Shift/Furnace/
+  // Panel): switching to a different value invalidates whatever primary lock and
+  // table entries were built against the old combination, so both must drop together.
+  const resetPrimaryAndTables = () => {
+    setPrimaryId(null);
+    setPrimaryLocks({});
+    setIsPrimaryDataSaved(false);
+    setEntryCount(0);
+    setPrimaryDataOriginal(null);
+    setDateErrorHighlight(false);
+    setShiftErrorHighlight(false);
+    setFurnaceNoErrorHighlight(false);
+    setPanelErrorHighlight(false);
+    setPrimaryFieldMessage('');
+    setCumulativeLiquidMetalValid(null);
+    setFinalKWHrValid(null);
+    setInitialKWHrValid(null);
+    setTotalUnitsValid(null);
+    setCumulativeUnitsValid(null);
+    setHeatNoValid(null);
+    setGradeValid(null);
+    setChargingTimeValid(null);
+    setIfBathValid(null);
+    setLiquidMetalPressPourValid(null);
+    setLiquidMetalHolderValid(null);
+    setSgMsSteelValid(null);
+    setGreyMsSteelValid(null);
+    setReturnsSgValid(null);
+    setPigIronValid(null);
+    setBoringsValid(null);
+    setFinalBathValid(null);
+    setCharCoalValid(null);
+    setCpcFurValid(null);
+    setCpcLcValid(null);
+    setSiliconCarbideFurValid(null);
+    setFerrosiliconFurValid(null);
+    setFerrosiliconLcValid(null);
+    setFerroManganeseFurValid(null);
+    setFerroManganeseLcValid(null);
+    setCuValid(null);
+    setCrValid(null);
+    setPureMgValid(null);
+    setIronPyriteValid(null);
+    setLabCoinTimeValid(null);
+    setLabCoinTempCValid(null);
+    setDeslagingTimeFromValid(null);
+    setDeslagingTimeToValid(null);
+    setMetalReadyTimeValid(null);
+    setWaitingForTappingFromValid(null);
+    setWaitingForTappingToValid(null);
+    setReasonValid(null);
+    setTable4TimeValid(null);
+    setTempCSgValid(null);
+    setDirectFurnaceValid(null);
+    setHolderToFurnaceValid(null);
+    setFurnaceToHolderValid(null);
+    setDisaNoValid(null);
+    setItemValid(null);
+    setFurnace1KwValid(null);
+    setFurnace1AValid(null);
+    setFurnace1VValid(null);
+    setFurnace2KwValid(null);
+    setFurnace2AValid(null);
+    setFurnace2VValid(null);
+    setFurnace3KwValid(null);
+    setFurnace3AValid(null);
+    setFurnace3VValid(null);
+    setFurnace4HzValid(null);
+    setFurnace4GldValid(null);
+    setFurnace4KwHrValid(null);
+    resetTable1();
+    resetTable2();
+    resetTable3();
+    resetTable4();
+    resetTable5();
+  };
+
   const handlePrimaryChange = (field, value) => {
     // Prevent changes to locked value fields
     if (isPrimaryFieldLocked(field)) {
@@ -1058,80 +1140,16 @@ const MeltingLogSheet = () => {
         totalUnits: '',
         cumulativeUnits: ''
       });
-      setPrimaryId(null);
-      setPrimaryLocks({});
-      setIsPrimaryDataSaved(false);
-      setEntryCount(0);
-      setPrimaryDataOriginal(null);
-      // Reset error highlights
-      setDateErrorHighlight(false);
-      setShiftErrorHighlight(false);
-      setFurnaceNoErrorHighlight(false);
-      setPanelErrorHighlight(false);
-      setPrimaryFieldMessage('');
-      // Reset all validation states
-      setCumulativeLiquidMetalValid(null);
-      setFinalKWHrValid(null);
-      setInitialKWHrValid(null);
-      setTotalUnitsValid(null);
-      setCumulativeUnitsValid(null);
-      setHeatNoValid(null);
-      setGradeValid(null);
-      setChargingTimeValid(null);
-      setIfBathValid(null);
-      setLiquidMetalPressPourValid(null);
-      setLiquidMetalHolderValid(null);
-      setSgMsSteelValid(null);
-      setGreyMsSteelValid(null);
-      setReturnsSgValid(null);
-      setPigIronValid(null);
-      setBoringsValid(null);
-      setFinalBathValid(null);
-      setCharCoalValid(null);
-      setCpcFurValid(null);
-      setCpcLcValid(null);
-      setSiliconCarbideFurValid(null);
-      setFerrosiliconFurValid(null);
-      setFerrosiliconLcValid(null);
-      setFerroManganeseFurValid(null);
-      setFerroManganeseLcValid(null);
-      setCuValid(null);
-      setCrValid(null);
-      setPureMgValid(null);
-      setIronPyriteValid(null);
-      setLabCoinTimeValid(null);
-      setLabCoinTempCValid(null);
-      setDeslagingTimeFromValid(null);
-      setDeslagingTimeToValid(null);
-      setMetalReadyTimeValid(null);
-      setWaitingForTappingFromValid(null);
-      setWaitingForTappingToValid(null);
-      setReasonValid(null);
-      setTable4TimeValid(null);
-      setTempCSgValid(null);
-      setDirectFurnaceValid(null);
-      setHolderToFurnaceValid(null);
-      setFurnaceToHolderValid(null);
-      setDisaNoValid(null);
-      setItemValid(null);
-      setFurnace1KwValid(null);
-      setFurnace1AValid(null);
-      setFurnace1VValid(null);
-      setFurnace2KwValid(null);
-      setFurnace2AValid(null);
-      setFurnace2VValid(null);
-      setFurnace3KwValid(null);
-      setFurnace3AValid(null);
-      setFurnace3VValid(null);
-      setFurnace4HzValid(null);
-      setFurnace4GldValid(null);
-      setFurnace4KwHrValid(null);
-      resetTable1();
-      resetTable2();
-      resetTable3();
-      resetTable4();
-      resetTable5();
+      resetPrimaryAndTables();
       return;
+    }
+
+    // Shift/Furnace/Panel define the same combination as Date does — overwriting
+    // an already-chosen one (not the first-time fill-in of the chain) points at a
+    // different, unsaved combination, so whatever was typed into Table 1-5 for the
+    // OLD combination must not silently follow along and get submitted against it.
+    if (['shift', 'furnaceNo', 'panel'].includes(field) && primaryData[field] && primaryData[field] !== value) {
+      resetPrimaryAndTables();
     }
 
     setPrimaryData(prev => ({
@@ -1383,26 +1401,47 @@ const MeltingLogSheet = () => {
   const getValidationClass = (fieldKey, validationState) => {
     // Invalid data - red border
     if (validationState === false) return 'invalid-input';
-    
+
     // Default/neutral - no special styling
     return '';
   };
 
+  // Ctrl/Cmd+S submits the same "Save Entry" action as the button at the
+  // bottom of the form, guarded by the exact same condition the button's own
+  // `disabled` prop uses, so the shortcut can never fire when the button couldn't.
+  const handlePageKeyDown = (e) => {
+    handleArrowKeyDown(e);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      const submitDisabled = loadingStates.table1 || loadingStates.table2 || loadingStates.table3
+        || loadingStates.table4 || loadingStates.table5 || !isPrimaryDataSaved;
+      if (!submitDisabled) handleAllTablesSubmit();
+    }
+  };
+
   return (
     <>
-      <div className="page-wrapper melting-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
+      <div className="page-wrapper melting-page-wrapper" ref={gridRef} onKeyDown={handlePageKeyDown}>
       {/* Header */}
       <div className="cupola-holder-header">
         <div className="cupola-holder-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             Melting Log Sheet - Entry Form
+            <InfoIcon onClick={openModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
           DATE : {primaryData.date ? new Date(primaryData.date).toLocaleDateString('en-GB') : '-'}
         </div>
       </div>
+
+      <InfoCard
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Melting Log Sheet - Validation Ranges"
+        validationRanges={validationRanges}
+      />
 
       {/* Primary Section */}
       <div ref={primarySectionRef}>
@@ -1516,13 +1555,14 @@ const MeltingLogSheet = () => {
           <input
                 ref={cumulativeLiquidMetalRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={primaryData.cumulativeLiquidMetal}
                 onChange={(e) => handlePrimaryChange('cumulativeLiquidMetal', e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, getNextAfterCumulativeLiquidMetal(), 'cumulativeLiquidMetal')}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleKeyDown(e, getNextAfterCumulativeLiquidMetal(), 'cumulativeLiquidMetal'); }}
                 placeholder="Enter value"
                 step="0.01"
                 readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeLiquidMetal')}
-                tabIndex={isPrimaryFieldLocked('cumulativeLiquidMetal') ? -1 : 0}
+                tabIndex={(!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeLiquidMetal')) ? -1 : 0}
                 className={getNumericValidationClass(cumulativeLiquidMetalValid, isPrimaryFieldLocked('cumulativeLiquidMetal'))}
                 style={{
                   backgroundColor: isPrimaryFieldLocked('cumulativeLiquidMetal') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
@@ -1551,13 +1591,14 @@ const MeltingLogSheet = () => {
           <input
                 ref={finalKWHrRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={primaryData.finalKWHr}
                 onChange={(e) => handlePrimaryChange('finalKWHr', e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, getNextAfterFinalKWHr(), 'finalKWHr')}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleKeyDown(e, getNextAfterFinalKWHr(), 'finalKWHr'); }}
                 placeholder="Enter value"
                 step="0.01"
                 readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('finalKWHr')}
-                tabIndex={isPrimaryFieldLocked('finalKWHr') ? -1 : 0}
+                tabIndex={(!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('finalKWHr')) ? -1 : 0}
                 className={getNumericValidationClass(finalKWHrValid, isPrimaryFieldLocked('finalKWHr'))}
                 style={{
                   backgroundColor: isPrimaryFieldLocked('finalKWHr') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
@@ -1586,13 +1627,14 @@ const MeltingLogSheet = () => {
           <input
                 ref={initialKWHrRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={primaryData.initialKWHr}
                 onChange={(e) => handlePrimaryChange('initialKWHr', e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, getNextAfterInitialKWHr(), 'initialKWHr')}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleKeyDown(e, getNextAfterInitialKWHr(), 'initialKWHr'); }}
                 placeholder="Enter value"
                 step="0.01"
                 readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('initialKWHr')}
-                tabIndex={isPrimaryFieldLocked('initialKWHr') ? -1 : 0}
+                tabIndex={(!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('initialKWHr')) ? -1 : 0}
                 className={getNumericValidationClass(initialKWHrValid, isPrimaryFieldLocked('initialKWHr'))}
                 style={{
                   backgroundColor: isPrimaryFieldLocked('initialKWHr') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
@@ -1621,13 +1663,14 @@ const MeltingLogSheet = () => {
           <input
                 ref={totalUnitsRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={primaryData.totalUnits}
                 onChange={(e) => handlePrimaryChange('totalUnits', e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, getNextAfterTotalUnits(), 'totalUnits')}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleKeyDown(e, getNextAfterTotalUnits(), 'totalUnits'); }}
                 placeholder="Enter value"
                 step="0.01"
                 readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('totalUnits')}
-                tabIndex={isPrimaryFieldLocked('totalUnits') ? -1 : 0}
+                tabIndex={(!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('totalUnits')) ? -1 : 0}
                 className={getNumericValidationClass(totalUnitsValid, isPrimaryFieldLocked('totalUnits'))}
                 style={{
                   backgroundColor: isPrimaryFieldLocked('totalUnits') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
@@ -1656,13 +1699,14 @@ const MeltingLogSheet = () => {
           <input
                 ref={cumulativeUnitsRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={primaryData.cumulativeUnits}
                 onChange={(e) => handlePrimaryChange('cumulativeUnits', e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, primarySaveButtonRef, 'cumulativeUnits')}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleKeyDown(e, primarySaveButtonRef, 'cumulativeUnits'); }}
                 placeholder="Enter value"
                 step="0.01"
                 readOnly={!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeUnits')}
-                tabIndex={isPrimaryFieldLocked('cumulativeUnits') ? -1 : 0}
+                tabIndex={(!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel || isPrimaryFieldLocked('cumulativeUnits')) ? -1 : 0}
                 className={getNumericValidationClass(cumulativeUnitsValid, isPrimaryFieldLocked('cumulativeUnits'))}
                 style={{
                   backgroundColor: isPrimaryFieldLocked('cumulativeUnits') ? '#f0fdf4' : (!primaryData.date || !primaryData.shift || !primaryData.furnaceNo || !primaryData.panel) ? '#f1f5f9' : '#ffffff',
@@ -1730,20 +1774,20 @@ const MeltingLogSheet = () => {
         {/* Shown when a table section is clicked before the primary is saved; auto-dismisses after 3s. */}
         {showPrimaryWarning && (
           <div style={{ marginTop: '0.5rem' }}>
-            <InlineLoader 
-              message="Save Primary Data first" 
-              size="medium" 
-              variant="warning" 
+            <InlineLoader
+              message="Save Primary Data first"
+              size="medium"
+              variant="danger"
             />
           </div>
         )}
         {/* Shown when a dependent field is clicked before its prerequisite (e.g. Shift before Date); auto-dismisses after 3s. */}
         {primaryFieldMessage && (
           <div style={{ marginTop: '0.5rem' }}>
-            <InlineLoader 
-              message={primaryFieldMessage} 
-              size="medium" 
-              variant="warning" 
+            <InlineLoader
+              message={primaryFieldMessage}
+              size="medium"
+              variant="danger"
             />
           </div>
         )}
@@ -1805,10 +1849,11 @@ const MeltingLogSheet = () => {
             <label>If Bath</label>
             <input
               ref={ifBathRef}
-              type="text"
+              type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.ifBath || ''}
               onChange={(e) => handleTableChange(1, 'ifBath', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, liquidMetalPressPourRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, liquidMetalPressPourRef); }}
               onFocus={() => setFocusedField('table1.ifBath')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter if bath"
@@ -1828,9 +1873,10 @@ const MeltingLogSheet = () => {
             <input
               ref={liquidMetalPressPourRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.liquidMetalPressPour || ''}
               onChange={(e) => handleTableChange(1, 'liquidMetalPressPour', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, liquidMetalHolderRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, liquidMetalHolderRef); }}
               onFocus={() => setFocusedField('table1.liquidMetalPressPour')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1851,9 +1897,10 @@ const MeltingLogSheet = () => {
             <input
               ref={liquidMetalHolderRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.liquidMetalHolder || ''}
               onChange={(e) => handleTableChange(1, 'liquidMetalHolder', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, sgMsSteelRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, sgMsSteelRef); }}
               onFocus={() => setFocusedField('table1.liquidMetalHolder')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1874,9 +1921,10 @@ const MeltingLogSheet = () => {
             <input
               ref={sgMsSteelRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.sgMsSteel || ''}
               onChange={(e) => handleTableChange(1, 'sgMsSteel', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, greyMsSteelRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, greyMsSteelRef); }}
               onFocus={() => setFocusedField('table1.sgMsSteel')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1897,9 +1945,10 @@ const MeltingLogSheet = () => {
             <input
               ref={greyMsSteelRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.greyMsSteel || ''}
               onChange={(e) => handleTableChange(1, 'greyMsSteel', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, returnsSgRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, returnsSgRef); }}
               onFocus={() => setFocusedField('table1.greyMsSteel')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1920,9 +1969,10 @@ const MeltingLogSheet = () => {
             <input
               ref={returnsSgRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.returnsSg || ''}
               onChange={(e) => handleTableChange(1, 'returnsSg', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, pigIronRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, pigIronRef); }}
               onFocus={() => setFocusedField('table1.returnsSg')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1943,9 +1993,10 @@ const MeltingLogSheet = () => {
             <input
               ref={pigIronRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.pigIron || ''}
               onChange={(e) => handleTableChange(1, 'pigIron', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, boringsRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, boringsRef); }}
               onFocus={() => setFocusedField('table1.pigIron')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1966,9 +2017,10 @@ const MeltingLogSheet = () => {
             <input
               ref={boringsRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.borings || ''}
               onChange={(e) => handleTableChange(1, 'borings', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, finalBathRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, finalBathRef); }}
               onFocus={() => setFocusedField('table1.borings')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -1989,9 +2041,10 @@ const MeltingLogSheet = () => {
             <input
               ref={finalBathRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table1.finalBath || ''}
               onChange={(e) => handleTableChange(1, 'finalBath', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, charCoalRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, charCoalRef); }}
               onFocus={() => setFocusedField('table1.finalBath')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2023,9 +2076,10 @@ const MeltingLogSheet = () => {
             <input
               ref={charCoalRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.charCoal || ''}
               onChange={(e) => handleTableChange(2, 'charCoal', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, cpcFurRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, cpcFurRef); }}
               onFocus={() => setFocusedField('table2.charCoal')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2046,9 +2100,10 @@ const MeltingLogSheet = () => {
             <input
               ref={cpcFurRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.cpcFur || ''}
               onChange={(e) => handleTableChange(2, 'cpcFur', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, cpcLcRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, cpcLcRef); }}
               onFocus={() => setFocusedField('table2.cpcFur')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2069,9 +2124,10 @@ const MeltingLogSheet = () => {
             <input
               ref={cpcLcRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.cpcLc || ''}
               onChange={(e) => handleTableChange(2, 'cpcLc', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, siliconCarbideFurRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, siliconCarbideFurRef); }}
               onFocus={() => setFocusedField('table2.cpcLc')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2092,9 +2148,10 @@ const MeltingLogSheet = () => {
             <input
               ref={siliconCarbideFurRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.siliconCarbideFur || ''}
               onChange={(e) => handleTableChange(2, 'siliconCarbideFur', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, ferrosiliconFurRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, ferrosiliconFurRef); }}
               onFocus={() => setFocusedField('table2.siliconCarbideFur')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2115,9 +2172,10 @@ const MeltingLogSheet = () => {
             <input
               ref={ferrosiliconFurRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.ferrosiliconFur || ''}
               onChange={(e) => handleTableChange(2, 'ferrosiliconFur', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, ferrosiliconLcRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, ferrosiliconLcRef); }}
               onFocus={() => setFocusedField('table2.ferrosiliconFur')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2138,9 +2196,10 @@ const MeltingLogSheet = () => {
             <input
               ref={ferrosiliconLcRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.ferrosiliconLc || ''}
               onChange={(e) => handleTableChange(2, 'ferrosiliconLc', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, ferroManganeseFurRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, ferroManganeseFurRef); }}
               onFocus={() => setFocusedField('table2.ferrosiliconLc')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2161,9 +2220,10 @@ const MeltingLogSheet = () => {
             <input
               ref={ferroManganeseFurRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.ferroManganeseFur || ''}
               onChange={(e) => handleTableChange(2, 'ferroManganeseFur', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, ferroManganeseLcRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, ferroManganeseLcRef); }}
               onFocus={() => setFocusedField('table2.ferroManganeseFur')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2184,9 +2244,10 @@ const MeltingLogSheet = () => {
             <input
               ref={ferroManganeseLcRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.ferroManganeseLc || ''}
               onChange={(e) => handleTableChange(2, 'ferroManganeseLc', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, cuRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, cuRef); }}
               onFocus={() => setFocusedField('table2.ferroManganeseLc')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2207,9 +2268,10 @@ const MeltingLogSheet = () => {
             <input
               ref={cuRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.cu || ''}
               onChange={(e) => handleTableChange(2, 'cu', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, crRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, crRef); }}
               onFocus={() => setFocusedField('table2.cu')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2230,9 +2292,10 @@ const MeltingLogSheet = () => {
             <input
               ref={crRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.cr || ''}
               onChange={(e) => handleTableChange(2, 'cr', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, pureMgRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, pureMgRef); }}
               onFocus={() => setFocusedField('table2.cr')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2253,9 +2316,10 @@ const MeltingLogSheet = () => {
             <input
               ref={pureMgRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.pureMg || ''}
               onChange={(e) => handleTableChange(2, 'pureMg', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, ironPyriteRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, ironPyriteRef); }}
               onFocus={() => setFocusedField('table2.pureMg')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2276,9 +2340,10 @@ const MeltingLogSheet = () => {
             <input
               ref={ironPyriteRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table2.ironPyrite || ''}
               onChange={(e) => handleTableChange(2, 'ironPyrite', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, labCoinTimeRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, labCoinTimeRef); }}
               onFocus={() => setFocusedField('table2.ironPyrite')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter value"
@@ -2319,9 +2384,10 @@ const MeltingLogSheet = () => {
             <input
               ref={labCoinTempCRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table3.labCoinTempC || ''}
               onChange={(e) => handleTableChange(3, 'labCoinTempC', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, reasonRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, reasonRef); }}
               onFocus={() => setFocusedField('table3.labCoinTempC')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter temperature in °C"
@@ -2444,9 +2510,10 @@ const MeltingLogSheet = () => {
           <input
                 ref={tempCSgRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={table4.tempCSg || ''}
                 onChange={(e) => handleTableChange(4, 'tempCSg', e.target.value)}
-                onKeyDown={(e) => handleTableEnterKey(e, directFurnaceRef)}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, directFurnaceRef); }}
                 onFocus={() => setFocusedField('table4.tempCSg')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Enter temperature"
@@ -2467,9 +2534,10 @@ const MeltingLogSheet = () => {
           <input
                 ref={directFurnaceRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={table4.directFurnace || ''}
                 onChange={(e) => handleTableChange(4, 'directFurnace', e.target.value)}
-                onKeyDown={(e) => handleTableEnterKey(e, holderToFurnaceRef)}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, holderToFurnaceRef); }}
                 onFocus={() => setFocusedField('table4.directFurnace')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
@@ -2490,9 +2558,10 @@ const MeltingLogSheet = () => {
           <input
                 ref={holderToFurnaceRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={table4.holderToFurnace || ''}
                 onChange={(e) => handleTableChange(4, 'holderToFurnace', e.target.value)}
-                onKeyDown={(e) => handleTableEnterKey(e, furnaceToHolderRef)}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnaceToHolderRef); }}
                 onFocus={() => setFocusedField('table4.holderToFurnace')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
@@ -2513,9 +2582,10 @@ const MeltingLogSheet = () => {
           <input
                 ref={furnaceToHolderRef}
                 type="number"
+                onPaste={sanitizeNumericPaste}
                 value={table4.furnaceToHolder || ''}
                 onChange={(e) => handleTableChange(4, 'furnaceToHolder', e.target.value)}
-                onKeyDown={(e) => handleTableEnterKey(e, itemRef)}
+                onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, itemRef); }}
                 onFocus={() => setFocusedField('table4.furnaceToHolder')}
                 onBlur={() => setFocusedField(null)}
                 placeholder="Enter value"
@@ -2585,9 +2655,10 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace1KwRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table5.furnace1Kw || ''}
               onChange={(e) => handleTableChange(5, 'furnace1Kw', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, furnace1ARef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnace1ARef); }}
               onFocus={() => setFocusedField('table5.furnace1Kw')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter Kw"
@@ -2608,9 +2679,10 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace1ARef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table5.furnace1A || ''}
               onChange={(e) => handleTableChange(5, 'furnace1A', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, furnace1VRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnace1VRef); }}
               onFocus={() => setFocusedField('table5.furnace1A')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter A"
@@ -2631,9 +2703,10 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace1VRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table5.furnace1V || ''}
               onChange={(e) => handleTableChange(5, 'furnace1V', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, furnace4HzRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnace4HzRef); }}
               onFocus={() => setFocusedField('table5.furnace1V')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter V"
@@ -2658,9 +2731,10 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace4HzRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table5.furnace4Hz || ''}
               onChange={(e) => handleTableChange(5, 'furnace4Hz', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, furnace4GldRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnace4GldRef); }}
               onFocus={() => setFocusedField('table5.furnace4Hz')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter Hz"
@@ -2681,9 +2755,10 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace4GldRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
               value={table5.furnace4Gld || ''}
               onChange={(e) => handleTableChange(5, 'furnace4Gld', e.target.value)}
-              onKeyDown={(e) => handleTableEnterKey(e, furnace4KwHrRef)}
+              onKeyDown={(e) => { blockNonNumericKeyDown(e); handleTableEnterKey(e, furnace4KwHrRef); }}
               onFocus={() => setFocusedField('table5.furnace4Gld')}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter GLD"
@@ -2704,6 +2779,8 @@ const MeltingLogSheet = () => {
             <input
               ref={furnace4KwHrRef}
               type="number"
+              onPaste={sanitizeNumericPaste}
+              onKeyDown={(e) => blockNonNumericKeyDown(e)}
               value={table5.furnace4KwHr || ''}
               onChange={(e) => handleTableChange(5, 'furnace4KwHr', e.target.value)}
               onFocus={() => setFocusedField('table5.furnace4KwHr')}

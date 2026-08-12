@@ -1,11 +1,45 @@
-import { createElement } from 'react';
+import { createElement, useMemo } from 'react';
 
 // Every form declares validationRanges (rule objects) + fieldMapping (display field -> formData key(s)); see frontend.md for the full shape.
+//
+// Applicable `type` values for a validationRanges rule (frontend/src/deviations/D*.js):
+//   'Number'              scalar, decimal allowed. min/max/exclusiveMin are QC spec hints
+//                          (isDeviant-only, never block submit) — see checkNumber.
+//   'Integer'              scalar, whole numbers only (no decimal point at the keystroke
+//                          level either). Same min/max hint behavior as 'Number'.
+//   'Text'                 scalar, free text. Optional `format` (a key into FORMATS below,
+//                          e.g. 'dateCode') and/or `maxLength` are spec hints only — see
+//                          isDeviant; validateScalar never rejects on either.
+//   'Select'                scalar, must be one of `rule.allowedValues` (required for this type).
+//   'Date'                  scalar, must parse via `new Date()`.
+//   'Time'                  scalar, {hour, minute}-shaped. NOT validated here — falls through
+//                          validateScalar's default (always valid) — pages using it validate
+//                          bespoke and keep it out of fieldMapping (e.g. Process's Tapping Time).
+//   'Number Range'          fieldMapping value is [minKey, maxKey]. Leaving Max blank is a
+//   (or 'NumberRange')      valid single value; `requireMinForMax: true` rejects Max-without-Min;
+//                          Min > Max is rejected, Min === Max is accepted. See validateRange.
+//   'Dynamic Range Array'   QcProduction-only: fieldMapping value is a single key holding an
+//   (or 'DynamicRangeArray')array of {min, max} rows (one Number Range check per row).
+//   'Dynamic Array'         QcProduction-only: single key holding an array of {value} rows
+//   (or 'DynamicArray')     (one Number check per row).
+//   'NumberArray'           single key holding a flat array of values (e.g. Impact's Observed
+//                          Value) — see validateScalar's dedicated NumberArray branch.
+//   'Auto'                  never typed by the user (e.g. DcupolaHolder's Heat No) — no
+//                          validation applies; omit from fieldMapping entirely.
+//   anything else           falls through validateScalar's default case — always valid, same
+//                          as 'Time'. Only use this deliberately, matching an existing case.
+//
+// Every type above except 'Time'/'Auto' is numeric-guard-eligible via buildNumericGuardMap
+// below (keystroke/paste digit filtering) whenever it also has a fieldMapping entry.
 
-const FORMATS = {
+export const FORMATS = {
   dateCode: {
     re: /^[0-9][A-Z][0-9]{2}$/,
     message: (label) => `${label} must be 1 digit, 1 letter, 2 digits (e.g., 6F25)`
+  },
+  itemSecond: {
+    re: /^\d+(\.\d+)?\/\d+(\.\d+)?\/\d+(\.\d+)?$/,
+    message: (label) => `${label} must be three numeric segments separated by / (e.g., 343/34/56)`
   }
 };
 
@@ -210,14 +244,34 @@ export const getRequiredFields = (validationRanges, fieldMapping) => {
 export const RequiredMark = () =>
   createElement('span', { 'aria-hidden': 'true', style: { color: '#ef4444', marginLeft: '0.15rem' } }, '*');
 
+// Does this rule declare anything for a blank value to be measured against?
+// Only fields with an actual spec are worth flagging when skipped — a field
+// with no min/max/format/maxLength has nothing to have missed. Select fields
+// are deliberately excluded: not choosing an optional dropdown option means
+// "not applicable to this entry," not "skipped a measurement" — never flag it
+// blank (an entered-but-invalid Select value is still caught below, unaffected).
+const hasCheckableSpec = (rule, type) => {
+  if (NUMERIC_TYPES.has(type) || type === 'NumberArray') {
+    return typeof rule.min === 'number' || typeof rule.max === 'number';
+  }
+  if (type === 'Text') return Boolean(rule.format || rule.maxLength);
+  return false;
+};
+
 // Informational-only counterpart to the range/pattern checks checkNumber/validateField
 // stopped blocking on — used by report pages to flag (admin-only) a value that's
 // outside its department's declared QC spec, without ever rejecting the value itself.
-// Blank values are never "deviant" — nothing entered is a missing-data concern, not a spec one.
+// '-' is this codebase's "not measured" sentinel for unfilled optional fields (see
+// backend.md) and is treated the same as a true blank (null/undefined/'') below.
+// A blank value on a field with a declared spec (min/max/format/maxLength/
+// allowedValues) still counts as a deviation — skipping a measurement that has a
+// target is itself worth flagging, not just an out-of-range entry. A blank value
+// on a field with NO spec at all stays uninteresting (nothing to compare against).
 export const isDeviant = (rule, value) => {
-  if (isBlank(value)) return false;
-
   const type = normalizeType(rule.type);
+  const blank = isBlank(value) || value === '-';
+
+  if (blank) return hasCheckableSpec(rule, type);
 
   // Range/array types are spec-checked one value at a time — report pages pass a
   // single cell's value, so a min/max pair is two independent calls.
@@ -236,7 +290,10 @@ export const isDeviant = (rule, value) => {
   if (type === 'NumberArray') {
     // Report pages flag one cell at a time, so a bare value is checked as a
     // single-element array rather than being silently treated as "not deviant".
+    // An array with no non-blank entries at all is itself blank — deviant only
+    // when the rule has a spec, matching the scalar case above.
     const arr = Array.isArray(value) ? value.filter((v) => !isBlank(v)) : [value];
+    if (arr.length === 0) return hasCheckableSpec(rule, type);
     return arr.some((v) => isDeviant({ ...rule, type: 'Number' }, v));
   }
 
@@ -248,5 +305,150 @@ export const isDeviant = (rule, value) => {
     return false;
   }
 
+  if (type === 'Select') {
+    if (Array.isArray(rule.allowedValues) && !rule.allowedValues.includes(String(value).trim())) return true;
+    return false;
+  }
+
   return false;
+};
+
+// Keystroke/paste guards for numeric fields, shared across department entry pages.
+// Native `type="number"` still lets 'e', '+', extra '-'/'.' through in most browsers
+// and does nothing at all for paste — these close both gaps at the character level,
+// on top of (not instead of) the submit-time re-check via checkNumber() above.
+
+const CONTROL_KEYS = new Set([
+  'Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'Home', 'End',
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+]);
+
+export function blockNonNumericKeyDown(e, { allowDecimal = true, allowNegative = false } = {}) {
+  if (e.ctrlKey || e.metaKey) return; // copy/paste/select-all etc.
+  if (CONTROL_KEYS.has(e.key)) return;
+  if (/^[0-9]$/.test(e.key)) return;
+
+  const value = e.currentTarget.value ?? '';
+  if (allowDecimal && e.key === '.' && !value.includes('.')) return;
+  if (allowNegative && e.key === '-' && e.currentTarget.selectionStart === 0 && !value.includes('-')) return;
+
+  e.preventDefault();
+}
+
+export function sanitizeNumericPaste(e, { allowDecimal = true, allowNegative = false } = {}) {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const pattern = allowNegative
+    ? (allowDecimal ? /^-?\d*\.?\d*$/ : /^-?\d*$/)
+    : (allowDecimal ? /^\d*\.?\d*$/ : /^\d*$/);
+
+  if (!pattern.test(text)) e.preventDefault();
+}
+
+// Types whose keystroke-level input allows a decimal point; everything else in
+// NUMERIC_TYPES is digits-only (currently just Integer).
+const DECIMAL_TYPES = new Set(['Number', 'Number Range', 'Dynamic Range Array', 'Dynamic Array', 'NumberArray']);
+
+// Master keystroke guard for a rule, driven entirely by rule.type. Spread the
+// result onto a type="number" input's onKeyDown/onPaste.
+export const numericFieldGuards = (rule) => {
+  const allowDecimal = DECIMAL_TYPES.has(normalizeType(rule.type));
+  return {
+    onKeyDown: (e) => blockNonNumericKeyDown(e, { allowDecimal, allowNegative: false }),
+    onPaste: (e) => sanitizeNumericPaste(e, { allowDecimal, allowNegative: false })
+  };
+};
+
+// Same rule, for onChange-driven (type="text") numeric fields where a keystroke
+// guard isn't the mechanism — e.g. QcProduction's dynamic-row inputs, or
+// Process's PP Code/Treatment No (their leading-zero blur-pad needs type="text").
+export const sanitizeNumericString = (value, { allowDecimal = true } = {}) => {
+  let v = allowDecimal ? value.replace(/[^0-9.]/g, '') : value.replace(/[^0-9]/g, '');
+  if (allowDecimal) {
+    const parts = v.split('.');
+    if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+  }
+  return v;
+};
+
+// NUMERIC_TYPES excludes 'NumberArray' (isDeviant treats it as its own branch,
+// not a NUMERIC_TYPES member) — the guard map needs it included too, since an
+// Observed-Value-style array field is exactly as numeric as a scalar Number field.
+const NUMERIC_GUARD_TYPES = new Set([...NUMERIC_TYPES, 'NumberArray']);
+
+// One field->guards map per department, built once from its own validationRanges
+// + fieldMapping — a field's guard behavior is entirely determined by its
+// declared type, never hand-picked per input.
+export const buildNumericGuardMap = (validationRanges, fieldMapping) => {
+  const map = {};
+  validationRanges.forEach((rule) => {
+    const type = normalizeType(rule.type);
+    if (!NUMERIC_GUARD_TYPES.has(type)) return;
+    const mapped = fieldMapping[rule.field];
+    if (!mapped) return;
+    const guards = numericFieldGuards(rule);
+    (Array.isArray(mapped) ? mapped : [mapped]).forEach((key) => { map[key] = guards; });
+  });
+  return map;
+};
+
+// Shared "admin-only deviation flag" helper for report pages — see frontend.md for usage.
+// Report pages hand-roll a `validationRanges`-by-label map plus a devClass/isFieldDeviant
+// lookup; this extracts that pattern into one place instead of a copy per department.
+
+// keyToRuleField: { reportColumnKey: 'Rule label used in validationRanges' }
+// Returns a devClass(key, value) function that yields 'deviation-flag' (or undefined)
+// for use as a className — apply it directly to a <td> (Table.css's td.deviation-flag
+// tints the whole cell) or to a wrapping <span> (Table.css's .deviation-flag pill).
+export function useDeviationClass(validationRanges, keyToRuleField, { isAdmin, showDeviations }) {
+  const ruleByField = useMemo(() => {
+    const map = {};
+    validationRanges.forEach((r) => { map[r.field] = r; });
+    return map;
+  }, [validationRanges]);
+
+  return (key, value) => {
+    if (!showDeviations || !isAdmin) return undefined;
+    const ruleFieldName = keyToRuleField[key];
+    const rule = ruleFieldName && ruleByField[ruleFieldName];
+    return rule && isDeviant(rule, value) ? 'deviation-flag' : undefined;
+  };
+}
+
+// Reverses each form's label->key fieldMapping so backend schema-key errors can be shown as operator-facing labels.
+export const FALLBACK_SUBMIT_ERROR =
+    'Could not save this entry. Please check your entries and try again.';
+
+// Matches backend/utils/fieldValidation.js's message family; anything else (e.g. 'A record for this date already exists.') is already user-facing and passes through untouched.
+const INVALID_INPUT_PREFIX = 'Invalid input for:';
+
+// fieldMapping values are either a formData key or a [minKey, maxKey] pair.
+const reverseFieldMapping = (fieldMapping = {}) => {
+    const reverse = {};
+    Object.entries(fieldMapping).forEach(([label, key]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach(k => {
+            if (k && !(k in reverse)) reverse[k] = label;
+        });
+    });
+    return reverse;
+};
+
+// Unknown keys fall back to the raw key rather than being dropped — better to show
+// something the operator can search for than to silently lose a field.
+export const toDisplayLabels = (fields, fieldMapping) => {
+    const reverse = reverseFieldMapping(fieldMapping);
+    return [...new Set(fields.map(f => reverse[f] || f))];
+};
+
+export const buildSubmitError = (data, fieldMapping) => {
+    const message = data?.message;
+    const fields = Array.isArray(data?.fields) ? data.fields : [];
+
+    if (fields.length && typeof message === 'string' && message.startsWith(INVALID_INPUT_PREFIX)) {
+        const labels = toDisplayLabels(fields, fieldMapping);
+        const noun = labels.length === 1 ? 'this field' : 'these fields';
+        return `${INVALID_INPUT_PREFIX} ${labels.join(', ')}. Please check ${noun} and try again.`;
+    }
+
+    return message || FALLBACK_SUBMIT_ERROR;
 };

@@ -222,8 +222,10 @@ const MicroTensileReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -249,6 +251,7 @@ const MicroTensileReport = () => {
         return (a.disa || '').localeCompare(b.disa || '');
       });
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date || r.dateOfInspection) },
@@ -390,9 +393,9 @@ const MicroTensileReport = () => {
                           {item.disa || '-'}
                         </td>
                       ) : null}
-                      <td>{renderItem(item)}</td>
+                      <td className={devClass('Item (Optional)', item.item?.it2?.replace(/^\(|\)$/g, ''))}>{renderItem(item)}</td>
                       <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
-                      <td>{item.heatCode || '-'}</td>
+                      <td className={devClass('Heat Code', item.heatCode)}>{item.heatCode || '-'}</td>
                       <td className={devClass('Bar Dia', item.barDia)}>{item.barDia ?? '-'}</td>
                       <td className={devClass('Gauge Length', item.gaugeLength)}>{item.gaugeLength ?? '-'}</td>
                       <td className={devClass('Max Load', item.maxLoad)}>{item.maxLoad ?? '-'}</td>

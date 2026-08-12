@@ -7,7 +7,7 @@ import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { buildSubmitError } from '../../utils/submitError';
+import { buildSubmitError } from '../../utils/formValidation';
 import { validationRanges as returnSandValidationRanges } from '../../deviations/DreturnSandFoundrySandTestingNote';
 import '../../styles/PageStyles/Sandlab/FoundarySandTestingNote.css';
 

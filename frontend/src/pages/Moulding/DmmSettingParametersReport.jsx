@@ -8,7 +8,7 @@ import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import EntryActions from '../../Components/EntryActions';
 import { dmmEditConfig } from '../../utils/editFieldConfigs';
-import { useDeviationClass } from '../../utils/deviationDisplay';
+import { useDeviationClass } from '../../utils/formValidation';
 import { validationRanges, keyToRuleField } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 import '../../styles/ComponentStyles/Buttons.css';

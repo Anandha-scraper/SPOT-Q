@@ -8,7 +8,7 @@ import { cupolaEditConfig, cupolaPrimaryEditConfig } from '../../utils/editField
 import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
-import { useDeviationClass } from '../../utils/deviationDisplay';
+import { useDeviationClass } from '../../utils/formValidation';
 import { validationRanges, keyToRuleField } from '../../deviations/DcupolaHolder';
 import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Melting/CupolaHolderLogSheetReport.css';

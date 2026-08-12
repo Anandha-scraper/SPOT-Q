@@ -885,6 +885,18 @@
   cursor: not-allowed !important;
 }
 
+/* Page-level "<form-group> input/select" rules (every department form has one)
+   are descendant selectors, so they leak a fixed height/box-sizing onto these
+   nested hour/minute/period fields and push them taller than the component's
+   own 40px container. Locking the box model here keeps CustomTimeInput's
+   look identical on every page regardless of what the page CSS sets. */
+.time-input-field,
+.time-period-select {
+  height: auto !important;
+  min-height: 0 !important;
+  box-sizing: content-box !important;
+}
+
 /* Custom Pagination Styles */
 .custom-pagination-wrapper {
   display: flex;

@@ -504,43 +504,6 @@
   }
 }
 
-/* TimeInput Component Styles */
-.time-input-wrapper {
-  width: 100%;
-}
-
-.time-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.time-input {
-  width: 60px;
-  padding: 0.5rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-
-.time-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.time-input::placeholder {
-  color: #94a3b8;
-}
-
-.time-separator {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
 /* ============================================================================
  * RED VIBRATION (SHAKE) CSS — COPY THESE 2 BLOCKS TO REUSE ON ANOTHER PAGE
  * ============================================================================

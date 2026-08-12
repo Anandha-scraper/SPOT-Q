@@ -16,6 +16,7 @@ import '../../styles/PageStyles/QcProduction/QcProductionDetailsReport.css';
 
 // Report-column key -> Info.jsx rule display name.
 const KEY_TO_RULE_FIELD = {
+  noOfMoulds: 'No. of Moulds',
   cPercent: 'C % (Carbon)',
   siPercent: 'Si % (Silicon)',
   mnPercent: 'Mn % (Manganese)',
@@ -75,9 +76,11 @@ const QcProductionDetailsReport = () => {
       return isDeviant(numRule, item[fromKey]) || isDeviant(numRule, item[toKey]);
     }
     if (colKey in ARRAY_KEYS) {
-      const arr = item[colKey];
-      if (!Array.isArray(arr)) return false;
+      const arr = Array.isArray(item[colKey]) ? item[colKey] : [];
       const isRange = ARRAY_KEYS[colKey];
+      // No rows entered at all is itself checked against the rule's spec —
+      // matches isDeviant's "blank on a field with min/max is a deviation" behavior.
+      if (arr.length === 0) return isDeviant(numRule, '');
       return arr.some((v) => {
         if (!isRange) return isDeviant(numRule, v);
         return String(v).split('-').map((p) => p.trim()).some((p) => isDeviant(numRule, p));

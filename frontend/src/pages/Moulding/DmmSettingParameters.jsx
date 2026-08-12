@@ -5,7 +5,7 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
-import { buildSubmitError } from '../../utils/submitError';
+import { buildSubmitError } from '../../utils/formValidation';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
@@ -1108,10 +1108,10 @@ const DmmSettingParameters = () => {
           {/* Warning / submit feedback messages */}
           {primaryFieldMessage && !fetchingPrimary && !showCombinationFound && (
             <div style={{ marginTop: '0.75rem' }}>
-              <InlineLoader 
-                message={primaryFieldMessage} 
-                size="medium" 
-                variant="warning" 
+              <InlineLoader
+                message={primaryFieldMessage}
+                size="medium"
+                variant="danger"
               />
             </div>
           )}

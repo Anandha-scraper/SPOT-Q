@@ -8,8 +8,8 @@ import { useInfoModal, InfoIcon, InfoCard } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { API_ENDPOINTS } from '../../config/api';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT, checkNumber } from '../../utils/formValidation';
-import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, MESSAGE_REQUIRED, MESSAGE_FORMAT, checkNumber, sanitizeNumericString } from '../../utils/formValidation';
+import { buildSubmitError, FALLBACK_SUBMIT_ERROR } from '../../utils/formValidation';
 import { validationRanges, fieldMapping } from '../../deviations/DqcProduction';
 import '../../styles/PageStyles/QcProduction/QcProductionDetails.css';
 
@@ -124,9 +124,7 @@ const QcProductionDetails = () => {
   };
 
   const handleTsChange = (index, value) => {
-    const filteredValue = value.replace(/[^0-9.]/g, '');
-    const parts = filteredValue.split('.');
-    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    const finalValue = sanitizeNumericString(value, { allowDecimal: true });
 
     if (submitErrorMessage) {
       setSubmitErrorMessage('');
@@ -161,9 +159,7 @@ const QcProductionDetails = () => {
   };
 
   const handleYsChange = (index, field, value) => {
-    const filteredValue = value.replace(/[^0-9.]/g, '');
-    const parts = filteredValue.split('.');
-    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    const finalValue = sanitizeNumericString(value, { allowDecimal: true });
 
     if (submitErrorMessage) {
       setSubmitErrorMessage('');
@@ -199,9 +195,7 @@ const QcProductionDetails = () => {
   };
 
   const handleElChange = (index, field, value) => {
-    const filteredValue = value.replace(/[^0-9.]/g, '');
-    const parts = filteredValue.split('.');
-    const finalValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredValue;
+    const finalValue = sanitizeNumericString(value, { allowDecimal: true });
 
     if (submitErrorMessage) {
       setSubmitErrorMessage('');
@@ -264,11 +258,7 @@ const QcProductionDetails = () => {
 
     let filteredValue = value;
     if (NUMERIC_FIELDS.includes(name)) {
-      filteredValue = value.replace(/[^0-9.]/g, '');
-      const parts = filteredValue.split('.');
-      if (parts.length > 2) {
-        filteredValue = parts[0] + '.' + parts.slice(1).join('');
-      }
+      filteredValue = sanitizeNumericString(value, { allowDecimal: true });
     }
 
     if (name === 'partName') {
@@ -485,7 +475,7 @@ const QcProductionDetails = () => {
           const minVal = parseFloat(item.min);
           const maxVal = parseFloat(item.max);
           if (!isNaN(minVal) && !isNaN(maxVal) && isFinite(minVal) && isFinite(maxVal)) {
-            if (maxVal !== 0 && minVal >= maxVal) {
+            if (maxVal !== 0 && minVal > maxVal) {
               minIsInvalid = true;
               maxIsInvalid = true;
               setValidation(minKey, false);
@@ -550,7 +540,7 @@ const QcProductionDetails = () => {
           const minVal = parseFloat(item.min);
           const maxVal = parseFloat(item.max);
           if (!isNaN(minVal) && !isNaN(maxVal) && isFinite(minVal) && isFinite(maxVal)) {
-            if (maxVal !== 0 && minVal >= maxVal) {
+            if (maxVal !== 0 && minVal > maxVal) {
               minIsInvalid = true;
               maxIsInvalid = true;
               setValidation(minKey, false);

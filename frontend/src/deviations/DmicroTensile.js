@@ -6,7 +6,7 @@ export const validationRanges = [
   { field: 'Date', required: true, type: 'Date', pattern: 'DD/MM/YYYY' },
   { field: 'DISA', required: true, type: 'Select', allowedValues: ['DISA 1', 'DISA 2', 'DISA 3', 'DISA 4'] },
   { field: 'Item', required: true, type: 'Text', pattern: 'e.g., Volvo Bkt 234' },
-  { field: 'Item (Optional)', required: false, type: 'Text', pattern: 'e.g., 343/34/56' },
+  { field: 'Item (Optional)', required: false, type: 'Text', format: 'itemSecond', pattern: 'e.g., 343/34/56' },
   { field: 'Date Code', required: true, type: 'Text', format: 'dateCode', pattern: 'e.g., 5E04' },
   { field: 'Heat Code', required: false, type: 'Integer', min: 0, pattern: 'e.g., 1' },
   { field: 'Bar Dia', required: false, type: 'Number', unit: 'mm', min: 0, pattern: 'e.g., 6.0' },

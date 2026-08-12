@@ -54,7 +54,13 @@ const PRIMARY_WIRE_TO_COLUMN = {
     totalUnits: 'totalUnits',
     cumulativeUnits: 'cumulativeUnits',
 };
-const PROTECTED_ON_PRIMARY_UPDATE = ['id', '_id', 'meltingLogId', 'entryCount', 'createdAt', 'updatedAt'];
+// shift/furnaceNo/panel/date define the combination key — edit only ever
+// touches the 5 primary values now; re-keying a primary is done by deleting
+// it (cascades its entries) and starting over, not by renaming it in place.
+const PROTECTED_ON_PRIMARY_UPDATE = [
+    'id', '_id', 'meltingLogId', 'entryCount', 'createdBy', 'createdAt', 'updatedAt',
+    'date', 'shift', 'furnaceNo', 'panel',
+];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function toColumnBody(wireBody) {
@@ -113,6 +119,8 @@ function toWireEntryRow(entry, primary, meltingLogDate) {
         entryCount: primary._count.entries,
         createdAt: entry.createdAt,
         createdBy: entry.createdBy,
+        primaryCreatedBy: primary.createdBy,
+        primaryCreatedAt: primary.createdAt,
     };
 
     for (const column of ENTRY_COLUMNS) {
@@ -136,6 +144,8 @@ function toWireEmptyPrimaryRow(primary, meltingLogDate) {
         cumulativeUnits: primary.cumulativeUnits,
         isLocked: primary.isLocked,
         entryCount: 0,
+        primaryCreatedBy: primary.createdBy,
+        primaryCreatedAt: primary.createdAt,
     };
 }
 
@@ -182,7 +192,8 @@ async function createTableEntry(body, userId) {
         meltingLog.id,
         primaryData.shift || '',
         primaryData.furnaceNo || '',
-        primaryData.panel || ''
+        primaryData.panel || '',
+        userId
     );
 
     const entryData = buildEntryData(data);
@@ -195,7 +206,7 @@ async function createTableEntry(body, userId) {
     return { entry, entryCount: primary._count.entries };
 }
 
-async function createOrUpdatePrimary({ primaryData, isLocked }) {
+async function createOrUpdatePrimary({ primaryData, isLocked }, userId) {
     if (!primaryData?.date) throw new AppError(400, 'Date is required.');
 
     const meltingLog = await meltingLogRepository.ensureDateRow(String(primaryData.date).trim());
@@ -210,7 +221,7 @@ async function createOrUpdatePrimary({ primaryData, isLocked }) {
     }
     if (isLocked !== undefined) patch.isLocked = isLocked;
 
-    const primary = await meltingLogRepository.upsertPrimary(meltingLog.id, shift, furnaceNo, panel, patch);
+    const primary = await meltingLogRepository.upsertPrimary(meltingLog.id, shift, furnaceNo, panel, patch, userId);
 
     return toWirePrimary(primary, meltingLog.date);
 }
@@ -302,6 +313,37 @@ function loadPrimaryForAuth(id) {
     return meltingLogRepository.findPrimaryById(id);
 }
 
+// One-off backfill for primaries saved before MeltingLogPrimary gained
+// createdBy (migration 20260812055955, see backend.md). Attributes each
+// ownerless primary to whoever created its earliest entry — the only signal
+// in the data for "who this belongs to". Primaries with no entries, or whose
+// earliest entry is also ownerless, are left alone (stay admin-only, same as
+// any primary saved after the migration with no creator). Read-only unless
+// `apply` is true; called from scripts/backfillMeltingPrimaryCreatedBy.js.
+async function backfillPrimaryCreatedBy({ apply = false } = {}) {
+    const ownerless = await meltingLogRepository.findOwnerlessPrimariesWithEarliestEntryCreator();
+
+    const plan = ownerless
+        .map((p) => ({
+            date: p.meltingLog.date, shift: p.shift, furnaceNo: p.furnaceNo, panel: p.panel,
+            primaryId: p.id, creator: p.entries[0]?.createdBy ?? null,
+        }))
+        .filter((row) => row.creator);
+
+    if (apply) {
+        for (const row of plan) {
+            await meltingLogRepository.updatePrimary(row.primaryId, { createdBy: row.creator });
+        }
+    }
+
+    return {
+        ownerlessCount: ownerless.length,
+        plan,
+        skippedCount: ownerless.length - plan.length,
+        applied: apply,
+    };
+}
+
 module.exports = {
     fetchPrimaryByDate,
     filterByDateRange,
@@ -313,4 +355,5 @@ module.exports = {
     deletePrimary,
     loadEntryForAuth,
     loadPrimaryForAuth,
+    backfillPrimaryCreatedBy,
 };

@@ -50,7 +50,7 @@ export const processEditConfig = {
         { name: 'resMgConvertor', label: 'Res Mg Convertor', type: 'number' },
         { name: 'recOfMg', label: 'Rec of Mg', type: 'number' },
         { name: 'streamInoculant', label: 'Stream Inoculant', type: 'number' },
-        { name: 'pTime', label: 'P Time', type: 'number' },
+        { name: 'pTime', label: 'P Time', type: 'text' },
         { name: 'remarks', label: 'Remarks', type: 'textarea' }
     ]
 };
@@ -108,21 +108,25 @@ export const meltingEditConfig = {
     ]
 };
 
-// The primary (Date + Shift + Furnace + Panel and its five totals). Separate
-// from meltingEditConfig because it targets /primary/:id, not /:id, and because
-// the combination fields are the unique key — POST /primary can't rename them.
+// Primary edit only ever touches the five totals — Date/Shift/Furnace/Panel
+// are the combination's unique key, and the backend now protects them from
+// PUT /primary/:id unconditionally (see PROTECTED_ON_PRIMARY_UPDATE). To
+// change a combination, delete it (cascades its entries, see deleteConfirm
+// below) and re-save the primary with the correct key instead of renaming it
+// in place. Separate from meltingEditConfig because it targets /primary/:id, not /:id.
 export const meltingPrimaryEditConfig = {
     endpoint: `${API_ENDPOINTS.meltingLogs}/primary`,
     title: 'Edit Melting Primary',
     deleteConfirm: {
         title: 'Delete this primary combination?',
-        description: 'Every entry recorded under this date, shift, furnace and panel is deleted with it. This action cannot be undone.'
+        // entry.entryCount is threaded in by MeltingLogSheetReport.jsx's primaryRowOf().
+        description: (entry) => {
+            const count = entry?.entryCount ?? 0;
+            const entriesPhrase = count > 0 ? ` and its ${count} recorded ${count === 1 ? 'entry' : 'entries'}` : '';
+            return `This primary${entriesPhrase} will be permanently deleted. This action cannot be undone.`;
+        }
     },
     fields: [
-        { name: 'date', label: 'Date', type: 'date', required: true },
-        { name: 'shift', label: 'Shift', type: 'select', options: SHIFT_OPTIONS, required: true },
-        { name: 'furnaceNo', label: 'Furnace No', type: 'select', options: FURNACE_OPTIONS, required: true },
-        { name: 'panel', label: 'Panel', type: 'select', options: PANEL_OPTIONS, required: true },
         // required guards a NOT NULL Float column, not a validationRanges rule:
         // a cleared number field posts '' and the backend rejects it.
         { name: 'cumulativeLiquidMetal', label: 'Cumul. Liquid Metal (kgs)', type: 'number', required: true },

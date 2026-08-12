@@ -56,6 +56,13 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
         ? 'Admin — no time limit'
         : `Editable for ${formatRemaining(remainingMs)}`;
 
+    // deleteConfirm.title/description may be a static string or a function of
+    // the entry (e.g. Melting's primary confirm needs the live entry count).
+    const resolveDeleteConfirm = (value, fallback) =>
+        typeof value === 'function' ? value(entry) : (value ?? fallback);
+    const deleteConfirmTitle = resolveDeleteConfirm(editConfig.deleteConfirm?.title, 'Delete this entry?');
+    const deleteConfirmDescription = resolveDeleteConfirm(editConfig.deleteConfirm?.description, 'This action cannot be undone.');
+
     const showTooltip = () => {
         const rect = pencilRef.current?.getBoundingClientRect();
         if (rect) setTooltipAnchor({ x: rect.left + rect.width / 2, y: rect.top });
@@ -138,8 +145,8 @@ const EntryActions = ({ entry, editConfig, onChanged }) => {
                 <AlertDialog
                     open={confirmDelete}
                     onOpenChange={setConfirmDelete}
-                    title={editConfig.deleteConfirm?.title ?? 'Delete this entry?'}
-                    description={editConfig.deleteConfirm?.description ?? 'This action cannot be undone.'}
+                    title={deleteConfirmTitle}
+                    description={deleteConfirmDescription}
                     confirmLabel={deleting ? 'Deleting...' : 'Delete'}
                     cancelLabel="Cancel"
                     variant="danger"

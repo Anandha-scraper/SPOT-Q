@@ -7,8 +7,8 @@ import { useToast } from '../../Components/alert';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
 import { useDepartmentForm } from '../../context/DepartmentContext';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { runValidation, getRequiredFields, RequiredMark, checkNumber } from '../../utils/formValidation';
-import { buildSubmitError } from '../../utils/submitError';
+import { runValidation, getRequiredFields, RequiredMark, checkNumber, buildNumericGuardMap } from '../../utils/formValidation';
+import { buildSubmitError } from '../../utils/formValidation';
 import { API_ENDPOINTS } from '../../config/api';
 import { validationRanges, fieldMapping } from '../../deviations/Dimpact';
 import '../../styles/PageStyles/Impact/Impact.css';
@@ -52,6 +52,7 @@ const Impact = () => {
 
   const requiredFields = getRequiredFields(validationRanges, fieldMapping);
   const mark = (field) => (requiredFields.has(field) ? <RequiredMark /> : null);
+  const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
 
   const getInputClassName = (validationState) => {
     if (validationState === false) return 'invalid-input';
@@ -333,7 +334,8 @@ const Impact = () => {
                   min="0"
                   value={value}
                   onChange={(e) => handleObservedValueChange(index, e.target.value)}
-                  onKeyDown={handleKeyDown}
+                  onPaste={numericGuards.observedValues?.onPaste}
+                  onKeyDown={e => { numericGuards.observedValues?.onKeyDown(e); handleKeyDown(e); }}
                   placeholder={`Value ${index + 1}`}
                   autoComplete="off"
                   style={{

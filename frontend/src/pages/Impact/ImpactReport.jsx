@@ -31,10 +31,12 @@ const ImpactReport = () => {
   // "Observed Value" rule declares type: 'NumberArray', so each part is
   // checked individually as a plain Number against the same min/max.
   const observedValueDevClass = (value) => {
-    if (!showDeviations || !isAdmin || !value) return undefined;
+    if (!showDeviations || !isAdmin) return undefined;
     const rule = ruleByField['Observed Value'];
     if (!rule) return undefined;
-    const parts = String(value).split(',').map((v) => v.trim());
+    // No value at all is itself checked against the rule's spec — matches
+    // isDeviant's "blank on a field with min/max is a deviation" behavior.
+    const parts = value ? String(value).split(',').map((v) => v.trim()) : [''];
     return parts.some((v) => isDeviant({ ...rule, type: 'Number' }, v)) ? 'deviation-flag' : undefined;
   };
   const formatDateLocal = (d) => {
@@ -173,8 +175,10 @@ const ImpactReport = () => {
 
   const handleExcelDownload = async ({ from: rawFrom, to: rawTo }) => {
     const { from, to } = getExportRange(rawFrom, rawTo);
+    if (from > to) { toast.error('From date cannot be after To date.'); return; }
     const dayDiff = Math.round((new Date(to) - new Date(from)) / 86400000);
     if (dayDiff > MAX_EXPORT_DAYS) {
+      toast.error('Maximum 2 months of data can be downloaded. Please narrow the date range.');
       return;
     }
 
@@ -195,6 +199,7 @@ const ImpactReport = () => {
         })
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+      if (rows.length === 0) { toast.error('No data to export for the selected range.'); return; }
 
       const exportColumns = [
         { header: 'Date', key: 'date', width: 16, value: (r) => formatDisplayDate(r.date) },

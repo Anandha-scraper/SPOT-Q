@@ -7,7 +7,7 @@ import exportToExcel, { getExportRange, MAX_EXPORT_DAYS } from '../../utils/expo
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import EntryActions from '../../Components/EntryActions';
-import { dmmEditConfig } from '../../utils/editFieldConfigs';
+import { dmmEditConfig, dmmOperatorEditConfig } from '../../utils/editFieldConfigs';
 import { useDeviationClass } from '../../utils/formValidation';
 import { validationRanges, keyToRuleField } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
@@ -269,6 +269,17 @@ const DmmSettingParametersReport = () => {
               rowIndex,
               operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
               checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
+              // Operator Name/Operated By live on the DmmMachineShift row, a
+              // separate id space from the parameter row below — EntryActions
+              // for that pair needs this shift-scoped _id/createdAt/createdBy,
+              // not the parameter row's own (which `...param` supplies below).
+              shiftEntry: {
+                _id: report.shifts?.[shiftKey]?._id,
+                createdAt: report.shifts?.[shiftKey]?.createdAt,
+                createdBy: report.shifts?.[shiftKey]?.createdBy,
+                operatorName: report.shifts?.[shiftKey]?.operatorName || '',
+                checkedBy: report.shifts?.[shiftKey]?.checkedBy || ''
+              },
               // spread last: param carries the parameter row's own _id/createdAt/createdBy
               ...param
             });
@@ -570,7 +581,12 @@ const DmmSettingParametersReport = () => {
                         }}
                         onMouseLeave={(e) => {
                           e.target.closest('tr').style.backgroundColor = '';
-                        }} className={devClass('checkedBy', row.checkedBy)}>{row.checkedBy}</td>
+                        }} className={devClass('checkedBy', row.checkedBy)}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {row.checkedBy}
+                            <EntryActions entry={row.shiftEntry} editConfig={dmmOperatorEditConfig} onChanged={fetchReports} />
+                          </span>
+                        </td>
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',

@@ -245,9 +245,13 @@ rather than bugs — worth knowing when something misbehaves in production:
 - `backend/prisma/migrations/` is **empty again** after merging in `sql`'s deviation/edit-option
   work (2026-08-12): `sql` added real `createdBy`/`updatedAt` columns to `MeltingLogPrimary`,
   `CupolaLogEntry`, and `DmmParameterEntry`, each with its own Postgres migration. Those were
-  deleted per invariant 4 rather than kept. The next `npx prisma migrate dev` against the local
-  VM needs to produce a baseline covering the full current schema (not just these three columns)
-  — still blocked on the same VM/SQL Server connectivity issue as before.
+  deleted per invariant 4 rather than kept. A follow-up `sql` merge (2026-08-13, "Moulding
+  changes with primary lock and edit implementations") added the same kind of `createdBy` column
+  to `DisaReport` and 5 child entities, plus `createdBy`/`createdAt` on `DmmMachineShift` — this
+  time as plain audit columns with no `creator` relation, so it needed no schema fix, just the
+  same migration deletion. The next `npx prisma migrate dev` against the local VM needs to
+  produce a baseline covering the full current schema (all of the above, not just one merge's
+  worth) — still blocked on the same VM/SQL Server connectivity issue as before.
 - That merge also surfaced a real mssql-specific schema bug, now fixed: adding
   `MeltingLogPrimary.creator` gave `User` two cascade paths into `MeltingLogEntry` (direct, and
   via `MeltingLogPrimary`'s cascade to its entries) because `onUpdate` defaults to `Cascade` even

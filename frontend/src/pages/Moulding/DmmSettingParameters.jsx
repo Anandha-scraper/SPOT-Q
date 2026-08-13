@@ -5,9 +5,19 @@ import CustomDatePicker from '../../Components/CustomDatePicker';
 import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons';
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
-import { buildSubmitError } from '../../utils/formValidation';
+import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
+import { buildSubmitError, checkNumber, buildNumericGuardMap } from '../../utils/formValidation';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
+import { validationRanges, fieldMapping } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
+
+const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
+const ruleByField = Object.fromEntries(validationRanges.map((r) => [r.field, r]));
+const shiftRuleByKey = Object.fromEntries(
+  Object.entries(fieldMapping)
+    .filter(([label]) => ruleByField[label])
+    .map(([label, key]) => [key, ruleByField[label]])
+);
 
 const initialRow = {
   customer: "",
@@ -33,10 +43,15 @@ const initialRow = {
 };
 
 
-// Get today's date in YYYY-MM-DD format
+// Get today's date in YYYY-MM-DD format, from local Date components — not
+// toISOString(), which converts to UTC first and returns yesterday's date
+// for any local time before 5:30 AM IST.
 const getTodaysDate = () => {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 // Helper function to create Time object from time string (e.g., "08:30 AM")
@@ -69,6 +84,7 @@ const formatTimeToString = (timeObj) => {
 
 const DmmSettingParameters = () => {
   const navigate = useNavigate();
+  const { isOpen: isInfoOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useInfoModal();
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [primaryData, setPrimaryData] = useState({
     date: getTodaysDate(),
@@ -360,6 +376,16 @@ const DmmSettingParameters = () => {
     return '';
   };
 
+  // Any field that's part of the combination key must clear all draft state
+  // scoped to the old combination on change, not just what the fetch/save
+  // calls themselves touch — see formrule.md section 3. Without this, an
+  // in-progress Shift Parameters row silently carries over into whatever
+  // combination the user switches to next.
+  const resetShiftDraft = () => {
+    setCurrentRow({ ...initialRow });
+    setShiftValidationErrors({});
+  };
+
   const handlePrimaryChange = (field, value) => {
     // Clear error highlight + message when field gets a value
     if (field === 'date' && value && value.trim() !== '') {
@@ -389,6 +415,7 @@ const DmmSettingParameters = () => {
       setClosingCombinationMsg(false);
       setExistingParametersCount(0);
       setSubmitMessage('');
+      resetShiftDraft();
     } else if (['date', 'machine', 'shift'].includes(field)) {
       // Key field changed to a new value — reset combination states (useEffect will re-fetch)
       setPrimaryData((prev) => ({
@@ -403,6 +430,7 @@ const DmmSettingParameters = () => {
       setClosingCombinationMsg(false);
       setExistingParametersCount(0);
       setSubmitMessage('');
+      resetShiftDraft();
     } else {
       setPrimaryData((prev) => ({
         ...prev,
@@ -411,7 +439,9 @@ const DmmSettingParameters = () => {
     }
   };
 
-  // Real-time validation for shift parameter fields
+  // Real-time validation for shift parameter fields — returns the specific
+  // message from checkNumber() (utils/formValidation.js) for numeric fields
+  // instead of a generic fallback, per formrule.md section 6.
   const validateShiftField = (fieldName, value) => {
     const requiredFields = [
       'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight',
@@ -421,26 +451,20 @@ const DmmSettingParameters = () => {
       'spStrippingAcceleration', 'spStrippingDistance', 'mouldThicknessPlus10',
       'closeUpForceMouldCloseUpPressure', 'remarks'
     ];
-    
-    if (!requiredFields.includes(fieldName)) return true;
-    
+
+    if (!requiredFields.includes(fieldName)) return { isValid: true, message: '' };
+
+    const rule = shiftRuleByKey[fieldName];
+    const label = rule?.field || fieldName;
     const isEmpty = value === undefined || value === null || String(value).trim() === '';
-    if (isEmpty) return false;
-    
-    const numericFields = [
-      'ppThickness', 'ppHeight', 'spThickness', 'spHeight',
-      'coreMaskThickness', 'coreMaskHeightOutside', 'coreMaskHeightInside',
-      'sandShotPressureBar', 'correctionShotTime', 'squeezePressure',
-      'ppStrippingAcceleration', 'ppStrippingDistance',
-      'spStrippingAcceleration', 'spStrippingDistance', 'mouldThicknessPlus10'
-    ];
-    
-    if (numericFields.includes(fieldName)) {
-      const num = parseFloat(value);
-      if (isNaN(num) || !isFinite(num)) return false;
+    if (isEmpty) return { isValid: false, message: `${label} is required` };
+
+    if (rule && (rule.type === 'Number' || rule.type === 'Integer')) {
+      const result = checkNumber(rule, value, label);
+      if (!result.isValid) return result;
     }
-    
-    return true;
+
+    return { isValid: true, message: '' };
   };
 
   const handleInputChange = (field, value) => {
@@ -500,31 +524,38 @@ const DmmSettingParameters = () => {
     }
   };
 
-  // Validate entire shift parameter row before saving
+  // Validate entire shift parameter row before saving. Returns the first
+  // field-specific message (e.g. "PP Thickness must be a valid number")
+  // instead of a generic fallback, per formrule.md section 6.
   const validateShiftRowBeforeSave = () => {
     const errors = {};
     let hasErrors = false;
     let firstErrorField = null;
-    
+    let firstErrorMessage = null;
+
     const requiredFields = [
-      'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight', 
+      'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight',
       'spThickness', 'spHeight', 'coreMaskThickness', 'coreMaskHeightOutside',
       'coreMaskHeightInside', 'sandShotPressureBar', 'correctionShotTime',
       'squeezePressure', 'ppStrippingAcceleration', 'ppStrippingDistance',
       'spStrippingAcceleration', 'spStrippingDistance', 'mouldThicknessPlus10',
       'closeUpForceMouldCloseUpPressure', 'remarks'
     ];
-    
+
     requiredFields.forEach(field => {
-      if (!validateShiftField(field, currentRow[field])) {
+      const result = validateShiftField(field, currentRow[field]);
+      if (!result.isValid) {
         errors[field] = false;
         hasErrors = true;
-        if (!firstErrorField) firstErrorField = field;
+        if (!firstErrorField) {
+          firstErrorField = field;
+          firstErrorMessage = result.message;
+        }
       }
     });
-    
+
     setShiftValidationErrors(errors);
-    
+
     if (hasErrors) {
         if (firstErrorField) {
         const shiftSection = document.querySelector('.dmm-shift-form-grid');
@@ -537,8 +568,8 @@ const DmmSettingParameters = () => {
       }
     } else {
       }
-    
-    return !hasErrors;
+
+    return { ok: !hasErrors, message: firstErrorMessage };
   };
 
   // Handle Enter key on submit button
@@ -546,6 +577,18 @@ const DmmSettingParameters = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmitAll();
+    }
+  };
+
+  // Ctrl/Cmd+S saves instead of triggering the browser's page-save dialog —
+  // composed into the same top-level onKeyDown as arrow navigation, guarded
+  // by the exact condition the Submit button's own `disabled` prop uses.
+  const handlePageKeyDown = (e) => {
+    handleArrowKeyDown(e);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      const submitDisabled = !isFormUnlocked || allSubmitting || fetchingPrimary;
+      if (!submitDisabled) handleSubmitAll();
     }
   };
 
@@ -563,7 +606,11 @@ const DmmSettingParameters = () => {
     }
 
     // Validate shift parameters
-    if (!validateShiftRowBeforeSave()) return;
+    const shiftValidation = validateShiftRowBeforeSave();
+    if (!shiftValidation.ok) {
+      showSubmitMessage(shiftValidation.message || 'Enter data in correct format', 'danger', 5000);
+      return;
+    }
 
     const startTime = Date.now();
     const MIN_LOADER_DURATION = 1500;
@@ -710,7 +757,8 @@ const DmmSettingParameters = () => {
           ref={ppThicknessRef}
           value={currentRow.ppThickness}
           onChange={(e) => handleInputChange("ppThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.ppThickness?.onPaste}
+          onKeyDown={e => { numericGuards.ppThickness?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 25.5"
           step="any"
           disabled={fieldsDisabled}
@@ -723,7 +771,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.ppHeight}
           onChange={(e) => handleInputChange("ppHeight", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.ppHeight?.onPaste}
+          onKeyDown={e => { numericGuards.ppHeight?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 150.0"
           step="any"
           disabled={fieldsDisabled}
@@ -736,7 +785,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.spThickness}
           onChange={(e) => handleInputChange("spThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.spThickness?.onPaste}
+          onKeyDown={e => { numericGuards.spThickness?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 30.2"
           step="any"
           disabled={fieldsDisabled}
@@ -749,7 +799,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.spHeight}
           onChange={(e) => handleInputChange("spHeight", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.spHeight?.onPaste}
+          onKeyDown={e => { numericGuards.spHeight?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 180.5"
           step="any"
           disabled={fieldsDisabled}
@@ -762,7 +813,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.coreMaskThickness}
           onChange={(e) => handleInputChange("coreMaskThickness", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.coreMaskThickness?.onPaste}
+          onKeyDown={e => { numericGuards.coreMaskThickness?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 12.0"
           step="any"
           disabled={fieldsDisabled}
@@ -775,7 +827,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.coreMaskHeightOutside}
           onChange={(e) => handleInputChange("coreMaskHeightOutside", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.coreMaskHeightOutside?.onPaste}
+          onKeyDown={e => { numericGuards.coreMaskHeightOutside?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 95.5"
           step="any"
           disabled={fieldsDisabled}
@@ -788,7 +841,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.coreMaskHeightInside}
           onChange={(e) => handleInputChange("coreMaskHeightInside", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.coreMaskHeightInside?.onPaste}
+          onKeyDown={e => { numericGuards.coreMaskHeightInside?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 85.0"
           step="any"
           disabled={fieldsDisabled}
@@ -801,7 +855,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.sandShotPressureBar}
           onChange={(e) => handleInputChange("sandShotPressureBar", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.sandShotPressureBar?.onPaste}
+          onKeyDown={e => { numericGuards.sandShotPressureBar?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 6.5"
           step="any"
           disabled={fieldsDisabled}
@@ -814,7 +869,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.correctionShotTime}
           onChange={(e) => handleInputChange("correctionShotTime", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.correctionShotTime?.onPaste}
+          onKeyDown={e => { numericGuards.correctionShotTime?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 2.5"
           step="any"
           disabled={fieldsDisabled}
@@ -827,7 +883,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.squeezePressure}
           onChange={(e) => handleInputChange("squeezePressure", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.squeezePressure?.onPaste}
+          onKeyDown={e => { numericGuards.squeezePressure?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 45.0"
           step="any"
           disabled={fieldsDisabled}
@@ -840,7 +897,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.ppStrippingAcceleration}
           onChange={(e) => handleInputChange("ppStrippingAcceleration", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.ppStrippingAcceleration?.onPaste}
+          onKeyDown={e => { numericGuards.ppStrippingAcceleration?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 3.2"
           step="any"
           disabled={fieldsDisabled}
@@ -853,7 +911,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.ppStrippingDistance}
           onChange={(e) => handleInputChange("ppStrippingDistance", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.ppStrippingDistance?.onPaste}
+          onKeyDown={e => { numericGuards.ppStrippingDistance?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 120.0"
           step="any"
           disabled={fieldsDisabled}
@@ -866,7 +925,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.spStrippingAcceleration}
           onChange={(e) => handleInputChange("spStrippingAcceleration", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.spStrippingAcceleration?.onPaste}
+          onKeyDown={e => { numericGuards.spStrippingAcceleration?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 2.8"
           step="any"
           disabled={fieldsDisabled}
@@ -879,7 +939,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.spStrippingDistance}
           onChange={(e) => handleInputChange("spStrippingDistance", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.spStrippingDistance?.onPaste}
+          onKeyDown={e => { numericGuards.spStrippingDistance?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 140.0"
           step="any"
           disabled={fieldsDisabled}
@@ -892,7 +953,8 @@ const DmmSettingParameters = () => {
           type="number"
           value={currentRow.mouldThicknessPlus10}
           onChange={(e) => handleInputChange("mouldThicknessPlus10", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onPaste={numericGuards.mouldThicknessPlus10?.onPaste}
+          onKeyDown={e => { numericGuards.mouldThicknessPlus10?.onKeyDown(e); handleShiftKeyDown(e); }}
           placeholder="e.g., 250.0"
           step="any"
           disabled={fieldsDisabled}
@@ -932,13 +994,14 @@ const DmmSettingParameters = () => {
   };
 
   return (
-    <div className="page-wrapper moulding-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
+    <div className="page-wrapper moulding-page-wrapper" ref={gridRef} onKeyDown={handlePageKeyDown}>
       {/* Header */}
       <div className="dmm-header">
         <div className="dmm-header-text">
           <h2>
             <Save size={28} style={{ color: '#5B9AA9' }} />
             DMM Setting Parameters Check Sheet
+            <InfoIcon onClick={openInfoModal} />
           </h2>
         </div>
         <div aria-label="Date" style={{ fontWeight: 600, color: '#25424c' }}>
@@ -948,6 +1011,13 @@ const DmmSettingParameters = () => {
           })() : '-'}
         </div>
       </div>
+
+      <InfoCard
+        isOpen={isInfoOpen}
+        onClose={closeInfoModal}
+        title="DMM Setting Parameters - Validation Ranges"
+        validationRanges={validationRanges}
+      />
 
       <form>
         {/* Primary Information Section */}
@@ -972,7 +1042,7 @@ const DmmSettingParameters = () => {
                     }
                   }
                 }}
-                max={new Date().toISOString().split('T')[0]}
+                max={getTodaysDate()}
                 required
               />
             </div>
@@ -1086,9 +1156,11 @@ const DmmSettingParameters = () => {
             </div>
           )}
 
-          {/* Save Primary button — appears when user types in operator name or operated by */}
+          {/* Save Primary button — visible once Date/Machine/Shift are set, matching
+              Process.jsx's LockPrimaryButton (gated only on the required combo fields,
+              never on optional Operator Name/Operated By content). */}
           {primaryData.date && primaryData.machine && primaryData.shift && !isPrimaryDataSaved && !fetchingPrimary && !showCombinationFound && !showCombinationSaved && (
-            <div className={`dmm-save-primary-btn-wrapper${(primaryData.operatorName || primaryData.operatedBy) ? ' show' : ''}`}>
+            <div className="dmm-save-primary-btn-wrapper show">
               <button
                 className="dmm-submit-btn"
                 type="button"

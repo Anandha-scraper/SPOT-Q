@@ -19,12 +19,23 @@ function findMachineShift(dmmLogId, machine, shift) {
     });
 }
 
-function upsertMachineShift(dmmLogId, machine, shift, data) {
+function upsertMachineShift(dmmLogId, machine, shift, data, userId) {
     return prisma.dmmMachineShift.upsert({
         where: { dmmLogId_machine_shift: { dmmLogId, machine, shift } },
-        create: { dmmLogId, machine, shift, ...data },
+        create: { dmmLogId, machine, shift, ...data, createdBy: userId ?? null, createdAt: new Date() },
         update: data,
     });
+}
+
+function findMachineShiftForAuth(id) {
+    return prisma.dmmMachineShift.findUnique({
+        where: { id },
+        select: { id: true, createdBy: true, createdAt: true },
+    });
+}
+
+function updateMachineShift(id, data) {
+    return prisma.dmmMachineShift.update({ where: { id }, data });
 }
 
 async function ensureMachineShiftId(dmmLogId, machine, shift) {
@@ -108,6 +119,8 @@ module.exports = {
     findMachineShift,
     upsertMachineShift,
     ensureMachineShiftId,
+    findMachineShiftForAuth,
+    updateMachineShift,
     countParameters,
     createParameterEntry,
     findEntryAuthInfo,

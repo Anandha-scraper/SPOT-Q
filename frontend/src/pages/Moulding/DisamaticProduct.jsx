@@ -8,8 +8,18 @@ import { API_ENDPOINTS } from "../../config/api";
 import { useArrowNavigation } from "../../utils/arrowNavigation";
 import "../../styles/PageStyles/Moulding/DisamaticProduct.css";
 
+// Local Date components, not toISOString() — that converts to UTC first and
+// returns yesterday's date for any local time before 5:30 AM IST.
+const getTodaysDateLocal = () => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const initialFormData = {
-  date: new Date().toISOString().split('T')[0],
+  date: getTodaysDateLocal(),
   shift: "",
   incharge: "",
   ppOperator: "",
@@ -167,14 +177,10 @@ const DisamaticProduct = () => {
     return '';
   };
 
-  // Handle Enter/Tab key navigation for primary section
-  const handlePrimaryKeyDown = (e, nextRef, currentField = null) => {
-    // Block e, E, +, - keys for numeric inputs
-    if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
-      e.preventDefault();
-      return;
-    }
-    
+  // Handle Enter/Tab key navigation for primary section — date/shift/incharge/ppOperator
+  // are all non-numeric (date picker, dropdown, free-text names), so no numeric
+  // keystroke guard belongs here.
+  const handlePrimaryKeyDown = (e, nextRef) => {
     // Handle Enter and Tab for navigation within primary section
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
@@ -1976,14 +1982,15 @@ const DisamaticProduct = () => {
         body: JSON.stringify(dataToSend)
       });
 
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          return;
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.ok && (response.status === 401 || response.status === 403)) {
+        return;
       }
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
       if (result.success) {
         // Lock fields that now have values
@@ -2129,8 +2136,8 @@ const DisamaticProduct = () => {
             ref={dateRef}
             value={formData.date}
             onChange={(e) => handleChange("date", e.target.value)}
-            max={new Date().toISOString().split('T')[0]}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterDate(), 'date')}
+            max={getTodaysDateLocal()}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterDate())}
           />
         </div>
         <div 
@@ -2148,7 +2155,7 @@ const DisamaticProduct = () => {
             value={formData.shift}
             onChange={e => handleChange("shift", e.target.value)}
             disabled={!formData.date}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterShift(), 'shift')}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterShift())}
             onMouseDown={(e) => {
               if (!formData.date) {
                 setDateErrorHighlight(true);
@@ -2195,7 +2202,7 @@ const DisamaticProduct = () => {
               opacity: lockedFields.incharge ? 0.6 : 1,
               pointerEvents: (!formData.date || !formData.shift || lockedFields.incharge) ? 'none' : 'auto' // disabled input swallows clicks; pointerEvents:'none' lets them pass to parent onMouseDownCapture
             }}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterIncharge(), 'incharge')}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterIncharge())}
           />
         </div>
         {/* Same click-through error highlight pattern as Incharge */}
@@ -2236,7 +2243,7 @@ const DisamaticProduct = () => {
               opacity: lockedFields.ppOperator ? 0.6 : 1,
               pointerEvents: (!formData.date || !formData.shift || lockedFields.ppOperator) ? 'none' : 'auto' // disabled input swallows clicks; pointerEvents:'none' lets them pass to parent onMouseDownCapture
             }}
-            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterPpOperator(), 'ppOperator')}
+            onKeyDown={(e) => handlePrimaryKeyDown(e, getNextAfterPpOperator())}
           />
         </div>
         <div 

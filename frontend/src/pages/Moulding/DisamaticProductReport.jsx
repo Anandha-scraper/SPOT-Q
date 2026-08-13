@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpenCheck } from 'lucide-react';
+import { BookOpenCheck, PencilLine, Save, X, Trash2 } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, EntryNavigator, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
-import { ExcelDownloadDialog, useToast } from '../../Components/alert';
+import { AlertDialog, ExcelDownloadDialog, useToast } from '../../Components/alert';
 import Table from '../../Components/Table';
 import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../utils/exportToExcel';
 import { API_ENDPOINTS } from '../../config/api';
@@ -12,9 +12,16 @@ import { validationRanges, HARDNESS_READING_RULES } from '../../deviations/Ddisa
 import '../../styles/ComponentStyles/Table.css';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
+const navButtonStyle = (disabled) => ({
+  display: 'flex', alignItems: 'center', gap: '0.25rem',
+  padding: '0.5rem 0.75rem', borderRadius: '8px', border: '2px solid #5B9AA9',
+  background: '#fff', color: disabled ? '#94a3b8' : '#5B9AA9', borderColor: disabled ? '#cbd5e1' : '#5B9AA9',
+  cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem'
+});
+
 const DisamaticProductReport = () => {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, editWindowMs } = useAuth();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
     const map = {};
@@ -33,8 +40,8 @@ const DisamaticProductReport = () => {
   const [hoveredDelayIndex, setHoveredDelayIndex] = useState({ rowIndex: null, itemIndex: null });
 
   // Filter states
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState(null);
   const [shift, setShift] = useState('');
 
   // One record shown at a time; Table toggles the combinations picker.
@@ -52,15 +59,18 @@ const DisamaticProductReport = () => {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       return [];
     }
-    
+
     return dataArray.map(item => ({
       _id: item._id,
       date: item.date,
       shift: item.shift || '-',
       incharge: item.incharge || '-',
       ppOperator: item.ppOperator || '-',
-      members: Array.isArray(item.memberspresent) 
-        ? item.memberspresent.map(name => ({ name })) 
+      // Report-page whole-entry edit/delete permission gating (EntryActions.jsx-style).
+      createdBy: item.createdBy,
+      createdAt: item.createdAt,
+      members: Array.isArray(item.memberspresent)
+        ? item.memberspresent.map(name => ({ name }))
         : [],
       productionTable: item.productionDetails || [],
       nextShiftPlanTable: item.nextShiftPlan || [],
@@ -71,6 +81,142 @@ const DisamaticProductReport = () => {
       maintenance: item.maintenance || '',
       supervisorName: item.supervisorName || ''
     }));
+  };
+
+  // ─── Inline edit (report page, whole entry at once — not per-row) ───
+  // A non-destructive `edits` map layered on top of the read-only *Table
+  // arrays — those stay exactly what transformBackendData last computed, so
+  // Cancel is just "discard the map," and Save reads the map to build the
+  // PUT payload. Cell keys are `${table}_${rowId}_${field}`.
+  const [editMode, setEditMode] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    setEditMode(false);
+    setEdits({});
+  }, [currentIndex, showEntryTable]);
+
+  const getEdit = (cellKey, fallback) => (edits[cellKey] !== undefined ? edits[cellKey] : (fallback ?? ''));
+  const setEdit = (cellKey, value) => setEdits((prev) => ({ ...prev, [cellKey]: value }));
+
+  const editableTd = (cellKey, currentValue, inputStyle) => {
+    if (editMode) {
+      return (
+        <input
+          type="text"
+          value={getEdit(cellKey, currentValue)}
+          onChange={(e) => setEdit(cellKey, e.target.value)}
+          style={{ width: '100%', minWidth: '70px', padding: '6px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.9rem', boxSizing: 'border-box', ...inputStyle }}
+        />
+      );
+    }
+    return currentValue ?? '-';
+  };
+
+  const canEditEntry = (entry) => {
+    if (!entry) return false;
+    if (isAdmin) return true;
+    const isOwner = entry.createdBy && user?.id && String(entry.createdBy) === String(user.id);
+    const createdMs = entry.createdAt ? new Date(entry.createdAt).getTime() : null;
+    if (!isOwner || !createdMs) return false;
+    return (editWindowMs - (Date.now() - createdMs)) > 0;
+  };
+  const canDeleteEntry = () => isAdmin;
+
+  const EDITABLE_FIELDS_BY_TABLE = {
+    productionTable: ['counterNo', 'componentName', 'cycleTime', 'remarks', 'produced', 'poured', 'mouldsPerHour'],
+    nextShiftPlanTable: ['componentName', 'remarks', 'plannedMoulds'],
+    delaysTable: ['delays'],
+    mouldHardnessTable: ['componentName', 'remarks'],
+    patternTempTable: ['item', 'pp', 'sp'],
+  };
+  const EDIT_KEY_BY_TABLE = {
+    productionTable: 'productionEdits',
+    nextShiftPlanTable: 'nextShiftPlanEdits',
+    delaysTable: 'delaysEdits',
+    mouldHardnessTable: 'mouldHardnessEdits',
+    patternTempTable: 'patternTempEdits',
+  };
+
+  const buildEditsPayload = () => {
+    const payload = {};
+    for (const [table, fields] of Object.entries(EDITABLE_FIELDS_BY_TABLE)) {
+      const rows = currentEntry?.[table] || [];
+      const out = [];
+      rows.forEach((row) => {
+        if (!row._id) return;
+        const data = {};
+        fields.forEach((field) => {
+          const cellKey = `${table}_${row._id}_${field}`;
+          if (edits[cellKey] !== undefined) data[field] = edits[cellKey];
+        });
+        if (Object.keys(data).length) out.push({ id: row._id, data });
+      });
+      payload[EDIT_KEY_BY_TABLE[table]] = out;
+    }
+    return payload;
+  };
+
+  const handleSaveEdits = async () => {
+    if (!currentEntry?._id) return;
+    if (Object.keys(edits).length === 0) { setEditMode(false); return; }
+    setSaving(true);
+    try {
+      const body = buildEditsPayload();
+      const res = await fetch(`${API_ENDPOINTS.mouldingDisa}/${currentEntry._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const [updated] = transformBackendData([data.data]);
+        setEntries((prev) => prev.map((e, i) => (i === currentIndex ? updated : e)));
+        setEdits({});
+        setEditMode(false);
+        toast.success(data.message || 'Entry updated successfully.');
+      } else {
+        toast.error(data.message || 'Failed to save changes.');
+      }
+    } catch (err) {
+      toast.error('Network error while saving. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdits = () => {
+    setEdits({});
+    setEditMode(false);
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!currentEntry?._id) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_ENDPOINTS.mouldingDisa}/${currentEntry._id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const remaining = entries.filter((_, i) => i !== currentIndex);
+        setEntries(remaining);
+        setCurrentIndex((i) => Math.max(0, Math.min(i, remaining.length - 1)));
+        toast.success(data.message || 'Entry deleted successfully.');
+      } else {
+        toast.error(data.message || 'Failed to delete entry.');
+      }
+    } catch (err) {
+      toast.error('Network error while deleting. Please try again.');
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   };
 
   // Auto-dismiss error after 4 seconds
@@ -117,27 +263,29 @@ const DisamaticProductReport = () => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     setCurrentDate(todayStr);
-    setStartDate(todayStr);
+    setToDate(todayStr);
     await loadRange(todayStr, todayStr);
   };
 
+  // fromDate is optional (blank = single day); toDate is required and defaults
+  // to today — matches the fromDate/toDate convention every other report page
+  // uses (e.g. ProcessReport.jsx's computeFiltered/isFilterEnabled).
   const handleFilter = async () => {
-    if (!startDate) {
+    if (!toDate) {
       toast.error('Please select a date');
       return;
     }
-    if (endDate && new Date(endDate) < new Date(startDate)) {
-      toast.error('End date cannot be before start date');
+    if (fromDate && new Date(fromDate) > new Date(toDate)) {
+      toast.error('From date cannot be after To date.');
       return;
     }
-    // With no end date the Shift dropdown narrows a single day; over a range
+    // With no from date the Shift dropdown narrows a single day; over a range
     // every shift is kept and the navigator steps through them.
-    await loadRange(startDate, endDate || startDate, { selectShift: endDate ? '' : shift });
+    await loadRange(fromDate || toDate, toDate, { selectShift: fromDate ? '' : shift });
   };
 
   const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
+    setFromDate('');
     setShift('');
     fetchCurrentDateAndEntries();
   };
@@ -362,23 +510,25 @@ const DisamaticProductReport = () => {
       align: 'center',
       render: (item, rowIndex) => item.isTotalRow ? '' : (item.sNo || rowIndex + 1)
     },
-    { 
-      key: 'counterNo', 
-      label: 'Counter No', 
-      width: '120px', 
+    {
+      key: 'counterNo',
+      label: 'Counter No',
+      width: '120px',
       align: 'center',
-      render: (item) => item.isTotalRow ? '' : item.counterNo
+      render: (item) => item.isTotalRow ? '' : editableTd(`productionTable_${item._id}_counterNo`, item.counterNo)
     },
-    { 
-      key: 'componentName', 
-      label: 'Component Name', 
-      width: '200px', 
+    {
+      key: 'componentName',
+      label: 'Component Name',
+      width: '200px',
       align: 'left',
-      render: (item) => (
-        <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#1e293b' : '#475569' }}>
-          {item.componentName}
-        </span>
-      )
+      render: (item) => editMode && !item.isTotalRow
+        ? editableTd(`productionTable_${item._id}_componentName`, item.componentName, { textAlign: 'left' })
+        : (
+          <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#1e293b' : '#475569' }}>
+            {item.componentName}
+          </span>
+        )
     },
     {
       key: 'produced',
@@ -386,13 +536,15 @@ const DisamaticProductReport = () => {
       width: '120px',
       align: 'center',
       cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Produced', item.produced) ? 'deviation-flag' : undefined),
-      render: (item) => (
-        <span
-          style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
-        >
-          {item.produced}
-        </span>
-      )
+      render: (item) => editMode && !item.isTotalRow
+        ? editableTd(`productionTable_${item._id}_produced`, item.produced)
+        : (
+          <span
+            style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
+          >
+            {item.produced}
+          </span>
+        )
     },
     {
       key: 'poured',
@@ -400,20 +552,22 @@ const DisamaticProductReport = () => {
       width: '120px',
       align: 'center',
       cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Poured', item.poured) ? 'deviation-flag' : undefined),
-      render: (item) => (
-        <span
-          style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
-        >
-          {item.poured}
-        </span>
-      )
+      render: (item) => editMode && !item.isTotalRow
+        ? editableTd(`productionTable_${item._id}_poured`, item.poured)
+        : (
+          <span
+            style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#5B9AA9' : '#475569', fontSize: item.isTotalRow ? '1.05rem' : 'inherit' }}
+          >
+            {item.poured}
+          </span>
+        )
     },
     {
       key: 'cycleTime',
       label: 'Cycle Time',
       width: '120px',
       align: 'center',
-      render: (item) => item.isTotalRow ? '' : item.cycleTime
+      render: (item) => item.isTotalRow ? '' : editableTd(`productionTable_${item._id}_cycleTime`, item.cycleTime)
     },
     {
       key: 'mouldsPerHour',
@@ -421,18 +575,14 @@ const DisamaticProductReport = () => {
       width: '140px',
       align: 'center',
       cellClassName: (item) => (!item.isTotalRow && isFieldDeviant('Moulds/Hour', item.mouldsPerHour) ? 'deviation-flag' : undefined),
-      render: (item) => item.isTotalRow ? '' : (
-        <span>
-          {item.mouldsPerHour}
-        </span>
-      )
+      render: (item) => item.isTotalRow ? '' : editableTd(`productionTable_${item._id}_mouldsPerHour`, item.mouldsPerHour)
     },
-    { 
-      key: 'remarks', 
-      label: 'Remarks', 
-      width: '200px', 
+    {
+      key: 'remarks',
+      label: 'Remarks',
+      width: '200px',
       align: 'left',
-      render: (item) => item.isTotalRow ? '' : item.remarks
+      render: (item) => item.isTotalRow ? '' : editableTd(`productionTable_${item._id}_remarks`, item.remarks, { textAlign: 'left' })
     }
   ];
 
@@ -484,17 +634,19 @@ const DisamaticProductReport = () => {
       align: 'center',
       render: (item, rowIndex) => item.sNo || rowIndex + 1
     },
-    { key: 'componentName', label: 'Component Name', width: '300px', align: 'left' },
+    {
+      key: 'componentName', label: 'Component Name', width: '300px', align: 'left',
+      render: (item) => editableTd(`nextShiftPlanTable_${item._id}_componentName`, item.componentName, { textAlign: 'left' })
+    },
     {
       key: 'plannedMoulds', label: 'Planned Moulds', width: '200px', align: 'center',
       cellClassName: (item) => (isFieldDeviant('Planned Moulds', item.plannedMoulds) ? 'deviation-flag' : undefined),
-      render: (item) => (
-        <span>
-          {item.plannedMoulds}
-        </span>
-      )
+      render: (item) => editableTd(`nextShiftPlanTable_${item._id}_plannedMoulds`, item.plannedMoulds)
     },
-    { key: 'remarks', label: 'Remarks', width: '300px', align: 'left' }
+    {
+      key: 'remarks', label: 'Remarks', width: '300px', align: 'left',
+      render: (item) => editableTd(`nextShiftPlanTable_${item._id}_remarks`, item.remarks, { textAlign: 'left' })
+    }
   ];
 
   // Delays Table Columns
@@ -506,16 +658,18 @@ const DisamaticProductReport = () => {
       align: 'center',
       render: (item, rowIndex) => item.isTotalRow ? '' : (item.sNo || rowIndex + 1)
     },
-    { 
-      key: 'delays', 
-      label: 'Delays', 
-      width: '250px', 
+    {
+      key: 'delays',
+      label: 'Delays',
+      width: '250px',
       align: 'left',
-      render: (item) => (
-        <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#1e293b' : '#475569' }}>
-          {item.delays}
-        </span>
-      )
+      render: (item) => editMode && !item.isTotalRow
+        ? editableTd(`delaysTable_${item._id}_delays`, item.delays, { textAlign: 'left' })
+        : (
+          <span style={{ fontWeight: item.isTotalRow ? 700 : 'normal', color: item.isTotalRow ? '#1e293b' : '#475569' }}>
+            {item.delays}
+          </span>
+        )
     },
     { 
       key: 'durationMinutes', 
@@ -686,7 +840,7 @@ const DisamaticProductReport = () => {
                   {row.sNo || index + 1}
                 </td>
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', color: '#475569' }}>
-                  {row.componentName || '-'}
+                  {editableTd(`mouldHardnessTable_${row._id}_componentName`, row.componentName)}
                 </td>
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'top' }}>
                   {!Array.isArray(row.mpPP) || row.mpPP.length === 0 ? (
@@ -769,7 +923,7 @@ const DisamaticProductReport = () => {
                   )}
                 </td>
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', color: '#475569' }}>
-                  {row.remarks || '-'}
+                  {editableTd(`mouldHardnessTable_${row._id}_remarks`, row.remarks)}
                 </td>
               </tr>
               ))
@@ -789,23 +943,26 @@ const DisamaticProductReport = () => {
       align: 'center',
       render: (item, rowIndex) => rowIndex + 1
     },
-    { 
-      key: 'item', 
-      label: 'Item', 
-      width: '300px', 
-      align: 'left' 
+    {
+      key: 'item',
+      label: 'Item',
+      width: '300px',
+      align: 'left',
+      render: (item) => editableTd(`patternTempTable_${item._id}_item`, item.item, { textAlign: 'left' })
     },
-    { 
-      key: 'pp', 
-      label: 'PP', 
-      width: '150px', 
-      align: 'center' 
+    {
+      key: 'pp',
+      label: 'PP',
+      width: '150px',
+      align: 'center',
+      render: (item) => editableTd(`patternTempTable_${item._id}_pp`, item.pp)
     },
-    { 
-      key: 'sp', 
-      label: 'SP', 
-      width: '150px', 
-      align: 'center' 
+    {
+      key: 'sp',
+      label: 'SP',
+      width: '150px',
+      align: 'center',
+      render: (item) => editableTd(`patternTempTable_${item._id}_sp`, item.sp)
     }
   ];
 
@@ -828,34 +985,34 @@ const DisamaticProductReport = () => {
           <div className="disamatic-filter-group">
             <label>From</label>
             <CustomDatePicker
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
               placeholder="Select start date"
+              max={toDate}
             />
           </div>
           <div className="disamatic-filter-group">
             <label>To</label>
             <CustomDatePicker
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
               placeholder="Select end date"
-              min={startDate}
             />
           </div>
-          {!endDate && (
+          {!fromDate && (
             <div className="disamatic-filter-group">
               <label>Shift</label>
               <ShiftDropdown
                 value={shift}
                 onChange={(e) => setShift(e.target.value)}
-                disabled={!startDate}
+                disabled={!toDate}
               />
             </div>
           )}
-          <FilterButton onClick={handleFilter} disabled={!startDate || loading}>
+          <FilterButton onClick={handleFilter} disabled={!toDate || loading}>
             {loading ? 'Loading...' : 'Filter'}
           </FilterButton>
-          <ClearButton onClick={handleClearFilter} disabled={!startDate && !endDate && !shift}>
+          <ClearButton onClick={handleClearFilter} disabled={!fromDate && !shift}>
             Clear
           </ClearButton>
           {isAdmin && (
@@ -872,14 +1029,46 @@ const DisamaticProductReport = () => {
             onNext={() => setCurrentIndex((i) => Math.min(entries.length - 1, i + 1))}
             onToggleTable={() => setShowEntryTable((v) => !v)}
           />
+          {currentEntry && !showEntryTable && !editMode && canEditEntry(currentEntry) && (
+            <button type="button" onClick={() => setEditMode(true)} style={navButtonStyle(false)} title="Edit this entry">
+              <PencilLine size={16} /> Edit
+            </button>
+          )}
+          {editMode && (
+            <>
+              <button type="button" onClick={handleSaveEdits} disabled={saving} style={navButtonStyle(saving)} title="Save changes">
+                <Save size={16} /> {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button type="button" onClick={handleCancelEdits} disabled={saving} style={{ ...navButtonStyle(false), borderColor: '#cbd5e1', color: '#64748b' }} title="Discard changes">
+                <X size={16} /> Cancel
+              </button>
+            </>
+          )}
+          {currentEntry && !showEntryTable && !editMode && canDeleteEntry() && (
+            <button type="button" onClick={() => setConfirmDelete(true)} disabled={deleting} style={{ ...navButtonStyle(deleting), borderColor: '#e74c3c', color: deleting ? '#94a3b8' : '#e74c3c' }} title="Delete this entry">
+              <Trash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          )}
           <ExcelDownloadButton onClick={() => setShowDownloadDialog(true)} disabled={loading || isDownloading} />
           <ExcelDownloadDialog
             open={showDownloadDialog}
             onOpenChange={setShowDownloadDialog}
-            defaultFrom={startDate}
-            defaultTo={endDate}
+            defaultFrom={fromDate}
+            defaultTo={toDate}
             loading={isDownloading}
             onConfirm={({ from, to }) => { setShowDownloadDialog(false); handleExcelDownload({ from, to }); }}
+          />
+          <AlertDialog
+            open={confirmDelete}
+            onOpenChange={setConfirmDelete}
+            title="Delete this entry?"
+            description="This action cannot be undone."
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            variant="danger"
+            loading={deleting}
+            closeOnConfirm={false}
+            onConfirm={handleDeleteEntry}
           />
         {error && (
           <span className="disa-inline-error" style={{ color: '#c0392b', fontSize: '0.85rem' }}>{error}</span>

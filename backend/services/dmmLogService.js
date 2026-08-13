@@ -51,7 +51,7 @@ async function getSettingsByDate({ date, machine, shift }) {
     return rowsForDate.length ? [{ date: dmmLog.date, entries: rowsForDate.map(toWireEntry) }] : [];
 }
 
-async function saveOperation(date, machine, shifts) {
+async function saveOperation(date, machine, shifts, userId) {
     const dmmLog = await dmmLogRepository.ensureDateRow(String(date).trim());
     const trimmedMachine = String(machine).trim();
 
@@ -60,7 +60,7 @@ async function saveOperation(date, machine, shifts) {
         const patch = {};
         if (shiftData.operatorName !== undefined) patch.operatorName = shiftData.operatorName || '';
         if (shiftData.checkedBy !== undefined) patch.checkedBy = shiftData.checkedBy || '';
-        await dmmLogRepository.upsertMachineShift(dmmLog.id, trimmedMachine, shiftNumber, patch);
+        await dmmLogRepository.upsertMachineShift(dmmLog.id, trimmedMachine, shiftNumber, patch, userId);
     }
 }
 
@@ -82,7 +82,7 @@ async function createSettings({ date, machine, section, ...payload }, userId) {
     if (!date || !machine) throw new AppError(400, 'Date and Machine required.');
 
     if (section === 'operation') {
-        await saveOperation(date, machine, payload.shifts);
+        await saveOperation(date, machine, payload.shifts, userId);
     } else if (['shift1', 'shift2', 'shift3'].includes(section)) {
         await saveParameterRow(date, machine, section, payload.parameters?.[section], userId);
     }
@@ -108,11 +108,32 @@ async function getAllSettings() {
         }
         const record = byDateMachine.get(key);
         const shiftKey = `shift${row.shift}`;
-        record.shifts[shiftKey] = { operatorName: row.operatorName || '', checkedBy: row.checkedBy || '' };
+        // _id/createdBy/createdAt are per-shift (each DmmMachineShift row has its
+        // own PK) — the top-level record._id above is ambiguous whenever a
+        // date+machine has more than one shift, so EntryActions for Operator
+        // Name/Operated By must address this one, not the record-level id.
+        record.shifts[shiftKey] = {
+            _id: row.id,
+            operatorName: row.operatorName || '',
+            checkedBy: row.checkedBy || '',
+            createdBy: row.createdBy || null,
+            createdAt: row.createdAt || null,
+        };
         record.parameters[shiftKey] = row.parameters.map(toWireParameter);
     }
 
     return [...byDateMachine.values()];
+}
+
+async function updateMachineShift(id, body) {
+    const { data, invalid } = buildColumns(body, { raw: ['operatorName', 'checkedBy'] });
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(data);
+    return dmmLogRepository.updateMachineShift(id, data);
+}
+
+function loadMachineShiftForAuth(id) {
+    return dmmLogRepository.findMachineShiftForAuth(id);
 }
 
 async function updateEntry(entryId, body) {
@@ -146,4 +167,6 @@ module.exports = {
     updateEntry,
     deleteEntry,
     loadEntryForAuth,
+    updateMachineShift,
+    loadMachineShiftForAuth,
 };

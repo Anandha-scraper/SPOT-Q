@@ -208,6 +208,21 @@ export const dmmEditConfig = {
     ]
 };
 
+// Operator Name/Operated By live on the DmmMachineShift row, a different id
+// space from the parameter row above — hence /shift/:id, not the base :id.
+export const dmmOperatorEditConfig = {
+    endpoint: `${API_ENDPOINTS.mouldingDmm}/shift`,
+    title: 'Edit DMM Operator Info',
+    fields: [
+        { name: 'operatorName', label: 'Operator Name', type: 'text' },
+        { name: 'checkedBy', label: 'Operated By', type: 'text' }
+    ],
+    deleteConfirm: {
+        title: 'Clear operator info?',
+        description: 'This clears Operator Name and Operated By for this shift — it does not delete any parameter rows.'
+    }
+};
+
 export const impactEditConfig = {
     endpoint: API_ENDPOINTS.impactTests,
     title: 'Edit Impact Entry',

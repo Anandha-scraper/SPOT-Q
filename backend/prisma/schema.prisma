@@ -758,6 +758,7 @@ model DisaReport {
   maintenance      String? @db.VarChar(500)
   supervisorName   String? @db.VarChar(64)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -799,6 +800,7 @@ model DisaProductionEntry {
   mouldsPerHour Int    @default(0)
   remarks       String @default("") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
 
   report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
@@ -817,6 +819,7 @@ model DisaNextShiftPlanEntry {
   plannedMoulds Int    @default(0)
   remarks       String @default("") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
 
   report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
@@ -835,6 +838,7 @@ model DisaDelayEntry {
   sNo    Int
   delays String @default("") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
 
   report    DisaReport          @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
@@ -869,6 +873,7 @@ model DisaMouldHardnessEntry {
   componentName String @default("") @db.VarChar(64)
   remarks       String @default("") @db.VarChar(200)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
 
   report   DisaReport                 @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
@@ -902,6 +907,7 @@ model DisaPatternTempEntry {
   pp   Int    @default(0)
   sp   Int    @default(0)
 
+  createdBy String?  @db.VarChar(36)
   createdAt DateTime @default(now())
 
   report DisaReport @relation(fields: [disaReportId], references: [id], onDelete: Cascade)
@@ -934,6 +940,9 @@ model DmmMachineShift {
 
   operatorName String @default("") @db.VarChar(64)
   checkedBy    String @default("") @db.VarChar(64)
+
+  createdBy String?   @db.VarChar(36)
+  createdAt DateTime?
 
   dmmLog     DmmLog              @relation(fields: [dmmLogId], references: [id], onDelete: Cascade)
   parameters DmmParameterEntry[]

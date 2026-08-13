@@ -1,5 +1,6 @@
 const disaReportRepository = require('../repositories/disaReportRepository');
 const { AppError } = require('../utils/AppError');
+const { buildColumns, invalidInput, requireEditableFields } = require('../utils/fieldValidation');
 
 const MAX_MEMBERS = 4;
 
@@ -41,16 +42,16 @@ function zipReadings(values) {
 
 // shift is half the @@unique key, so a blank one silently upserts a second
 // report for the same day instead of failing — hence the explicit reject.
-async function ensureReport(date, shift) {
+async function ensureReport(date, shift, createdBy) {
     const trimmedShift = String(shift ?? '').trim();
     if (!date || !trimmedShift) throw new AppError(400, 'Date and shift are required.');
-    return disaReportRepository.ensureReportRow(String(date).trim(), trimmedShift);
+    return disaReportRepository.ensureReportRow(String(date).trim(), trimmedShift, createdBy);
 }
 
 // ── section writes ──────────────────────────────────────────────────────────
 
-async function saveProduction(date, shift, rows) {
-    const report = await ensureReport(date, shift);
+async function saveProduction(date, shift, rows, userId) {
+    const report = await ensureReport(date, shift, userId);
     const kept = (rows ?? []).filter(hasData);
     if (!kept.length) return { message: 'production updated.' };
 
@@ -63,14 +64,15 @@ async function saveProduction(date, shift, rows) {
         cycleTime: withDefault(row.cycleTime, ''),
         mouldsPerHour: toInt(withDefault(row.mouldsPerHour, 0)),
         remarks: withDefault(row.remarks, ''),
+        createdBy: userId ?? null,
     }));
 
     await disaReportRepository.appendSimpleRows('disaProductionEntry', report.id, mapped, startSNo);
     return { message: 'production updated.' };
 }
 
-async function saveNextShiftPlan(date, shift, rows) {
-    const report = await ensureReport(date, shift);
+async function saveNextShiftPlan(date, shift, rows, userId) {
+    const report = await ensureReport(date, shift, userId);
     const kept = (rows ?? []).filter(hasData);
     if (!kept.length) return { message: 'nextShiftPlan updated.' };
 
@@ -79,14 +81,15 @@ async function saveNextShiftPlan(date, shift, rows) {
         componentName: withDefault(row.componentName, ''),
         plannedMoulds: toInt(withDefault(row.plannedMoulds, 0)),
         remarks: withDefault(row.remarks, ''),
+        createdBy: userId ?? null,
     }));
 
     await disaReportRepository.appendSimpleRows('disaNextShiftPlanEntry', report.id, mapped, startSNo);
     return { message: 'nextShiftPlan updated.' };
 }
 
-async function saveDelays(date, shift, rows) {
-    const report = await ensureReport(date, shift);
+async function saveDelays(date, shift, rows, userId) {
+    const report = await ensureReport(date, shift, userId);
     const kept = (rows ?? []).filter(hasData);
     if (!kept.length) return { message: 'delays updated.' };
 
@@ -94,14 +97,15 @@ async function saveDelays(date, shift, rows) {
     const mapped = kept.map((row) => ({
         delays: withDefault(row.delays, ''),
         intervals: zipParallelArrays(row.durationMinutes, row.fromTime, row.toTime),
+        createdBy: userId ?? null,
     }));
 
     await disaReportRepository.appendDelayRows(report.id, mapped, startSNo);
     return { message: 'delays updated.' };
 }
 
-async function saveMouldHardness(date, shift, rows) {
-    const report = await ensureReport(date, shift);
+async function saveMouldHardness(date, shift, rows, userId) {
+    const report = await ensureReport(date, shift, userId);
     const kept = (rows ?? []).filter(hasData);
     if (!kept.length) return { message: 'mouldHardness updated.' };
 
@@ -109,6 +113,7 @@ async function saveMouldHardness(date, shift, rows) {
     const mapped = kept.map((row) => ({
         componentName: withDefault(row.componentName, ''),
         remarks: withDefault(row.remarks, ''),
+        createdBy: userId ?? null,
         readings: [
             ...zipReadings(row.mpPP).map((r) => ({ ...r, kind: 'mpPP' })),
             ...zipReadings(row.mpSP).map((r) => ({ ...r, kind: 'mpSP' })),
@@ -121,8 +126,8 @@ async function saveMouldHardness(date, shift, rows) {
     return { message: 'mouldHardness updated.' };
 }
 
-async function savePatternTemp(date, shift, rows) {
-    const report = await ensureReport(date, shift);
+async function savePatternTemp(date, shift, rows, userId) {
+    const report = await ensureReport(date, shift, userId);
     const kept = (rows ?? []).filter(hasData);
     if (!kept.length) return { message: 'patternTemp updated.' };
 
@@ -131,10 +136,98 @@ async function savePatternTemp(date, shift, rows) {
         item: withDefault(row.item, ''),
         pp: toInt(withDefault(row.pp, 0)),
         sp: toInt(withDefault(row.sp, 0)),
+        createdBy: userId ?? null,
     }));
 
     await disaReportRepository.appendSimpleRows('disaPatternTempEntry', report.id, mapped, startSNo);
     return { message: 'patternTemp updated.' };
+}
+
+// ── per-row edit/delete ─────────────────────────────────────────────────────
+// Delays/MouldHardness only expose their own scalar columns (delay reason /
+// component name+remarks) — the parallel-array child rows have no generic
+// multi-array edit UI on the frontend yet, so those stay create-only.
+
+async function updateProductionEntry(id, body) {
+    const { data, invalid } = buildColumns(body, {
+        raw: ['counterNo', 'componentName', 'cycleTime', 'remarks'],
+        integers: ['produced', 'poured', 'mouldsPerHour'],
+    });
+    const blanked = ['produced', 'poured', 'mouldsPerHour'].filter((f) => data[f] === null);
+    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    requireEditableFields(data);
+    return disaReportRepository.updateProductionEntry(id, data);
+}
+
+async function updateNextShiftPlanEntry(id, body) {
+    const { data, invalid } = buildColumns(body, {
+        raw: ['componentName', 'remarks'],
+        integers: ['plannedMoulds'],
+    });
+    const blanked = ['plannedMoulds'].filter((f) => data[f] === null);
+    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    requireEditableFields(data);
+    return disaReportRepository.updateNextShiftPlanEntry(id, data);
+}
+
+async function updateDelayEntry(id, body) {
+    const { data, invalid } = buildColumns(body, { raw: ['delays'] });
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(data);
+    return disaReportRepository.updateDelayEntry(id, data);
+}
+
+async function updateMouldHardnessEntry(id, body) {
+    const { data, invalid } = buildColumns(body, { raw: ['componentName', 'remarks'] });
+    if (invalid.length) throw invalidInput(invalid);
+    requireEditableFields(data);
+    return disaReportRepository.updateMouldHardnessEntry(id, data);
+}
+
+async function updatePatternTempEntry(id, body) {
+    const { data, invalid } = buildColumns(body, {
+        raw: ['item'],
+        integers: ['pp', 'sp'],
+    });
+    const blanked = ['pp', 'sp'].filter((f) => data[f] === null);
+    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    requireEditableFields(data);
+    return disaReportRepository.updatePatternTempEntry(id, data);
+}
+
+// Whole-report edit (report page's single Edit/Save, not per-row): a flat
+// list of {id, data} per section, applied to the existing per-row update
+// functions above and returned as one refreshed report — mirrors
+// sandRecordService.js#updateRecord's testParameterEdits handling, extended
+// from one child table to five.
+const SECTION_UPDATERS = {
+    productionEdits: updateProductionEntry,
+    nextShiftPlanEdits: updateNextShiftPlanEntry,
+    delaysEdits: updateDelayEntry,
+    mouldHardnessEdits: updateMouldHardnessEntry,
+    patternTempEdits: updatePatternTempEntry,
+};
+
+async function updateReportEntries(reportId, body) {
+    const ops = [];
+    for (const [key, updater] of Object.entries(SECTION_UPDATERS)) {
+        for (const edit of body?.[key] ?? []) {
+            if (!edit?.id) continue;
+            ops.push(updater(edit.id, edit.data ?? {}));
+        }
+    }
+    await Promise.all(ops);
+
+    const full = await disaReportRepository.findReportWithEverything(reportId);
+    return toWireReport(full);
+}
+
+function deleteReport(reportId) {
+    return disaReportRepository.deleteReport(reportId);
+}
+
+function loadReportForAuth(id) {
+    return disaReportRepository.findReportForAuth(id);
 }
 
 async function saveEvents(date, shift, { significantEvent, maintenance, supervisorName }) {
@@ -218,6 +311,14 @@ async function getReportsForDate(date) {
     return disaReportRepository.findReportsForDate(String(date).trim());
 }
 
+// Keeps id (as _id)/createdAt/createdBy on every child row — EntryActions.jsx
+// needs all three (row._id to address the edit/delete endpoint, createdAt +
+// createdBy to compute the owner-only edit-window countdown client-side).
+// Only the internal disaReportId FK is dropped.
+function toWireChildRow({ id, disaReportId, ...r }) {
+    return { ...r, _id: id };
+}
+
 function toWireReport(report) {
     return {
         _id: report.id,
@@ -225,23 +326,35 @@ function toWireReport(report) {
         shift: report.shift,
         incharge: report.incharge,
         ppOperator: report.ppOperator,
+        // Report-page whole-entry edit/delete permission gating (mirrors
+        // sandRecordService.js#toWireDay's createdBy/createdAt).
+        createdBy: report.createdBy,
+        createdAt: report.createdAt,
         memberspresent: report.members.map((m) => m.name),
-        productionDetails: report.production.map(({ id, disaReportId, createdAt, ...r }) => r),
-        nextShiftPlan: report.nextShiftPlan.map(({ id, disaReportId, createdAt, ...r }) => r),
-        delays: report.delays.map(({ intervals, id, disaReportId, createdAt, ...r }) => ({
-            ...r,
-            durationMinutes: intervals.map((iv) => iv.durationMinutes),
-            fromTime: intervals.map((iv) => iv.fromTime),
-            toTime: intervals.map((iv) => iv.toTime),
-        })),
-        mouldHardness: report.mouldHardness.map(({ readings, id, disaReportId, createdAt, ...r }) => ({
-            ...r,
-            mpPP: readings.filter((rd) => rd.kind === 'mpPP').map((rd) => rd.fromValue),
-            mpSP: readings.filter((rd) => rd.kind === 'mpSP').map((rd) => rd.fromValue),
-            bsPP: readings.filter((rd) => rd.kind === 'bsPP').map((rd) => rd.fromValue),
-            bsSP: readings.filter((rd) => rd.kind === 'bsSP').map((rd) => rd.fromValue),
-        })),
-        patternTemperature: report.patternTemp.map(({ id, disaReportId, createdAt, ...r }) => r),
+        productionDetails: report.production.map(toWireChildRow),
+        nextShiftPlan: report.nextShiftPlan.map(toWireChildRow),
+        delays: report.delays.map(({ intervals, ...row }) => {
+            const { id, disaReportId, ...r } = row;
+            return {
+                ...r,
+                _id: id,
+                durationMinutes: intervals.map((iv) => iv.durationMinutes),
+                fromTime: intervals.map((iv) => iv.fromTime),
+                toTime: intervals.map((iv) => iv.toTime),
+            };
+        }),
+        mouldHardness: report.mouldHardness.map(({ readings, ...row }) => {
+            const { id, disaReportId, ...r } = row;
+            return {
+                ...r,
+                _id: id,
+                mpPP: readings.filter((rd) => rd.kind === 'mpPP').map((rd) => rd.fromValue),
+                mpSP: readings.filter((rd) => rd.kind === 'mpSP').map((rd) => rd.fromValue),
+                bsPP: readings.filter((rd) => rd.kind === 'bsPP').map((rd) => rd.fromValue),
+                bsSP: readings.filter((rd) => rd.kind === 'bsSP').map((rd) => rd.fromValue),
+            };
+        }),
+        patternTemperature: report.patternTemp.map(toWireChildRow),
         significantEvent: report.significantEvent,
         maintenance: report.maintenance,
         supervisorName: report.supervisorName,
@@ -304,4 +417,7 @@ module.exports = {
     getReportsForDate,
     getReportsInRange,
     repairShiftSplit,
+    updateReportEntries,
+    deleteReport,
+    loadReportForAuth,
 };

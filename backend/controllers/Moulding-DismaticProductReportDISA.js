@@ -22,19 +22,19 @@ exports.createDismaticReport = asyncHandler(async (req, res) => {
     let result;
     switch (section) {
         case 'production':
-            result = await disaReportService.saveProduction(date, shift, payload.productionTable);
+            result = await disaReportService.saveProduction(date, shift, payload.productionTable, req.user.id);
             break;
         case 'nextShiftPlan':
-            result = await disaReportService.saveNextShiftPlan(date, shift, payload.nextShiftPlanTable);
+            result = await disaReportService.saveNextShiftPlan(date, shift, payload.nextShiftPlanTable, req.user.id);
             break;
         case 'delays':
-            result = await disaReportService.saveDelays(date, shift, payload.delaysTable);
+            result = await disaReportService.saveDelays(date, shift, payload.delaysTable, req.user.id);
             break;
         case 'mouldHardness':
-            result = await disaReportService.saveMouldHardness(date, shift, payload.mouldHardnessTable);
+            result = await disaReportService.saveMouldHardness(date, shift, payload.mouldHardnessTable, req.user.id);
             break;
         case 'patternTemp':
-            result = await disaReportService.savePatternTemp(date, shift, payload.patternTempTable);
+            result = await disaReportService.savePatternTemp(date, shift, payload.patternTempTable, req.user.id);
             break;
         case 'events':
             result = await disaReportService.saveEvents(date, shift, payload);
@@ -44,6 +44,19 @@ exports.createDismaticReport = asyncHandler(async (req, res) => {
     }
 
     res.status(200).json({ success: true, message: result.message });
+});
+
+// Whole-report edit/delete (report page's single Edit/Save/Delete, not
+// per-row) — authorizeEntry (middleware) already resolved req.targetEntry via
+// loadReportForAuth in the route.
+exports.updateReport = asyncHandler(async (req, res) => {
+    const data = await disaReportService.updateReportEntries(req.targetEntry.id, req.body);
+    res.status(200).json({ success: true, data, message: 'Entry updated successfully.' });
+});
+
+exports.deleteReport = asyncHandler(async (req, res) => {
+    await disaReportService.deleteReport(req.targetEntry.id);
+    res.status(200).json({ success: true, message: 'Entry deleted successfully.' });
 });
 
 exports.getPrimaryDataByDateShift = asyncHandler(async (req, res) => {

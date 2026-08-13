@@ -31,3 +31,19 @@ exports.deleteDMMEntry = asyncHandler(async (req, res) => {
 
     res.status(200).json({ success: true, message: 'DMM entry deleted successfully.' });
 });
+
+exports.updateDMMMachineShift = asyncHandler(async (req, res) => {
+    await dmmLogService.updateMachineShift(req.targetEntry.id, req.body);
+
+    res.status(200).json({ success: true, message: 'Operator info updated successfully.' });
+});
+
+// EntryActions always offers Delete to admins alongside Edit — this clears
+// operatorName/checkedBy rather than deleting the DmmMachineShift row itself,
+// since that row is also the parent of every parameter entry for this shift
+// (onDelete: Cascade) and a real delete would wipe unrelated parameter data.
+exports.clearDMMMachineShift = asyncHandler(async (req, res) => {
+    await dmmLogService.updateMachineShift(req.targetEntry.id, { operatorName: '', checkedBy: '' });
+
+    res.status(200).json({ success: true, message: 'Operator info cleared successfully.' });
+});

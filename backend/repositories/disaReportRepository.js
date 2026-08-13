@@ -1,9 +1,9 @@
 const { prisma } = require('../database/prisma');
 
-function ensureReportRow(date, shift) {
+function ensureReportRow(date, shift, createdBy) {
     return prisma.disaReport.upsert({
         where: { date_shift: { date, shift } },
-        create: { date, shift },
+        create: { date, shift, createdBy: createdBy ?? null },
         update: {},
     });
 }
@@ -35,6 +35,19 @@ function findReportsInRange(from, to) {
         orderBy: [{ date: 'desc' }, { shift: 'asc' }],
         include: FULL_INCLUDE,
     });
+}
+
+function findReportWithEverything(id) {
+    return prisma.disaReport.findUnique({ where: { id }, include: FULL_INCLUDE });
+}
+
+function findReportForAuth(id) {
+    return prisma.disaReport.findUnique({ where: { id }, select: { id: true, createdBy: true, createdAt: true } });
+}
+
+function deleteReport(id) {
+    // All 5 child tables + members cascade via onDelete: Cascade.
+    return prisma.disaReport.delete({ where: { id } });
 }
 
 function updateReportFields(reportId, data) {
@@ -116,6 +129,7 @@ async function appendDelayRows(reportId, rows, startSNo) {
                 disaReportId: reportId,
                 sNo: startSNo + idx + 1,
                 delays: row.delays,
+                createdBy: row.createdBy ?? null,
                 intervals: { createMany: { data: row.intervals } },
             },
         }));
@@ -130,10 +144,36 @@ async function appendMouldHardnessRows(reportId, rows, startSNo) {
                 sNo: startSNo + idx + 1,
                 componentName: row.componentName,
                 remarks: row.remarks,
+                createdBy: row.createdBy ?? null,
                 readings: { createMany: { data: row.readings } },
             },
         }));
     return prisma.$transaction(creates);
+}
+
+// ── per-row edit (whole-report PUT, disaReportService.js#updateReportEntries) ─
+// Delays/MouldHardness expose only their own scalar columns here — the
+// parallel-array child rows (intervals/readings) have no generic multi-array
+// edit UI on the frontend yet, so they stay create-only for this pass.
+
+function updateProductionEntry(id, data) {
+    return prisma.disaProductionEntry.update({ where: { id }, data });
+}
+
+function updateNextShiftPlanEntry(id, data) {
+    return prisma.disaNextShiftPlanEntry.update({ where: { id }, data });
+}
+
+function updateDelayEntry(id, data) {
+    return prisma.disaDelayEntry.update({ where: { id }, data });
+}
+
+function updateMouldHardnessEntry(id, data) {
+    return prisma.disaMouldHardnessEntry.update({ where: { id }, data });
+}
+
+function updatePatternTempEntry(id, data) {
+    return prisma.disaPatternTempEntry.update({ where: { id }, data });
 }
 
 module.exports = {
@@ -141,6 +181,9 @@ module.exports = {
     findReportRow,
     findReportsForDate,
     findReportsInRange,
+    findReportWithEverything,
+    findReportForAuth,
+    deleteReport,
     updateReportFields,
     replaceMembers,
     countSection,
@@ -152,4 +195,9 @@ module.exports = {
     appendSimpleRows,
     appendDelayRows,
     appendMouldHardnessRows,
+    updateProductionEntry,
+    updateNextShiftPlanEntry,
+    updateDelayEntry,
+    updateMouldHardnessEntry,
+    updatePatternTempEntry,
 };

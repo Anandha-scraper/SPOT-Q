@@ -4,10 +4,10 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const { ping } = require('./database/prisma');
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PROD_SPOT_Q_PORT;
 app.set('trust proxy', 1);
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: process.env.PROD_SPOT_Q_FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

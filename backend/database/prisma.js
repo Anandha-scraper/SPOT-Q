@@ -1,8 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { PrismaMssql } = require('@prisma/adapter-mssql');
 const buildClient = () => {
-    const adapter = new PrismaMssql(process.env.DATABASE_URL);
-
+    const adapter = new PrismaMssql(process.env.PROD_SPOT_Q_DATABASE_URL);
     return new PrismaClient({
         adapter,
         omit: { user: { passwordHash: true } },

@@ -12,16 +12,16 @@ function describe(label, user) {
 }
 
 async function main() {
-    const employeeId = (process.env.ADMIN_ID || '').trim().toUpperCase();
-    const name = (process.env.ADMIN_NAME || 'Administrator').trim();
-    const password = process.env.ADMIN_PASSWORD;
-    const allowReset = process.env.ADMIN_RESET_PASSWORD === 'true';
+    const employeeId = (process.env.PROD_SPOT_Q_ADMIN_ID || '').trim().toUpperCase();
+    const name = (process.env.PROD_SPOT_Q_ADMIN_NAME || 'Administrator').trim();
+    const password = process.env.PROD_SPOT_Q_ADMIN_PASSWORD;
+    const allowReset = process.env.PROD_SPOT_Q_ADMIN_RESET_PASSWORD === 'true';
     if (!employeeId || !password) {
-        console.error('Missing required env vars: ADMIN_ID, ADMIN_PASSWORD');
+        console.error('Missing required env vars: PROD_SPOT_Q_ADMIN_ID, PROD_SPOT_Q_ADMIN_PASSWORD');
         process.exit(1);
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-        console.error(`ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+        console.error(`PROD_SPOT_Q_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`);
         process.exit(1);
     }
     const existing = await prisma.user.findUnique({ where: { employeeId } });
@@ -32,14 +32,14 @@ async function main() {
         const otherAdmin = await prisma.user.findFirst({ where: { role: ROLES.ADMIN } });
         if (otherAdmin) {
             console.error(`An admin already exists: ${otherAdmin.employeeId}. Only one admin is allowed.`);
-            console.error(`Set ADMIN_ID=${otherAdmin.employeeId} to manage that account instead.`);
+            console.error(`Set PROD_SPOT_Q_ADMIN_ID=${otherAdmin.employeeId} to manage that account instead.`);
             process.exit(1);
         }
     }
 
     if (existing && !allowReset) {
         describe('Admin already exists — no changes made.', existing);
-        console.log('  (set ADMIN_RESET_PASSWORD=true to overwrite the password)');
+        console.log('  (set PROD_SPOT_Q_ADMIN_RESET_PASSWORD=true to overwrite the password)');
         return;
     }
     const passwordHash = await hashPassword(password);

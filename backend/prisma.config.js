@@ -11,6 +11,6 @@ module.exports = defineConfig({
   datasource: {
     // SQL Server has no pooler/session split, so the CLI and the runtime adapter share one
     // connection string. (Supabase needed a separate DIRECT_URL here; that no longer applies.)
-    url: env('DATABASE_URL'),
+    url: env('PROD_SPOT_Q_DATABASE_URL'),
   },
 });

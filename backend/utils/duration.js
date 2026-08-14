@@ -33,7 +33,7 @@ function parseDurationMs(value, fallbackMs) {
 const DEFAULT_EDIT_WINDOW_MS = 60 * 60 * 1000;
 
 function getEditWindowMs() {
-    return parseDurationMs(process.env.EDIT_TIME, DEFAULT_EDIT_WINDOW_MS);
+    return parseDurationMs(process.env.PROD_SPOT_Q_EDIT_TIME, DEFAULT_EDIT_WINDOW_MS);
 }
 
 module.exports = { parseDurationMs, getEditWindowMs, DEFAULT_EDIT_WINDOW_MS };

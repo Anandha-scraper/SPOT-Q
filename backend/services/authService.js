@@ -37,7 +37,7 @@ async function login({ employeeId, password, ip, userAgent }) {
     }
 
     const token = generateToken(user.id);
-    const expiresInMs = parseDurationMs(process.env.JWT_EXPIRE, DEFAULT_JWT_EXPIRE_MS);
+    const expiresInMs = parseDurationMs(process.env.PROD_SPOT_Q_JWT_EXPIRE, DEFAULT_JWT_EXPIRE_MS);
 
     try {
         await loginActivityRepository.create({

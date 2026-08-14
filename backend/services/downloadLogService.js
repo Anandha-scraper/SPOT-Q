@@ -2,8 +2,8 @@ const downloadLogRepository = require('../repositories/downloadLogRepository');
 
 // Per-user retention cap for DownloadLog, unlike LOGIN_HISTORY_KEEP this is
 // env-configurable since ops may want a different download-log retention
-// window per deployment. Falls back to 200 if DLOG is unset or non-numeric.
-const DOWNLOAD_LOG_KEEP = Number(process.env.DLOG);
+// window per deployment. Falls back to 200 if PROD_SPOT_Q_DLOG is unset or non-numeric.
+const DOWNLOAD_LOG_KEEP = Number(process.env.PROD_SPOT_Q_DLOG);
 
 function listMyLogs(userId) {
     return downloadLogRepository.findByUser(userId);

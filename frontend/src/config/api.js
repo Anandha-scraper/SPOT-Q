@@ -1,5 +1,5 @@
-// Relative by default so the Vite proxy forwards requests; set VITE_API_BASE for an absolute production URL.
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+// Absolute backend URL, set at build time (see vite.config.js / VITE_PROD_SPOT_Q_API_BASE).
+const API_BASE = import.meta.env.VITE_PROD_SPOT_Q_API_BASE ?? '';
 // Helper to build URLs — works in both dev (proxy) and production (absolute)
 export const buildApiUrl = (path) => `${API_BASE}${path}`;
 

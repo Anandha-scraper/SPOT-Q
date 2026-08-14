@@ -27,10 +27,10 @@ function parseDurationMs(value, fallbackMs) {
     return parseInt(match[1], 10) * UNIT_MS[match[2]];
 }
 function getEditWindowMs() {
-    if (!process.env.EDIT_TIME) {
-        throw new Error('EDIT_TIME env var is required (e.g. "1h", "30min", "3600").');
+    if (!process.env.PROD_SPOT_Q_EDIT_TIME) {
+        throw new Error('PROD_SPOT_Q_EDIT_TIME env var is required (e.g. "1h", "30min", "3600").');
     }
-    return parseDurationMs(process.env.EDIT_TIME);
+    return parseDurationMs(process.env.PROD_SPOT_Q_EDIT_TIME);
 }
 
 module.exports = { parseDurationMs, getEditWindowMs };

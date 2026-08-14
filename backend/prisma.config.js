@@ -9,7 +9,6 @@ module.exports = defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    // Migrations need a real session, not the :6543 transaction pooler — see backend.md.
-    url: process.env.DIRECT_URL || env('DATABASE_URL'),
+    url: env('PROD_SPOT_Q_PG_HOST'),
   },
 });

@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const buildClient = () => {
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg({ connectionString: process.env.PROD_SPOT_Q_PG_HOST });
     return new PrismaClient({
         adapter,
         omit: { user: { passwordHash: true } },

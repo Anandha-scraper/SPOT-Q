@@ -26,6 +26,17 @@ async function main() {
     }
     const existing = await prisma.user.findUnique({ where: { employeeId } });
 
+    // Only one admin account is allowed. If an admin already exists under a different
+    // employeeId, refuse rather than silently creating a second one.
+    if (!existing) {
+        const otherAdmin = await prisma.user.findFirst({ where: { role: ROLES.ADMIN } });
+        if (otherAdmin) {
+            console.error(`An admin already exists: ${otherAdmin.employeeId}. Only one admin is allowed.`);
+            console.error(`Set ADMIN_ID=${otherAdmin.employeeId} to manage that account instead.`);
+            process.exit(1);
+        }
+    }
+
     if (existing && !allowReset) {
         describe('Admin already exists — no changes made.', existing);
         console.log('  (set ADMIN_RESET_PASSWORD=true to overwrite the password)');

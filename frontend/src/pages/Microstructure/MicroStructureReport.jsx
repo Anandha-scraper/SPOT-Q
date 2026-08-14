@@ -170,14 +170,13 @@ const MicroStructureReport = () => {
     return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
   };
 
-  // Helper for range display
+  // Helper for range display. 0 is the "not entered" sentinel for these NOT
+  // NULL columns (see microStructureService.js's NO_VALUE substitution).
   const renderRange = (min, max) => {
-    if (min !== undefined && min !== null && max !== undefined && max !== null) {
-      return `${min} - ${max}`;
-    } else if (min !== undefined && min !== null) {
-      return min;
-    }
-    return '-';
+    const hasMin = min !== undefined && min !== null && min !== 0;
+    const hasMax = max !== undefined && max !== null && max !== 0;
+    if (!hasMin && !hasMax) return '-';
+    return `${hasMin ? min : '-'} - ${hasMax ? max : '-'}`;
   };
 
   // Sort entries by date descending, then by disa
@@ -434,8 +433,8 @@ const MicroStructureReport = () => {
                       <td>{item.partName || '-'}</td>
                       <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
                       <td>{item.heatCode || '-'}</td>
-                      <td className={devClass('Nodularity %', item.nodularity)}>{item.nodularity !== undefined && item.nodularity !== null ? item.nodularity : '-'}</td>
-                      <td>{item.graphiteType !== undefined && item.graphiteType !== null ? item.graphiteType : '-'}</td>
+                      <td className={devClass('Nodularity %', item.nodularity)}>{item.nodularity || '-'}</td>
+                      <td>{item.graphiteType || '-'}</td>
                       <td className={devClassRange('Count Range', item.countMin, item.countMax)}>{renderRange(item.countMin, item.countMax)}</td>
                       <td className={devClassRange('Size Range', item.sizeMin, item.sizeMax)}>{renderRange(item.sizeMin, item.sizeMax)}</td>
                       <td className={devClassRange('Ferrite Range %', item.ferriteMin, item.ferriteMax)}>{renderRange(item.ferriteMin, item.ferriteMax)}</td>

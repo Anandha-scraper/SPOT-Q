@@ -1,5 +1,4 @@
-// Express 4 doesn't catch async rejections — wraps a handler so services can throw AppError with a real status.
+//Delivers the result of an async function to Express , catching any errors.
 const asyncHandler = (fn) => (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch(next);
-
 module.exports = { asyncHandler };

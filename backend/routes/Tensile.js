@@ -5,7 +5,8 @@ const {
     filterEntries,
     createEntry,
     updateEntry,
-    deleteEntry
+    deleteEntry,
+    getItemNames
 } = require('../controllers/Tensile');
 const { authorizeEntry } = require('../middleware/entryAccess');
 const { loadEntryForAuth } = require('../services/tensileService');
@@ -19,6 +20,9 @@ router.route('/')
 
 router.route('/filter')
     .get(filterEntries);
+
+router.route('/item-names')
+    .get(getItemNames);
 
 // Declared after the static paths so '/filter' isn't swallowed by ':id'.
 router.route('/:id')

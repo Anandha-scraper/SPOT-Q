@@ -113,6 +113,22 @@ function findAllMachineShifts() {
     });
 }
 
+// Mirrors disaReportRepository.js#findDistinctFieldValues — same distinct/
+// date-cutoff shape, different two-level relation path (entry -> machineShift
+// -> dmmLog.date, a String 'YYYY-MM-DD' compared as a plain string).
+async function findDistinctFieldValues(model, field, cutoffDate) {
+    const rows = await prisma[model].findMany({
+        where: {
+            [field]: { notIn: ['', '-'] },
+            machineShift: { dmmLog: { date: { gte: cutoffDate } } },
+        },
+        distinct: [field],
+        select: { [field]: true },
+        orderBy: { [field]: 'asc' },
+    });
+    return rows.map((row) => row[field]);
+}
+
 module.exports = {
     ensureDateRow,
     findDateRow,
@@ -128,4 +144,5 @@ module.exports = {
     deleteEntry,
     findMachineShiftsForLog,
     findAllMachineShifts,
+    findDistinctFieldValues,
 };

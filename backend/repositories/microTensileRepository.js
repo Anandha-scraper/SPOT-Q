@@ -80,6 +80,18 @@ function saveDisa(microTensileId, disa) {
     });
 }
 
+// Mirrors microStructureRepository.js#findDistinctFieldValues — single-model
+// department, so no `model` param needed, just the field name.
+async function findDistinctFieldValues(field, cutoffDate) {
+    const rows = await prisma.microTensileEntry.findMany({
+        where: { [field]: { notIn: ['', '-'] }, microTensile: { date: { gte: cutoffDate } } },
+        distinct: [field],
+        select: { [field]: true },
+        orderBy: { [field]: 'asc' },
+    });
+    return rows.map((row) => row[field]);
+}
+
 module.exports = {
     ensureDateRow,
     findDateRow,
@@ -93,4 +105,5 @@ module.exports = {
     deleteEntry,
     isDisaSaved,
     saveDisa,
+    findDistinctFieldValues,
 };

@@ -18,6 +18,12 @@ exports.filterEntries = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, count: data.length, data });
 });
 
+// `data` must be an array of plain strings — mirrors MicroStructure's getPartNames.
+exports.getItemNames = asyncHandler(async (req, res) => {
+    const names = await microTensileService.listItemNames();
+    res.status(200).json({ success: true, count: names.length, data: names });
+});
+
 exports.checkDateDisaEntries = asyncHandler(async (req, res) => {
     const { date, disa } = req.query;
     const result = await microTensileService.checkPrimary({ date, disa });

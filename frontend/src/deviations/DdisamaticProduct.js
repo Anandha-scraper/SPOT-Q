@@ -7,47 +7,47 @@ export const validationRanges = [
   // Primary
   { field: 'Date', required: true, type: 'Date', pattern: 'DD/MM/YYYY', description: 'Select a valid date. Cannot be in the future.' },
   { field: 'Shift', required: true, type: 'Select', allowedValues: ['Shift 1', 'Shift 2', 'Shift 3'], description: 'Select the current shift' },
-  { field: 'Incharge', required: false, type: 'Text', description: 'Name of the shift incharge' },
-  { field: 'PP Operator', required: false, type: 'Text', description: 'Name of the PP operator' },
-  { field: 'Members Present', required: false, type: 'Text', maxRows: 4, description: 'Up to 4 members can be added' },
+  { field: 'Incharge',  type: 'Text', description: 'Name of the shift incharge' },
+  { field: 'PP Operator',  type: 'Text', description: 'Name of the PP operator' },
+  { field: 'Members Present',  type: 'Text', maxRows: 4, description: 'Up to 4 members can be added' },
 
   // Production table
-  { field: 'Counter No', required: true, type: 'Text', description: 'Enter counter number' },
-  { field: 'Component Name', required: true, type: 'Text', description: 'Name of the component produced' },
-  { field: 'Produced', required: true, type: 'Number', min: 0, description: 'Number of moulds produced' },
-  { field: 'Poured', required: true, type: 'Number', min: 0, description: 'Number of moulds poured' },
-  { field: 'Cycle Time', required: true, type: 'Text', description: 'Cycle time for production' },
-  { field: 'Moulds/Hour', required: true, type: 'Number', min: 0, description: 'Number of moulds per hour' },
-  { field: 'Remarks (Production)', required: true, type: 'Text', description: 'Production remarks' },
+  { field: 'Counter No', type: 'Text', description: 'Enter counter number' },
+  { field: 'Component Name', type: 'Text', description: 'Name of the component produced' },
+  { field: 'Produced', type: 'Number', min: 0, description: 'Number of moulds produced' },
+  { field: 'Poured', type: 'Number', min: 0, description: 'Number of moulds poured' },
+  { field: 'Cycle Time', type: 'Text', description: 'Cycle time for production' },
+  { field: 'Moulds/Hour', type: 'Number', min: 0, description: 'Number of moulds per hour' },
+  { field: 'Remarks (Production)', type: 'Text', description: 'Production remarks' },
 
   // Next shift plan
-  { field: 'Component Name (Plan)', required: true, type: 'Text', description: 'Component planned for next shift' },
-  { field: 'Planned Moulds', required: true, type: 'Number', min: 0, description: 'Number of moulds planned' },
-  { field: 'Remarks (Plan)', required: true, type: 'Text', description: 'Planning remarks' },
+  { field: 'Component Name (Plan)', type: 'Text', description: 'Component planned for next shift' },
+  { field: 'Planned Moulds', type: 'Number', min: 0, description: 'Number of moulds planned' },
+  { field: 'Remarks (Plan)', type: 'Text', description: 'Planning remarks' },
 
   // Delays
-  { field: 'Delay Reason', required: true, type: 'Text', description: 'Description of the delay' },
-  { field: 'Duration (Minutes)', required: true, type: 'NumberArray', min: 1, max: 30, unit: 'min', description: 'Duration cannot exceed 30 minutes per entry' },
-  { field: 'From Time', required: true, type: 'Time', pattern: 'HH:MM AM/PM', description: 'Start time of delay' },
-  { field: 'To Time', required: true, type: 'Time', pattern: 'HH:MM AM/PM', description: 'End time of delay' },
+  { field: 'Delay Reason', type: 'Text', description: 'Description of the delay' },
+  { field: 'Duration (Minutes)', type: 'NumberArray', min: 1, max: 30, unit: 'min', description: 'Duration cannot exceed 30 minutes per entry' },
+  { field: 'From Time', type: 'Time', pattern: 'HH:MM AM/PM', description: 'Start time of delay' },
+  { field: 'To Time', type: 'Time', pattern: 'HH:MM AM/PM', description: 'End time of delay' },
 
   // Mould hardness — each cell holds one or more single readings.
-  { field: 'Component Name (Hardness)', required: true, type: 'Text', description: 'Component name for hardness test' },
-  { field: 'Mould Penetrant (PP)', required: true, type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the PP side; add more as needed' },
-  { field: 'Mould Penetrant (SP)', required: true, type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the SP side; add more as needed' },
-  { field: 'B-Scale (PP)', required: true, type: 'Number', description: 'One reading per entry for the PP side; add more as needed' },
-  { field: 'B-Scale (SP)', required: true, type: 'Number', description: 'One reading per entry for the SP side; add more as needed' },
-  { field: 'Remarks (Hardness)', required: false, type: 'Text', description: 'Hardness test remarks' },
+  { field: 'Component Name (Hardness)', type: 'Text', description: 'Component name for hardness test' },
+  { field: 'Mould Penetrant (PP)', type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the PP side; add more as needed' },
+  { field: 'Mould Penetrant (SP)', type: 'Number', unit: 'N/cm²', description: 'One reading per entry for the SP side; add more as needed' },
+  { field: 'B-Scale (PP)', type: 'Number', description: 'One reading per entry for the PP side; add more as needed' },
+  { field: 'B-Scale (SP)', type: 'Number', description: 'One reading per entry for the SP side; add more as needed' },
+  { field: 'Remarks (Hardness)', type: 'Text', description: 'Hardness test remarks' },
 
   // Pattern temperature
-  { field: 'Item', required: true, type: 'Text', description: 'Name of the pattern item' },
-  { field: 'PP (Temp)', required: true, type: 'Number', description: 'PP side temperature value' },
-  { field: 'SP (Temp)', required: true, type: 'Number', description: 'SP side temperature value' },
+  { field: 'Item', type: 'Text', description: 'Name of the pattern item' },
+  { field: 'PP (Temp)', type: 'Number', description: 'PP side temperature value' },
+  { field: 'SP (Temp)', type: 'Number', description: 'SP side temperature value' },
 
   // Events & maintenance
-  { field: 'Significant Event', required: false, type: 'Text', description: 'Any significant events during the shift' },
-  { field: 'Maintenance', required: false, type: 'Text', description: 'Maintenance activities or needs' },
-  { field: 'Supervisor Name', required: false, type: 'Text', description: 'Name of the supervisor' },
+  { field: 'Significant Event', type: 'Text', description: 'Any significant events during the shift' },
+  { field: 'Maintenance', type: 'Text', description: 'Maintenance activities or needs' },
+  { field: 'Supervisor Name', type: 'Text', description: 'Name of the supervisor' },
 ];
 
 // This form is sectioned, and each table's rows are validated one row at a time

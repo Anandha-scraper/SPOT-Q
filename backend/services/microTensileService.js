@@ -14,10 +14,13 @@ const NUMERIC_FIELDS = [
     'tensileStrength', 'yieldStrength', 'elongation',
 ];
 
-const REQUIRED_FIELDS = [
-    'disa', 'itemIt1', 'dateCode', 'heatCode',
-    ...NUMERIC_FIELDS,
-];
+const REQUIRED_FIELDS = ['disa', 'itemIt1', 'dateCode'];
+
+// The 7 NUMERIC_FIELDS are Float @db columns with no default (NOT NULL) —
+// buildColumns maps a blank optional field to null, which Prisma rejects.
+// Substituted to 0 here, mirroring microStructureService.js's MAX_FIELDS/
+// NO_VALUE handling for the same NOT-NULL-no-default shape.
+const NO_VALUE = 0;
 
 const PROTECTED_ON_UPDATE = [
     'id', '_id', 'microTensileId', 'createdBy', 'createdAt', 'updatedAt', 'date',
@@ -56,6 +59,10 @@ function buildEntryData(source) {
         numbers: NUMERIC_FIELDS,
     });
 
+    for (const field of NUMERIC_FIELDS) {
+        if (data[field] === null) data[field] = NO_VALUE;
+    }
+
     if (invalid.length) throw invalidInput(toWireFields(invalid));
 
     return data;
@@ -68,6 +75,14 @@ async function listEntries({ from, to, disa } = {}) {
 
 function filterEntries({ startDate, endDate }) {
     return listEntries({ from: startDate, to: endDate || startDate });
+}
+
+const ITEM_NAME_WINDOW_DAYS = 90;
+
+function listItemNames() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ITEM_NAME_WINDOW_DAYS);
+    return microTensileRepository.findDistinctFieldValues('itemIt1', cutoff.toISOString().split('T')[0]);
 }
 
 async function checkPrimary({ date, disa }) {
@@ -168,6 +183,7 @@ function loadEntryForAuth(id) {
 module.exports = {
     listEntries,
     filterEntries,
+    listItemNames,
     checkPrimary,
     savePrimary,
     createEntry,

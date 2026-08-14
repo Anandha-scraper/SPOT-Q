@@ -18,6 +18,12 @@ exports.filterEntries = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, count: data.length, data });
 });
 
+// `data` must be an array of plain strings — mirrors MicroStructure's getPartNames.
+exports.getItemNames = asyncHandler(async (req, res) => {
+    const names = await tensileService.listItemNames();
+    res.status(200).json({ success: true, count: names.length, data: names });
+});
+
 exports.createEntry = asyncHandler(async (req, res) => {
     const entry = await tensileService.createEntry(req.body ?? {}, req.user.id);
 

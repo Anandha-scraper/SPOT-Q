@@ -60,7 +60,7 @@ const MONTH_NAMES = [
   "December",
 ];
 
-// Admin Entry Trends graph departments — Sand Lab/Moulding DISA excluded (table-based); mock data until backend wiring lands (see backend.md's stats Open Item).
+// Admin Entry Trends graph departments — Sand Lab/Moulding DISA excluded (table-based; DISA gets its own line only on the Moulding user's mouldingChart below, not here).
 const ADMIN_DEPARTMENTS = [
   "Melting · Log Sheet",
   "Melting · Cupola Holder",
@@ -87,6 +87,10 @@ const DEPT_COLORS = [
   "#4f46e5",
   "#0d9488",
 ];
+
+// Moulding's own two-line chart (see mouldingChart below) — DMM's color matches
+// its line in the admin chart (DEPT_COLORS[2]) for visual continuity.
+const MOULDING_LINE_COLORS = { Disamatic: "#0d9488", DMM: "#2563eb" };
 
 // Convert a #rrggbb color to an rgba() string with the given alpha.
 const transparentize = (hex, alpha) => {
@@ -453,6 +457,107 @@ const UserProfile = () => {
     };
   }, [adminStats]);
 
+  // ---- Moulding's own two-line (Disamatic/DMM) chart ----
+  // Same visual pattern as adminChart, but scoped to Moulding's own two
+  // sub-departments and with a per-shift breakdown in the tooltip instead of
+  // admin's per-department one — see entryStats.series (statsService.js's
+  // Moulding special-case in getPersonalStats).
+  const mouldingChart = useMemo(() => {
+    const nowDate = new Date();
+    const year = entryStats?.year || nowDate.getFullYear();
+    const month = entryStats?.month || nowDate.getMonth() + 1; // 1-based
+    const daysInMonth =
+      entryStats?.daysInMonth || new Date(year, month, 0).getDate();
+    const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const seriesByLabel = {};
+    (entryStats?.series || []).forEach((s) => {
+      const map = {};
+      (s.counts || []).forEach((c) => {
+        map[c.day] = c;
+      });
+      seriesByLabel[s.label] = map;
+    });
+
+    const shiftTotal = (c) => (c ? c.shift1 + c.shift2 + c.shift3 : 0);
+
+    const datasets = ["Disamatic", "DMM"].map((label) => {
+      const map = seriesByLabel[label] || {};
+      const color = MOULDING_LINE_COLORS[label];
+      return {
+        label,
+        data: labels.map((day) => shiftTotal(map[day])),
+        borderColor: color,
+        backgroundColor: transparentize(color, 0.5),
+        tension: 0.35,
+        borderWidth: 2,
+        pointRadius: 2,
+      };
+    });
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animations: {
+        radius: {
+          duration: 400,
+          easing: "linear",
+          loop: (context) => context.active,
+        },
+      },
+      elements: {
+        point: { hoverRadius: 12, hoverBackgroundColor: "yellow" },
+      },
+      // index+intersect:false (not admin's nearest+intersect:true) — hovering
+      // anywhere on a day's column shows both lines' shift breakdown together,
+      // rather than relying on two lines coincidentally sharing a pixel.
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: (items) =>
+              `Day ${items[0].label} · ${MONTH_NAMES[month - 1]}`,
+            label: (item) => {
+              const c = seriesByLabel[item.dataset.label]?.[item.label];
+              return [
+                item.dataset.label,
+                `  Shift I: ${c?.shift1 || 0}`,
+                `  Shift II: ${c?.shift2 || 0}`,
+                `  Shift III: ${c?.shift3 || 0}`,
+              ];
+            },
+          },
+        },
+        legend: {
+          position: "top",
+          labels: {
+            boxWidth: 12,
+            boxHeight: 12,
+            font: { size: 10 },
+            padding: 8,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#64748b", font: { size: 10 } },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#64748b", precision: 0 },
+          grid: { color: "#eef2f6" },
+        },
+      },
+    };
+
+    return {
+      data: { labels, datasets },
+      options,
+      title: `${MONTH_NAMES[month - 1]} ${year}`,
+    };
+  }, [entryStats]);
+
   // Filter admin chart datasets to only the checked departments
   const filteredAdminChartData = useMemo(() => {
     if (checkedDepts.size === 0) return { ...adminChart.data, datasets: [] };
@@ -686,14 +791,14 @@ const UserProfile = () => {
               {isAdmin
                 ? "Department Entry Trends"
                 : isMoulding
-                  ? "DMM Entries This Month"
+                  ? "Moulding Entries This Month"
                   : "Entries This Month"}
             </span>
             <span className="up-head-sub">
               {isAdmin
                 ? `${adminChart.title} · daily entries`
                 : isMoulding
-                  ? `${chart.title} · DMM settings entries per day`
+                  ? `${mouldingChart.title} · entries per shift`
                   : `${chart.title} · entries per day`}
             </span>
             <button
@@ -756,6 +861,8 @@ const UserProfile = () => {
                 data={filteredAdminChartData}
                 options={adminChart.options}
               />
+            ) : isMoulding ? (
+              <Line data={mouldingChart.data} options={mouldingChart.options} />
             ) : (
               <Bar data={chart.data} options={chart.options} />
             )}

@@ -8,7 +8,8 @@ const {
     savePrimary,
     createEntry,
     updateEntry,
-    deleteEntry
+    deleteEntry,
+    getPartNames
 } = require('../controllers/MicroStructure');
 const { authorizeEntry } = require('../middleware/entryAccess');
 const { loadEntryForAuth } = require('../services/microStructureService');
@@ -25,6 +26,9 @@ router.route('/filter')
 
 router.route('/last-disa')
     .get(getLastDisa);
+
+router.route('/part-names')
+    .get(getPartNames);
 
 router.route('/check')
     .get(checkDateDisaEntries);

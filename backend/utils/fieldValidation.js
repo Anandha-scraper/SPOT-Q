@@ -1,7 +1,5 @@
 const { AppError } = require('./AppError');
-
 const INVALID = Symbol('invalid');
-
 const isMissing = (value) =>
     value === undefined || value === null || String(value).trim() === '';
 
@@ -73,18 +71,4 @@ const requireEditableFields = (data) => {
     }
 };
 
-module.exports = {
-    INVALID,
-    isMissing,
-    isNotRecorded,
-    toNullableNumber,
-    toNullableInt,
-    toRawString,
-    toTrimmedString,
-    collectMissing,
-    failsPattern,
-    buildColumns,
-    invalidInput,
-    requireDateAndDisa,
-    requireEditableFields,
-};
+module.exports = { INVALID, isMissing, isNotRecorded, toNullableNumber, toNullableInt, toRawString, toTrimmedString, collectMissing, failsPattern, buildColumns, invalidInput, requireDateAndDisa, requireEditableFields,};

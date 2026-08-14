@@ -24,6 +24,12 @@ exports.getLastDisa = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, lastDisa });
 });
 
+// `data` must be an array of plain strings — mirrors Disamatic's getComponentNames.
+exports.getPartNames = asyncHandler(async (req, res) => {
+    const names = await microStructureService.listPartNames();
+    res.status(200).json({ success: true, count: names.length, data: names });
+});
+
 exports.checkDateDisaEntries = asyncHandler(async (req, res) => {
     const { date, disa } = req.query;
     const result = await microStructureService.checkPrimary({ date, disa });

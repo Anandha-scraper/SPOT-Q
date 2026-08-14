@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { BookOpenCheck, PencilLine, Save, X, Trash2 } from 'lucide-react';
 import { FilterButton, ClearButton, DeviationToggleButton, ShiftDropdown, EntryNavigator, ExcelDownloadButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
@@ -8,8 +9,11 @@ import { exportWorkbookToExcel, getExportRange, MAX_EXPORT_DAYS } from '../../ut
 import { API_ENDPOINTS } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { isDeviant } from '../../utils/formValidation';
+import { formatRemaining } from '../../utils/formatDateTime';
+import { useArrowNavigation } from '../../utils/arrowNavigation';
 import { validationRanges, HARDNESS_READING_RULES } from '../../deviations/DdisamaticProduct';
 import '../../styles/ComponentStyles/Table.css';
+import '../../styles/ComponentStyles/EntryActions.css';
 import '../../styles/PageStyles/Moulding/DisamaticProductReport.css';
 
 const navButtonStyle = (disabled) => ({
@@ -19,9 +23,14 @@ const navButtonStyle = (disabled) => ({
   cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '0.8rem'
 });
 
+// Below this much time left, tick every second so the countdown reads
+// accurately (mirrors EntryActions.jsx's per-row edit-tooltip countdown).
+const FINE_TICK_THRESHOLD_MS = 2 * 60 * 1000;
+
 const DisamaticProductReport = () => {
   const { toast } = useToast();
   const { isAdmin, user, editWindowMs } = useAuth();
+  const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
   const [showDeviations, setShowDeviations] = useState(false);
   const ruleByField = useMemo(() => {
     const map = {};
@@ -66,6 +75,10 @@ const DisamaticProductReport = () => {
       shift: item.shift || '-',
       incharge: item.incharge || '-',
       ppOperator: item.ppOperator || '-',
+      // Raw (no '-' display substitution) values for the inline-edit inputs —
+      // editing the dash character itself would be wrong.
+      inchargeRaw: item.incharge || '',
+      ppOperatorRaw: item.ppOperator || '',
       // Report-page whole-entry edit/delete permission gating (EntryActions.jsx-style).
       createdBy: item.createdBy,
       createdAt: item.createdAt,
@@ -93,6 +106,12 @@ const DisamaticProductReport = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Row-level delete (one table row, not the whole entry) — its own
+  // immediate action with its own confirm dialog, not folded into the
+  // batched `edits` map, so Cancel on the page never has to "undo" a row
+  // deletion the user already separately confirmed.
+  const [confirmDeleteRow, setConfirmDeleteRow] = useState(null);
+  const [deletingRow, setDeletingRow] = useState(false);
 
   useEffect(() => {
     setEditMode(false);
@@ -126,6 +145,34 @@ const DisamaticProductReport = () => {
   };
   const canDeleteEntry = () => isAdmin;
 
+  // Hover countdown on the Edit button showing remaining edit time — pieces
+  // ported from EntryActions.jsx's per-row pencil tooltip (that component
+  // opens a modal per row, a different interaction model than this page's
+  // whole-entry inline edit, so only the tooltip mechanics are reused).
+  const [now, setNow] = useState(() => Date.now());
+  const [editTooltipAnchor, setEditTooltipAnchor] = useState(null);
+  const editPencilRef = useRef(null);
+
+  const editCreatedAtMs = currentEntry?.createdAt ? new Date(currentEntry.createdAt).getTime() : null;
+  const editIsOwner = currentEntry?.createdBy && user?.id && String(currentEntry.createdBy) === String(user.id);
+  const editRemainingMs = !isAdmin && editIsOwner && editCreatedAtMs ? editWindowMs - (now - editCreatedAtMs) : null;
+  const editIsOwnerWithinWindow = editRemainingMs !== null && editRemainingMs > 0;
+  const editIsHovering = editTooltipAnchor !== null;
+  const editTickMs = editRemainingMs !== null && (editRemainingMs <= FINE_TICK_THRESHOLD_MS || editIsHovering) ? 1000 : 30000;
+
+  useEffect(() => {
+    if (!editIsOwnerWithinWindow) return undefined;
+    const id = setInterval(() => setNow(Date.now()), editTickMs);
+    return () => clearInterval(id);
+  }, [editIsOwnerWithinWindow, editTickMs]);
+
+  const editTooltipText = isAdmin ? 'Admin — no time limit' : `Editable for ${formatRemaining(editRemainingMs)}`;
+  const showEditTooltip = () => {
+    const rect = editPencilRef.current?.getBoundingClientRect();
+    if (rect) setEditTooltipAnchor({ x: rect.left + rect.width / 2, y: rect.top });
+  };
+  const hideEditTooltip = () => setEditTooltipAnchor(null);
+
   const EDITABLE_FIELDS_BY_TABLE = {
     productionTable: ['counterNo', 'componentName', 'cycleTime', 'remarks', 'produced', 'poured', 'mouldsPerHour'],
     nextShiftPlanTable: ['componentName', 'remarks', 'plannedMoulds'],
@@ -157,6 +204,65 @@ const DisamaticProductReport = () => {
       });
       payload[EDIT_KEY_BY_TABLE[table]] = out;
     }
+
+    // Delays' durationMinutes/fromTime/toTime are an inherently coupled
+    // triple per index, not simple scalar cells — resend the full resulting
+    // arrays for a row whenever any one of the three was touched (same
+    // "resend the full array" approach used for Members Present), merging
+    // into whatever the generic scalar loop above already queued for that
+    // row's `delays` field.
+    (currentEntry?.delaysTable || []).forEach((row) => {
+      if (!row._id || row.isTotalRow) return;
+      const durationMinutes = Array.isArray(row.durationMinutes) ? row.durationMinutes : [];
+      const fromTime = Array.isArray(row.fromTime) ? row.fromTime : [];
+      const toTime = Array.isArray(row.toTime) ? row.toTime : [];
+      const anyEdited = durationMinutes.some((_, idx) =>
+        edits[`delaysTable_${row._id}_durationMinutes_${idx}`] !== undefined ||
+        edits[`delaysTable_${row._id}_fromTime_${idx}`] !== undefined ||
+        edits[`delaysTable_${row._id}_toTime_${idx}`] !== undefined
+      );
+      if (!anyEdited) return;
+
+      let existing = payload.delaysEdits.find((e) => e.id === row._id);
+      if (!existing) { existing = { id: row._id, data: {} }; payload.delaysEdits.push(existing); }
+      existing.data.durationMinutes = durationMinutes.map((v, idx) => edits[`delaysTable_${row._id}_durationMinutes_${idx}`] ?? v);
+      existing.data.fromTime = fromTime.map((v, idx) => edits[`delaysTable_${row._id}_fromTime_${idx}`] ?? v);
+      existing.data.toTime = toTime.map((v, idx) => edits[`delaysTable_${row._id}_toTime_${idx}`] ?? v);
+    });
+
+    // Mould Hardness's 4 reading kinds are independent of each other (unlike
+    // Delays' coupled triple) — each kind is checked/sent on its own, so
+    // editing only mpPP never touches mpSP/bsPP/bsSP in the payload.
+    (currentEntry?.mouldHardnessTable || []).forEach((row) => {
+      if (!row._id) return;
+      ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
+        const arr = Array.isArray(row[kind]) ? row[kind] : [];
+        const edited = arr.some((_, idx) => edits[`mouldHardnessTable_${row._id}_${kind}_${idx}`] !== undefined);
+        if (!edited) return;
+
+        let existing = payload.mouldHardnessEdits.find((e) => e.id === row._id);
+        if (!existing) { existing = { id: row._id, data: {} }; payload.mouldHardnessEdits.push(existing); }
+        existing.data[kind] = arr.map((reading, idx) => {
+          const current = Array.isArray(reading) ? reading[0] : reading;
+          return edits[`mouldHardnessTable_${row._id}_${kind}_${idx}`] ?? current;
+        });
+      });
+    });
+
+    // Primary fields live on the report row itself, not a per-row table —
+    // same allowlisted shape savePrimary already sends.
+    if (edits.primary_incharge !== undefined) payload.incharge = edits.primary_incharge;
+    if (edits.primary_ppOperator !== undefined) payload.ppOperator = edits.primary_ppOperator;
+    if (edits.events_significantEvent !== undefined) payload.significantEvent = edits.events_significantEvent;
+    if (edits.events_maintenance !== undefined) payload.maintenance = edits.events_maintenance;
+    if (edits.events_supervisorName !== undefined) payload.supervisorName = edits.events_supervisorName;
+    const memberIndexes = (currentEntry?.members ?? []).map((_, i) => i);
+    if (memberIndexes.some((i) => edits[`primary_member_${i}`] !== undefined)) {
+      payload.members = memberIndexes
+        .map((i) => (edits[`primary_member_${i}`] !== undefined ? edits[`primary_member_${i}`] : (currentEntry?.members?.[i]?.name || '')))
+        .filter((m) => m && m.trim() !== '');
+    }
+
     return payload;
   };
 
@@ -216,6 +322,32 @@ const DisamaticProductReport = () => {
     } finally {
       setDeleting(false);
       setConfirmDelete(false);
+    }
+  };
+
+  const handleDeleteRow = async () => {
+    if (!currentEntry?._id || !confirmDeleteRow) return;
+    setDeletingRow(true);
+    try {
+      const res = await fetch(`${API_ENDPOINTS.mouldingDisa}/${currentEntry._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ deleteRow: confirmDeleteRow }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        const [updated] = transformBackendData([data.data]);
+        setEntries((prev) => prev.map((e, i) => (i === currentIndex ? updated : e)));
+        toast.success(data.message || 'Row deleted successfully.');
+      } else {
+        toast.error(data.message || 'Failed to delete row.');
+      }
+    } catch (err) {
+      toast.error('Network error while deleting. Please try again.');
+    } finally {
+      setDeletingRow(false);
+      setConfirmDeleteRow(null);
     }
   };
 
@@ -583,6 +715,19 @@ const DisamaticProductReport = () => {
       width: '200px',
       align: 'left',
       render: (item) => item.isTotalRow ? '' : editableTd(`productionTable_${item._id}_remarks`, item.remarks, { textAlign: 'left' })
+    },
+    {
+      key: 'rowActions',
+      label: '',
+      width: '50px',
+      align: 'center',
+      render: (item) => (editMode && !item.isTotalRow) ? (
+        <Trash2
+          size={16}
+          style={{ cursor: 'pointer', color: '#e74c3c' }}
+          onClick={() => setConfirmDeleteRow({ table: 'production', id: item._id })}
+        />
+      ) : null
     }
   ];
 
@@ -646,6 +791,16 @@ const DisamaticProductReport = () => {
     {
       key: 'remarks', label: 'Remarks', width: '300px', align: 'left',
       render: (item) => editableTd(`nextShiftPlanTable_${item._id}_remarks`, item.remarks, { textAlign: 'left' })
+    },
+    {
+      key: 'rowActions', label: '', width: '50px', align: 'center',
+      render: (item) => editMode ? (
+        <Trash2
+          size={16}
+          style={{ cursor: 'pointer', color: '#e74c3c' }}
+          onClick={() => setConfirmDeleteRow({ table: 'nextShiftPlan', id: item._id })}
+        />
+      ) : null
     }
   ];
 
@@ -694,6 +849,17 @@ const DisamaticProductReport = () => {
         if (!Array.isArray(item.durationMinutes)) {
           return item.durationMinutes;
         }
+        if (editMode) {
+          return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {item.durationMinutes.map((duration, idx) => (
+                <div key={idx} style={{ width: '90px' }}>
+                  {editableTd(`delaysTable_${item._id}_durationMinutes_${idx}`, duration)}
+                </div>
+              ))}
+            </div>
+          );
+        }
         return (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {item.durationMinutes.map((duration, idx) => {
@@ -738,6 +904,23 @@ const DisamaticProductReport = () => {
         if (!Array.isArray(item.fromTime) || !Array.isArray(item.toTime)) {
           return '-';
         }
+        if (editMode) {
+          return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {item.fromTime.map((from, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div style={{ width: '90px' }}>
+                    {editableTd(`delaysTable_${item._id}_fromTime_${idx}`, from)}
+                  </div>
+                  <span>-</span>
+                  <div style={{ width: '90px' }}>
+                    {editableTd(`delaysTable_${item._id}_toTime_${idx}`, item.toTime[idx])}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        }
         return (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {item.fromTime.map((from, idx) => (
@@ -760,6 +943,19 @@ const DisamaticProductReport = () => {
           </div>
         );
       }
+    },
+    {
+      key: 'rowActions',
+      label: '',
+      width: '50px',
+      align: 'center',
+      render: (item) => (editMode && !item.isTotalRow) ? (
+        <Trash2
+          size={16}
+          style={{ cursor: 'pointer', color: '#e74c3c' }}
+          onClick={() => setConfirmDeleteRow({ table: 'delays', id: item._id })}
+        />
+      ) : null
     }
   ];
 
@@ -816,6 +1012,9 @@ const DisamaticProductReport = () => {
               <th colSpan={2} style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b' }}>Mould Penetrant tester (N/cm²)</th>
               <th colSpan={2} style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b' }}>B - Scale</th>
               <th rowSpan={2} style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #e2e8f0', fontWeight: 600, verticalAlign: 'middle', color: '#1e293b' }}>Remarks</th>
+              {editMode && (
+                <th rowSpan={2} style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #e2e8f0', fontWeight: 600, verticalAlign: 'middle', color: '#1e293b' }} />
+              )}
             </tr>
             <tr style={{ backgroundColor: '#f8fafc' }}>
               <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b' }}>PP</th>
@@ -827,7 +1026,7 @@ const DisamaticProductReport = () => {
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <td colSpan={editMode ? 8 : 7} style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <span style={{ color: '#64748b', fontSize: '0.95rem', fontWeight: 500 }}>
                     No mould hardness data available
                   </span>
@@ -845,6 +1044,14 @@ const DisamaticProductReport = () => {
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'top' }}>
                   {!Array.isArray(row.mpPP) || row.mpPP.length === 0 ? (
                     <span style={{ color: '#94a3b8' }}>-</span>
+                  ) : editMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
+                      {row.mpPP.map((reading, idx) => (
+                        <div key={idx} style={{ width: '80px' }}>
+                          {editableTd(`mouldHardnessTable_${row._id}_mpPP_${idx}`, Array.isArray(reading) ? reading[0] : reading)}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
                       {row.mpPP.map((reading, idx) => {
@@ -865,6 +1072,14 @@ const DisamaticProductReport = () => {
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'top' }}>
                   {!Array.isArray(row.mpSP) || row.mpSP.length === 0 ? (
                     <span style={{ color: '#94a3b8' }}>-</span>
+                  ) : editMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
+                      {row.mpSP.map((reading, idx) => (
+                        <div key={idx} style={{ width: '80px' }}>
+                          {editableTd(`mouldHardnessTable_${row._id}_mpSP_${idx}`, Array.isArray(reading) ? reading[0] : reading)}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
                       {row.mpSP.map((reading, idx) => {
@@ -885,6 +1100,14 @@ const DisamaticProductReport = () => {
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'top' }}>
                   {!Array.isArray(row.bsPP) || row.bsPP.length === 0 ? (
                     <span style={{ color: '#94a3b8' }}>-</span>
+                  ) : editMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
+                      {row.bsPP.map((reading, idx) => (
+                        <div key={idx} style={{ width: '80px' }}>
+                          {editableTd(`mouldHardnessTable_${row._id}_bsPP_${idx}`, Array.isArray(reading) ? reading[0] : reading)}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
                       {row.bsPP.map((reading, idx) => {
@@ -905,6 +1128,14 @@ const DisamaticProductReport = () => {
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', verticalAlign: 'top' }}>
                   {!Array.isArray(row.bsSP) || row.bsSP.length === 0 ? (
                     <span style={{ color: '#94a3b8' }}>-</span>
+                  ) : editMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
+                      {row.bsSP.map((reading, idx) => (
+                        <div key={idx} style={{ width: '80px' }}>
+                          {editableTd(`mouldHardnessTable_${row._id}_bsSP_${idx}`, Array.isArray(reading) ? reading[0] : reading)}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'center' }}>
                       {row.bsSP.map((reading, idx) => {
@@ -925,6 +1156,15 @@ const DisamaticProductReport = () => {
                 <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', color: '#475569' }}>
                   {editableTd(`mouldHardnessTable_${row._id}_remarks`, row.remarks)}
                 </td>
+                {editMode && (
+                  <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                    <Trash2
+                      size={16}
+                      style={{ cursor: 'pointer', color: '#e74c3c' }}
+                      onClick={() => setConfirmDeleteRow({ table: 'mouldHardness', id: row._id })}
+                    />
+                  </td>
+                )}
               </tr>
               ))
             )}
@@ -963,11 +1203,24 @@ const DisamaticProductReport = () => {
       width: '150px',
       align: 'center',
       render: (item) => editableTd(`patternTempTable_${item._id}_sp`, item.sp)
+    },
+    {
+      key: 'rowActions',
+      label: '',
+      width: '50px',
+      align: 'center',
+      render: (item) => editMode ? (
+        <Trash2
+          size={16}
+          style={{ cursor: 'pointer', color: '#e74c3c' }}
+          onClick={() => setConfirmDeleteRow({ table: 'patternTemp', id: item._id })}
+        />
+      ) : null
     }
   ];
 
   return (
-    <div className="page-wrapper moulding-page-wrapper">
+    <div className="page-wrapper moulding-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
       <div className="disamatic-report-header">
         <div className="disamatic-report-header-text">
           <h2>
@@ -1030,9 +1283,28 @@ const DisamaticProductReport = () => {
             onToggleTable={() => setShowEntryTable((v) => !v)}
           />
           {currentEntry && !showEntryTable && !editMode && canEditEntry(currentEntry) && (
-            <button type="button" onClick={() => setEditMode(true)} style={navButtonStyle(false)} title="Edit this entry">
-              <PencilLine size={16} /> Edit
-            </button>
+            <span
+              ref={editPencilRef}
+              className="entry-action-tooltip-wrapper"
+              onMouseEnter={showEditTooltip}
+              onMouseLeave={hideEditTooltip}
+              onFocus={showEditTooltip}
+              onBlur={hideEditTooltip}
+            >
+              <button type="button" onClick={() => setEditMode(true)} style={navButtonStyle(false)}>
+                <PencilLine size={16} /> Edit
+              </button>
+              {editTooltipAnchor && createPortal(
+                <span
+                  className="entry-action-tooltip"
+                  role="tooltip"
+                  style={{ left: `${editTooltipAnchor.x}px`, top: `${editTooltipAnchor.y}px` }}
+                >
+                  {editTooltipText}
+                </span>,
+                document.body
+              )}
+            </span>
           )}
           {editMode && (
             <>
@@ -1069,6 +1341,18 @@ const DisamaticProductReport = () => {
             loading={deleting}
             closeOnConfirm={false}
             onConfirm={handleDeleteEntry}
+          />
+          <AlertDialog
+            open={Boolean(confirmDeleteRow)}
+            onOpenChange={(open) => { if (!open) setConfirmDeleteRow(null); }}
+            title="Delete this row?"
+            description="This action cannot be undone. Remaining rows will be renumbered."
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            variant="danger"
+            loading={deletingRow}
+            closeOnConfirm={false}
+            onConfirm={handleDeleteRow}
           />
         {error && (
           <span className="disa-inline-error" style={{ color: '#c0392b', fontSize: '0.85rem' }}>{error}</span>
@@ -1117,21 +1401,47 @@ const DisamaticProductReport = () => {
             Primary {currentEntry?.shift ? `( ${currentEntry.shift} )` : ''}
           </h3>
           <div className="primary-details" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div className="primary-detail-item">
+            <div className="primary-detail-item" style={{ minWidth: editMode ? '180px' : undefined }}>
               <span className="detail-label">Incharge</span>
-              <span className="detail-value">{currentEntry?.incharge ? currentEntry.incharge : '-'}</span>
+              {editMode ? (
+                <div style={{ marginTop: '0.25rem' }}>
+                  {editableTd('primary_incharge', currentEntry?.inchargeRaw, { textAlign: 'left' })}
+                </div>
+              ) : (
+                <span className="detail-value">{currentEntry?.incharge ? currentEntry.incharge : '-'}</span>
+              )}
             </div>
-            <div className="primary-detail-item">
+            <div className="primary-detail-item" style={{ minWidth: editMode ? '180px' : undefined }}>
               <span className="detail-label">PP Operator</span>
-              <span className="detail-value">{currentEntry?.ppOperator ? currentEntry.ppOperator : '-'}</span>
+              {editMode ? (
+                <div style={{ marginTop: '0.25rem' }}>
+                  {editableTd('primary_ppOperator', currentEntry?.ppOperatorRaw, { textAlign: 'left' })}
+                </div>
+              ) : (
+                <span className="detail-value">{currentEntry?.ppOperator ? currentEntry.ppOperator : '-'}</span>
+              )}
             </div>
-            <div className="primary-detail-item">
+            <div className="primary-detail-item" style={{ minWidth: editMode ? '280px' : undefined }}>
               <span className="detail-label">Members Present</span>
-              <span className="detail-value">
-                {currentEntry?.members && currentEntry.members.length > 0
-                  ? currentEntry.members.slice(0, 4).map(member => member.name || member).join(', ')
-                  : '-'}
-              </span>
+              {editMode ? (
+                (currentEntry?.members ?? []).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
+                    {currentEntry.members.map((member, i) => (
+                      <div key={i}>
+                        {editableTd(`primary_member_${i}`, member?.name || '', { textAlign: 'left' })}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="detail-value">-</span>
+                )
+              ) : (
+                <span className="detail-value">
+                  {currentEntry?.members && currentEntry.members.length > 0
+                    ? currentEntry.members.slice(0, 4).map(member => member.name || member).join(', ')
+                    : '-'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -1188,23 +1498,41 @@ const DisamaticProductReport = () => {
           <div className="primary-details" style={{ gap: '1.5rem', alignItems: 'flex-start' }}>
             <div className="primary-detail-item" style={{ minHeight: 'auto' }}>
               <span className="detail-label">Significant Event</span>
-              <span className="detail-value" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', minHeight: 'auto' }}>
-                {currentEntry?.significantEvent ? currentEntry.significantEvent : '-'}
-              </span>
+              {editMode ? (
+                <div style={{ marginTop: '0.25rem' }}>
+                  {editableTd('events_significantEvent', currentEntry?.significantEvent, { textAlign: 'left' })}
+                </div>
+              ) : (
+                <span className="detail-value" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', minHeight: 'auto' }}>
+                  {currentEntry?.significantEvent ? currentEntry.significantEvent : '-'}
+                </span>
+              )}
             </div>
             <div className="primary-detail-item" style={{ minHeight: 'auto' }}>
               <span className="detail-label">Maintenance</span>
-              <span className="detail-value" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', minHeight: 'auto' }}>
-                {currentEntry?.maintenance ? currentEntry.maintenance : '-'}
-              </span>
+              {editMode ? (
+                <div style={{ marginTop: '0.25rem' }}>
+                  {editableTd('events_maintenance', currentEntry?.maintenance, { textAlign: 'left' })}
+                </div>
+              ) : (
+                <span className="detail-value" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', minHeight: 'auto' }}>
+                  {currentEntry?.maintenance ? currentEntry.maintenance : '-'}
+                </span>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '1.5rem' }}>
             <div className="primary-detail-item" style={{ maxWidth: '350px', flex: '0 0 auto' }}>
               <span className="detail-label">Supervisor Name</span>
-              <span className="detail-value">
-                {currentEntry?.supervisorName ? currentEntry.supervisorName : '-'}
-              </span>
+              {editMode ? (
+                <div style={{ marginTop: '0.25rem' }}>
+                  {editableTd('events_supervisorName', currentEntry?.supervisorName, { textAlign: 'left' })}
+                </div>
+              ) : (
+                <span className="detail-value">
+                  {currentEntry?.supervisorName ? currentEntry.supervisorName : '-'}
+                </span>
+              )}
             </div>
           </div>
         </>

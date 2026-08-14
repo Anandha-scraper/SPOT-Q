@@ -9,22 +9,19 @@ const {
 } = require('../utils/fieldValidation');
 
 const TRIMMED_FIELDS = ['disa', 'partName', 'dateCode', 'heatCode', 'graphiteType', 'remarks'];
-
 const MIN_FIELDS = ['countMin', 'sizeMin', 'ferriteMin', 'pearliteMin', 'carbideMin'];
 const MAX_FIELDS = ['countMax', 'sizeMax', 'ferriteMax', 'pearliteMax', 'carbideMax'];
 const NUMERIC_FIELDS = ['nodularity', ...MIN_FIELDS, ...MAX_FIELDS];
-
-const REQUIRED_ON_SUBMIT = ['date', 'disa', 'partName', 'heatCode'];
-const REQUIRED_FIELDS = [
-    'disa', 'partName', 'dateCode', 'heatCode', 'graphiteType',
-    'nodularity', ...MIN_FIELDS,
-];
-
+const REQUIRED_ON_SUBMIT = ['date', 'disa', 'partName', 'dateCode'];
+const REQUIRED_FIELDS = ['disa', 'partName', 'dateCode'];
 const PROTECTED_ON_UPDATE = [
     'id', '_id', 'microStructureId', 'createdBy', 'createdAt', 'updatedAt', 'date',
 ];
 
-const NO_MAX = 0;
+// nodularity/MIN_FIELDS/MAX_FIELDS are all Float @db columns with no default
+// (NOT NULL) — buildColumns maps a blank optional field to null, which Prisma
+// rejects. Substituted to 0 here for all of them, not just MAX_FIELDS.
+const NO_VALUE = 0;
 
 function buildEntryData(body) {
     const { data, invalid } = buildColumns(body, {
@@ -32,8 +29,8 @@ function buildEntryData(body) {
         numbers: NUMERIC_FIELDS,
     });
 
-    for (const field of MAX_FIELDS) {
-        if (data[field] === null) data[field] = NO_MAX;
+    for (const field of NUMERIC_FIELDS) {
+        if (data[field] === null) data[field] = NO_VALUE;
     }
 
     if (invalid.length) throw invalidInput(invalid);
@@ -53,6 +50,14 @@ function filterEntries({ startDate, endDate }) {
 
 function getLastDisa() {
     return microStructureRepository.findLatestSavedDisa();
+}
+
+const PART_NAME_WINDOW_DAYS = 90;
+
+function listPartNames() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - PART_NAME_WINDOW_DAYS);
+    return microStructureRepository.findDistinctFieldValues('partName', cutoff.toISOString().split('T')[0]);
 }
 
 async function checkPrimary({ date, disa }) {
@@ -115,7 +120,7 @@ async function createEntry(body, userId) {
     const source = body ?? {};
 
     if (collectMissing(source, REQUIRED_ON_SUBMIT).length) {
-        throw new AppError(400, 'Date, DISA, Part Name, and Heat Code are required.');
+        throw new AppError(400, 'Date, DISA, Part Name, and Date Code are required.');
     }
 
     const missing = collectMissing(source, REQUIRED_FIELDS);
@@ -155,6 +160,7 @@ module.exports = {
     listEntries,
     filterEntries,
     getLastDisa,
+    listPartNames,
     checkPrimary,
     savePrimary,
     createEntry,

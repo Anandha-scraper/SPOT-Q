@@ -83,9 +83,9 @@ function deleteEntry(id) {
     return prisma.qcProduction.delete({ where: { id } });
 }
 
-async function findPartNames() {
+async function findPartNames(cutoffDate) {
     const rows = await prisma.qcProduction.findMany({
-        where: { partName: { notIn: ['', '-'] } },
+        where: { partName: { notIn: ['', '-'] }, date: { gte: cutoffDate } },
         distinct: ['partName'],
         select: { partName: true },
         orderBy: { partName: 'asc' },

@@ -172,8 +172,73 @@ function updateMouldHardnessEntry(id, data) {
     return prisma.disaMouldHardnessEntry.update({ where: { id }, data });
 }
 
+// The report page's inline edit for Delays now covers duration/fromTime/toTime
+// too — durationMinutes/fromTime/toTime are inherently a coupled triple per
+// index, so the whole set is replaced together rather than upserted per cell
+// (mirrors replaceMembers' delete-then-recreate shape). `intervals` already
+// comes pre-shaped as { position, durationMinutes, fromTime, toTime } via the
+// existing zipParallelArrays helper — same shape appendDelayRows creates from.
+async function replaceDelayIntervals(delayEntryId, intervals) {
+    await prisma.$transaction([
+        prisma.disaDelayInterval.deleteMany({ where: { delayEntryId } }),
+        prisma.disaDelayInterval.createMany({ data: intervals.map((iv) => ({ delayEntryId, ...iv })) }),
+    ]);
+}
+
+// Unlike Delays' triple, Mould Hardness's 4 reading kinds (mpPP/mpSP/bsPP/
+// bsSP) are independent of each other — replacing per kind (not all 4 at
+// once) so editing one kind's readings never touches the other 3's saved data.
+async function replaceMouldHardnessReadingsForKind(entryId, kind, values) {
+    await prisma.$transaction([
+        prisma.disaMouldHardnessReading.deleteMany({ where: { entryId, kind } }),
+        prisma.disaMouldHardnessReading.createMany({
+            data: values.map((value, position) => ({ entryId, kind, position, fromValue: value ?? '', toValue: '' })),
+        }),
+    ]);
+}
+
 function updatePatternTempEntry(id, data) {
     return prisma.disaPatternTempEntry.update({ where: { id }, data });
+}
+
+// Generic across all 5 child tables (same shape as countSection) since the
+// delete+renumber logic is identical regardless of model — only the editable
+// columns differ per table, which is why updateXxxEntry above stays one
+// function per table but this doesn't need to. Verifies the row actually
+// belongs to reportId (authorizeEntry only checks the report itself, not an
+// arbitrary child row id) before deleting; onDelete: Cascade on
+// DisaDelayEntry.intervals / DisaMouldHardnessEntry.readings means a plain
+// .delete() already removes those in full, never leaving orphaned rows.
+async function deleteRowAndRenumber(model, id, reportId) {
+    return prisma.$transaction(async (tx) => {
+        const row = await tx[model].findUnique({ where: { id }, select: { disaReportId: true, sNo: true } });
+        if (!row || row.disaReportId !== reportId) return null;
+        await tx[model].delete({ where: { id } });
+        await tx[model].updateMany({
+            where: { disaReportId: reportId, sNo: { gt: row.sNo } },
+            data: { sNo: { decrement: 1 } },
+        });
+        return row;
+    });
+}
+
+// Generic across any of the 5 child tables + any of their own text columns
+// (componentName, Pattern Temp's item, ...), mirrors processRepository.js#
+// findPartNames's distinct-mapped-to-strings shape, plus a join through to
+// the report's own date (String 'YYYY-MM-DD', compared as a plain string per
+// this repo's date convention — see backend.md) so only values used within
+// the caller's cutoff window are suggested.
+async function findDistinctFieldValues(model, field, cutoffDate) {
+    const rows = await prisma[model].findMany({
+        where: {
+            [field]: { notIn: ['', '-'] },
+            report: { date: { gte: cutoffDate } },
+        },
+        distinct: [field],
+        select: { [field]: true },
+        orderBy: { [field]: 'asc' },
+    });
+    return rows.map((row) => row[field]);
 }
 
 module.exports = {
@@ -200,4 +265,8 @@ module.exports = {
     updateDelayEntry,
     updateMouldHardnessEntry,
     updatePatternTempEntry,
+    deleteRowAndRenumber,
+    findDistinctFieldValues,
+    replaceDelayIntervals,
+    replaceMouldHardnessReadingsForKind,
 };

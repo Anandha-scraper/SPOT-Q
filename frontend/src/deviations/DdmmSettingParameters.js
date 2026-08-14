@@ -13,30 +13,30 @@ export const validationRanges = [
   { field: 'Machine', required: true, type: 'Text' },
 
   // Shift parameters — identification
-  { field: 'Customer', required: true, type: 'Text' },
-  { field: 'Item Description', required: true, type: 'Text' },
-  { field: 'Time', required: true, type: 'Time', pattern: 'HH:MM' },
+  { field: 'Customer', type: 'Text' },
+  { field: 'Item Description', type: 'Text' },
+  { field: 'Time', type: 'Time', pattern: 'HH:MM' },
 
   // Shift parameters — measured values
-  { field: 'PP Thickness', required: true, type: 'Number', unit: 'mm' },
-  { field: 'PP Height', required: true, type: 'Number', unit: 'mm' },
-  { field: 'SP Thickness', required: true, type: 'Number', unit: 'mm' },
-  { field: 'SP Height', required: true, type: 'Number', unit: 'mm' },
-  { field: 'Core Mask Thickness', required: true, type: 'Number', unit: 'mm' },
-  { field: 'Core Mask Height (Outside)', required: true, type: 'Number', unit: 'mm' },
-  { field: 'Core Mask Height (Inside)', required: true, type: 'Number', unit: 'mm' },
-  { field: 'Sand Shot Pressure', required: true, type: 'Number', unit: 'bar' },
-  { field: 'Correction Shot Time', required: true, type: 'Number', unit: 's' },
-  { field: 'Squeeze Pressure', required: true, type: 'Number', unit: 'bar' },
-  { field: 'PP Stripping Acceleration', required: true, type: 'Number' },
-  { field: 'PP Stripping Distance', required: true, type: 'Number', unit: 'mm' },
-  { field: 'SP Stripping Acceleration', required: true, type: 'Number' },
-  { field: 'SP Stripping Distance', required: true, type: 'Number', unit: 'mm' },
-  { field: 'Mould Thickness +10', required: true, type: 'Number', unit: 'mm' },
+  { field: 'PP Thickness', type: 'Number', unit: 'mm' },
+  { field: 'PP Height', type: 'Number', unit: 'mm' },
+  { field: 'SP Thickness', type: 'Number', unit: 'mm' },
+  { field: 'SP Height', type: 'Number', unit: 'mm' },
+  { field: 'Core Mask Thickness', type: 'Number', unit: 'mm' },
+  { field: 'Core Mask Height (Outside)', type: 'Number', unit: 'mm' },
+  { field: 'Core Mask Height (Inside)', type: 'Number', unit: 'mm' },
+  { field: 'Sand Shot Pressure', type: 'Number', unit: 'bar' },
+  { field: 'Correction Shot Time', type: 'Number', unit: 's' },
+  { field: 'Squeeze Pressure', type: 'Number', unit: 'bar' },
+  { field: 'PP Stripping Acceleration', type: 'Number' },
+  { field: 'PP Stripping Distance', type: 'Number', unit: 'mm' },
+  { field: 'SP Stripping Acceleration', type: 'Number' },
+  { field: 'SP Stripping Distance', type: 'Number', unit: 'mm' },
+  { field: 'Mould Thickness +10', type: 'Number', unit: 'mm' },
 
   // Free text
-  { field: 'Close Up Force / Mould Close Up Pressure', required: true, type: 'Text' },
-  { field: 'Remarks', required: true, type: 'Text' },
+  { field: 'Close Up Force / Mould Close Up Pressure', type: 'Text' },
+  { field: 'Remarks', type: 'Text' },
 ];
 
 export const primaryFieldMapping = {

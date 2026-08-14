@@ -104,6 +104,64 @@ const MicroStructure = () => {
     }
   }, []);
 
+  // Part Name autocomplete (last 90 days) — copies Process.jsx's Part Name
+  // pattern directly (single field, not a per-row table cell like Disamatic's
+  // Component Name, so no portal/per-row tracking needed).
+  const [partNameSuggestions, setPartNameSuggestions] = useState([]);
+  const [showPartNameDropdown, setShowPartNameDropdown] = useState(false);
+  const [filteredPartNames, setFilteredPartNames] = useState([]);
+  const partNameDropdownRef = useRef(null);
+
+  // Extracted (not inline in the mount effect) so a successful save can
+  // re-fetch too — otherwise a Part Name typed this session wouldn't appear
+  // as a suggestion again until a full page reload.
+  const fetchPartNames = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.microStructure}/part-names`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) setPartNameSuggestions(data.data);
+    } catch (error) {
+      // Suggestion list is a nice-to-have — an empty list just shows no suggestions.
+    }
+  };
+
+  useEffect(() => {
+    fetchPartNames();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (partNameDropdownRef.current && !partNameDropdownRef.current.contains(event.target)) {
+        setShowPartNameDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filterPartNames = (value) =>
+    partNameSuggestions.filter((n) => n.toUpperCase().includes(value.toUpperCase())).slice(0, 5);
+
+  const handlePartNameSelect = (name) => {
+    setFormData(prev => ({ ...prev, partName: name }));
+    setValidation('partName', null);
+    setShowPartNameDropdown(false);
+  };
+
+  const handlePartNameFocus = () => {
+    if (formData.partName) {
+      const filtered = filterPartNames(formData.partName);
+      setFilteredPartNames(filtered);
+      setShowPartNameDropdown(filtered.length > 0);
+    } else {
+      setFilteredPartNames([]);
+      setShowPartNameDropdown(false);
+    }
+  };
+
   const getInputClassName = (baseClass, validationState) => {
     let classes = baseClass;
     if (validationState === false) classes += ' invalid-input';
@@ -147,6 +205,17 @@ const MicroStructure = () => {
   };
 
   const handleKeyDown = (e, field) => {
+    if (field === 'partName') {
+      if (e.key === 'Escape') {
+        setShowPartNameDropdown(false);
+        return;
+      }
+      if (e.key === 'Enter' && showPartNameDropdown && filteredPartNames.length > 0) {
+        e.preventDefault();
+        handlePartNameSelect(filteredPartNames[0]);
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = fieldOrder.indexOf(field);
@@ -233,6 +302,7 @@ const MicroStructure = () => {
 
         setSubmitErrorMessage('');
         setEntryCount(prev => prev + 1);
+        fetchPartNames();
 
         setTimeout(() => {
           inputRefs.current.partName?.focus();
@@ -345,19 +415,56 @@ const MicroStructure = () => {
 
       {/* Row 1 — identity + nodularity + graphite type */}
       <div className="microstructure-form-row" style={{ flexWrap: 'wrap' }}>
-        <div className="microstructure-field">
+        <div className="microstructure-field" ref={partNameDropdownRef} style={{ position: 'relative' }}>
           <label>Part Name{mark('partName')}</label>
           <input
             ref={el => inputRefs.current.partName = el}
             type="text"
             value={formData.partName}
-            onChange={handleInputChange('partName')}
+            onChange={e => {
+              handleInputChange('partName')(e);
+              const value = e.target.value;
+              if (value) {
+                const filtered = filterPartNames(value);
+                setFilteredPartNames(filtered);
+                setShowPartNameDropdown(filtered.length > 0);
+              } else {
+                setFilteredPartNames([]);
+                setShowPartNameDropdown(false);
+              }
+            }}
+            onFocus={handlePartNameFocus}
             onKeyDown={e => handleKeyDown(e, 'partName')}
             name="partName"
             placeholder="Enter part name"
             disabled={!isPrimarySaved}
+            autoComplete="off"
             className={getInputClassName('microstructure-input', validationStates.partName)}
           />
+          {showPartNameDropdown && filteredPartNames.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0,
+              backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+              maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>
+              {filteredPartNames.map((name, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handlePartNameSelect(name)}
+                  style={{
+                    padding: '8px 12px', cursor: 'pointer',
+                    borderBottom: idx < filteredPartNames.length - 1 ? '1px solid #eee' : 'none',
+                    backgroundColor: 'white'
+                  }}
+                  onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                  onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="microstructure-field">
           <label>Date Code{mark('dateCode')}</label>

@@ -15,6 +15,17 @@ exports.getDismaticReportsByDateRange = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, count: data.length, data });
 });
 
+// `data` must be an array of plain strings — mirrors Process's getPartNames.
+exports.getComponentNames = asyncHandler(async (req, res) => {
+    const names = await disaReportService.listComponentNames(req.params.table);
+    res.status(200).json({ success: true, count: names.length, data: names });
+});
+
+exports.getPatternTempItems = asyncHandler(async (req, res) => {
+    const items = await disaReportService.listPatternTempItems();
+    res.status(200).json({ success: true, count: items.length, data: items });
+});
+
 // Each section is its own function now, not a switch on req.body.section — 'basicInfo'/'all'/'eventSection' were dead branches (no frontend caller) and aren't reproduced.
 exports.createDismaticReport = asyncHandler(async (req, res) => {
     const { date, shift, section, ...payload } = req.body ?? {};
@@ -72,7 +83,7 @@ exports.getPrimaryDataByDateShift = asyncHandler(async (req, res) => {
 
 exports.savePrimaryData = asyncHandler(async (req, res) => {
     const { date, shift, incharge, ppOperator, members } = req.body ?? {};
-    const data = await disaReportService.savePrimary({ date, shift, incharge, ppOperator, members });
+    const data = await disaReportService.savePrimary({ date, shift, incharge, ppOperator, members, userId: req.user.id });
 
     res.status(200).json({ success: true, data, message: 'Primary data saved successfully.' });
 });

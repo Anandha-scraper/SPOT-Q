@@ -77,6 +77,65 @@ const MicroTensile = () => {
 
   const primaryBusy = status === 'checking' || status === 'saving' || status === 'found' || status === 'added';
 
+  // Item autocomplete (last 90 days) — copies MicroStructure.jsx's Part Name
+  // pattern directly (single field, not a per-row table cell, so no portal/
+  // per-row tracking needed).
+  const [itemSuggestions, setItemSuggestions] = useState([]);
+  const [showItemDropdown, setShowItemDropdown] = useState(false);
+  const [filteredItemNames, setFilteredItemNames] = useState([]);
+  const itemDropdownRef = useRef(null);
+
+  // Extracted (not inline in the mount effect) so a successful save can
+  // re-fetch too — otherwise an Item typed this session wouldn't appear as a
+  // suggestion again until a full page reload.
+  const fetchItemNames = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.microTensile}/item-names`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) setItemSuggestions(data.data);
+    } catch (error) {
+      // Suggestion list is a nice-to-have — an empty list just shows no suggestions.
+    }
+  };
+
+  useEffect(() => {
+    fetchItemNames();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (itemDropdownRef.current && !itemDropdownRef.current.contains(event.target)) {
+        setShowItemDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filterItemNames = (value) =>
+    itemSuggestions.filter((n) => n.toUpperCase().includes(value.toUpperCase())).slice(0, 5);
+
+  const handleItemSelect = (name) => {
+    setFormData(prev => ({ ...prev, item: name }));
+    setFieldStates(prev => ({ ...prev, item: null }));
+    setErrors(prev => ({ ...prev, item: false }));
+    setShowItemDropdown(false);
+  };
+
+  const handleItemFocus = () => {
+    if (formData.item) {
+      const filtered = filterItemNames(formData.item);
+      setFilteredItemNames(filtered);
+      setShowItemDropdown(filtered.length > 0);
+    } else {
+      setFilteredItemNames([]);
+      setShowItemDropdown(false);
+    }
+  };
+
   useEffect(() => {
     const today = new Date();
     const y = today.getFullYear();
@@ -144,6 +203,18 @@ const MicroTensile = () => {
   };
 
   const handleKeyDown = (e, field) => {
+    if (field === 'item') {
+      if (e.key === 'Escape') {
+        setShowItemDropdown(false);
+        return;
+      }
+      if (e.key === 'Enter' && showItemDropdown && filteredItemNames.length > 0) {
+        e.preventDefault();
+        handleItemSelect(filteredItemNames[0]);
+        return;
+      }
+    }
+
     if (e.key !== 'Enter') return;
     e.preventDefault();
 
@@ -223,6 +294,7 @@ const MicroTensile = () => {
       setFormData(prev => ({ ...EMPTY_ENTRY, date: prev.date, disa: prev.disa }));
       resetEntryFields();
       setEntryCount(prev => prev + 1);
+      fetchItemNames();
       setTimeout(() => inputRefs.current.item?.focus(), 100);
     } catch (error) {
       setSubmitError(FALLBACK_SUBMIT_ERROR);
@@ -310,23 +382,60 @@ const MicroTensile = () => {
 
         <div style={{ gridColumn: '1 / -1', marginTop: '1rem', marginBottom: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}></div>
 
-        <div className={groupClass('item')}>
+        <div className={groupClass('item')} ref={itemDropdownRef} style={{ position: 'relative' }}>
           <label>Item{mark('item')}</label>
           <input
             ref={el => inputRefs.current.item = el}
             type="text"
             name="item"
             value={formData.item}
-            onChange={handleChange}
+            onChange={e => {
+              handleChange(e);
+              const value = e.target.value;
+              if (value) {
+                const filtered = filterItemNames(value);
+                setFilteredItemNames(filtered);
+                setShowItemDropdown(filtered.length > 0);
+              } else {
+                setFilteredItemNames([]);
+                setShowItemDropdown(false);
+              }
+            }}
+            onFocus={handleItemFocus}
             onKeyDown={e => handleKeyDown(e, 'item')}
             placeholder="e.g: Volvo Bkt 234"
             disabled={!isPrimarySaved}
+            autoComplete="off"
             className={invalidClass('item')}
           />
+          {showItemDropdown && filteredItemNames.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0,
+              backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+              maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>
+              {filteredItemNames.map((name, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleItemSelect(name)}
+                  style={{
+                    padding: '8px 12px', cursor: 'pointer',
+                    borderBottom: idx < filteredItemNames.length - 1 ? '1px solid #eee' : 'none',
+                    backgroundColor: 'white'
+                  }}
+                  onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                  onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={groupClass('itemSecond')}>
-          <label>Item (Optional){mark('itemSecond')}</label>
+          <label>Material Grade{mark('itemSecond')}</label>
           <input
             ref={el => inputRefs.current.itemSecond = el}
             type="text"

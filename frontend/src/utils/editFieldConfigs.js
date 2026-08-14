@@ -178,13 +178,25 @@ export const cupolaPrimaryEditConfig = {
     ]
 };
 
-// One DmmParameterEntry row. `required` mirrors DdmmSettingParameters.js, where
-// every parameter field is required — and the 15 numeric ones are NOT NULL
-// Float columns the backend rejects a blank for.
+// One DmmParameterEntry row. `required` here is declared independently of
+// DdmmSettingParameters.js (the entry form's own config) — same static
+// per-config pattern every other department's edit config uses, none derive
+// `required` from a deviations file. Not kept in sync on purpose; if the two
+// are ever expected to always match, that'd be a deliberate follow-up, not
+// an oversight. The 15 numeric fields are NOT NULL Float columns — a blank
+// submitted through this modal is still rejected by updateEntry's `blanked`
+// check (dmmLogService.js), unlike the entry form's create path, which now
+// defaults a blank to 0 instead.
 export const dmmEditConfig = {
     endpoint: API_ENDPOINTS.mouldingDmm,
-    title: 'Edit DMM Parameters Entry',
+    // Operator Name/Operated By live on the DmmMachineShift row, a different id
+    // space from the parameter row — fields tagged entity: 'primary' below PUT
+    // here instead, keyed off entry.shiftEntry._id (see DmmSettingParametersReport.jsx).
+    primary: { endpoint: `${API_ENDPOINTS.mouldingDmm}/shift`, idPath: 'shiftEntry._id' },
+    title: 'Edit DMM Entry',
     fields: [
+        { name: 'operatorName', label: 'Operator Name', type: 'text', entity: 'primary' },
+        { name: 'checkedBy', label: 'Operated By', type: 'text', entity: 'primary' },
         { name: 'customer', label: 'Customer', type: 'text', required: true },
         { name: 'itemDescription', label: 'Item Description', type: 'text', required: true },
         { name: 'time', label: 'Time', type: 'text', required: true },

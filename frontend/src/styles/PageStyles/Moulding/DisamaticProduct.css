@@ -162,7 +162,7 @@
 
 .disamatic-textarea {
   font-family: inherit;
-  resize: vertical;
+  resize: none;
 }
 
 .disamatic-form-grid {

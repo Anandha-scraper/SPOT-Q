@@ -119,8 +119,12 @@ function listEntries({ from, to } = {}) {
     return qcProductionRepository.findEntries({ from, to });
 }
 
+const PART_NAME_WINDOW_DAYS = 90;
+
 function listPartNames() {
-    return qcProductionRepository.findPartNames();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - PART_NAME_WINDOW_DAYS);
+    return qcProductionRepository.findPartNames(cutoff.toISOString().split('T')[0]);
 }
 
 async function createEntry(body, userId) {

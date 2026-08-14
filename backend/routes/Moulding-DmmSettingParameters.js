@@ -7,7 +7,8 @@ const {
     updateDMMEntry,
     deleteDMMEntry,
     updateDMMMachineShift,
-    clearDMMMachineShift
+    clearDMMMachineShift,
+    getCustomerNames
 } = require('../controllers/Moulding-DmmSettingParameters');
 const { authorizeEntry } = require('../middleware/entryAccess');
 const { loadEntryForAuth, loadMachineShiftForAuth } = require('../services/dmmLogService');
@@ -16,6 +17,7 @@ const { loadEntryForAuth, loadMachineShiftForAuth } = require('../services/dmmLo
 
 router.get('/all', getAllDMMSettings);
 router.get('/search/primary', getDMMSettingsByDate);
+router.get('/customer-names', getCustomerNames);
 router.post('/', createDMMSettings);
 
 router.route('/:id')

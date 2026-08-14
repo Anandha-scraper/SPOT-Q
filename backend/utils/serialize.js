@@ -1,3 +1,4 @@
+// Take the raw database object and convert it into the shape we want to send
 const SENSITIVE_KEYS = ['password', 'passwordHash'];
 function withDualId(row) {
     if (!row) return null;
@@ -23,11 +24,4 @@ const serializeLoginActivities = (rows) => rows.map(withDualId);
 const serializeRow = (row, extra = {}) => (row ? { ...withDualId(row), ...extra } : null);
 const serializeRows = (rows) => rows.map((row) => serializeRow(row));
 
-module.exports = {
-    toSessionUser,
-    serializeUser,
-    serializeUsers,
-    serializeLoginActivities,
-    serializeRow,
-    serializeRows,
-};
+module.exports = { toSessionUser, serializeUser, serializeUsers, serializeLoginActivities, serializeRow, serializeRows, };

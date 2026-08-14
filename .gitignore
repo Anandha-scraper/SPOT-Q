@@ -13,14 +13,9 @@ package-lock.json
 .env.production
 
 # markdown
-# CLAUDE.md is deliberately NOT ignored on this branch — it carries the production
-# invariants and the merge-from-sql procedure, which must travel with the branch.
 .claude/
-INFO.md
-README.md
 command.md
-backend.md
-frontend.md
+CLAUDE.md
 
 # OS
 .DS_Store

@@ -6,7 +6,7 @@ const buildClient = () => {
     return new PrismaClient({
         adapter,
         omit: { user: { passwordHash: true } },
-        log: process.env.PRISMA_LOG === 'true' ? ['query', 'warn', 'error'] : ['warn', 'error'],
+        log: ['warn', 'error'],
     });
 };
 const globalForPrisma = globalThis;

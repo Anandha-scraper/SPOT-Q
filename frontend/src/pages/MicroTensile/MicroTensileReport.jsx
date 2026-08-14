@@ -396,13 +396,13 @@ const MicroTensileReport = () => {
                       <td className={devClass('Item (Optional)', item.item?.it2?.replace(/^\(|\)$/g, ''))}>{renderItem(item)}</td>
                       <td className={devClass('Date Code', item.dateCode)}>{item.dateCode || '-'}</td>
                       <td className={devClass('Heat Code', item.heatCode)}>{item.heatCode || '-'}</td>
-                      <td className={devClass('Bar Dia', item.barDia)}>{item.barDia ?? '-'}</td>
-                      <td className={devClass('Gauge Length', item.gaugeLength)}>{item.gaugeLength ?? '-'}</td>
-                      <td className={devClass('Max Load', item.maxLoad)}>{item.maxLoad ?? '-'}</td>
-                      <td className={devClass('Yield Load', item.yieldLoad)}>{item.yieldLoad ?? '-'}</td>
-                      <td className={devClass('Tensile Strength', item.tensileStrength)}>{item.tensileStrength ?? '-'}</td>
-                      <td className={devClass('Yield Strength', item.yieldStrength)}>{item.yieldStrength ?? '-'}</td>
-                      <td className={devClass('Elongation', item.elongation)}>{item.elongation ?? '-'}</td>
+                      <td className={devClass('Bar Dia', item.barDia)}>{item.barDia || '-'}</td>
+                      <td className={devClass('Gauge Length', item.gaugeLength)}>{item.gaugeLength || '-'}</td>
+                      <td className={devClass('Max Load', item.maxLoad)}>{item.maxLoad || '-'}</td>
+                      <td className={devClass('Yield Load', item.yieldLoad)}>{item.yieldLoad || '-'}</td>
+                      <td className={devClass('Tensile Strength', item.tensileStrength)}>{item.tensileStrength || '-'}</td>
+                      <td className={devClass('Yield Strength', item.yieldStrength)}>{item.yieldStrength || '-'}</td>
+                      <td className={devClass('Elongation', item.elongation)}>{item.elongation || '-'}</td>
                       <td>{item.testedBy || '-'}</td>
                       <td
                         className={`mt-report-remarks-cell ${item.remarks ? 'clickable' : 'empty'}`}

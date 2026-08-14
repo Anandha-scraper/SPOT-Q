@@ -14,11 +14,12 @@ const ADMIN_SOURCES = [
 ];
 
 // Personal ("Entries This Month") source per req.user.department. Melting only counts the
-// Log Sheet sub-module and Moulding only counts DMM — Cupola and DISA entries have no
-// createdBy (see statsRepository), so there's no "mine" to filter to, and DISA isn't a
-// discrete per-entry concept to begin with. Sand Lab has no source at all: its tables are
-// a generic path/value store with no "one entry" concept, and the frontend renders a
-// placeholder for that department without ever reading this value.
+// Log Sheet sub-module — Cupola entries have no createdBy (see statsRepository), so
+// there's no "mine" to filter to. Sand Lab has no source at all: its tables are a generic
+// path/value store with no "one entry" concept, and the frontend renders a placeholder
+// for that department without ever reading this value. Moulding isn't listed here at
+// all — see getPersonalStats below, which special-cases it into a two-line (Disamatic +
+// DMM), per-shift-broken-down `series` instead of this map's flat `counts`.
 const PERSONAL_SOURCES = {
     Process: (prefix, userId) => statsRepository.countProcessEntries(prefix, userId),
     Tensile: (prefix, userId) => statsRepository.countTensileEntries(prefix, userId),
@@ -27,7 +28,6 @@ const PERSONAL_SOURCES = {
     'Micro Structure': (prefix, userId) => statsRepository.countMicroStructureEntries(prefix, userId),
     'QC - production': (prefix, userId) => statsRepository.countQcProductionEntries(prefix, userId),
     Melting: (prefix, userId) => statsRepository.countMeltingLogEntries(prefix, userId),
-    Moulding: (prefix) => statsRepository.countDmmParameterEntries(prefix),
 };
 
 function currentWindow() {
@@ -41,6 +41,23 @@ function currentWindow() {
 
 async function getPersonalStats(user) {
     const { year, month, daysInMonth, monthPrefix } = currentWindow();
+
+    // Moulding gets a two-line (Disamatic + DMM) chart, each broken down by shift, instead
+    // of every other department's single flat `counts` — see UserProfile.jsx's mouldingChart.
+    if (user.department === 'Moulding') {
+        const [disamatic, dmm] = await Promise.all([
+            statsRepository.countDisaEntriesByShift(monthPrefix),
+            statsRepository.countDmmParameterEntriesByShift(monthPrefix),
+        ]);
+        return {
+            year, month, daysInMonth, counts: [],
+            series: [
+                { label: 'Disamatic', counts: disamatic },
+                { label: 'DMM', counts: dmm },
+            ],
+        };
+    }
+
     const source = PERSONAL_SOURCES[user.department];
     const counts = source ? await source(monthPrefix, user.id) : [];
     return { year, month, daysInMonth, counts };

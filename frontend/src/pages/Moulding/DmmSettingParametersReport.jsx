@@ -161,6 +161,7 @@ const DmmSettingParametersReport = () => {
     if (report.parameters) {
       ['shift1', 'shift2', 'shift3'].forEach(shiftKey => {
         const arr = report.parameters[shiftKey];
+        const shiftEntry = report.shifts?.[shiftKey];
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
             rows.push({
@@ -170,11 +171,24 @@ const DmmSettingParametersReport = () => {
               shift: shiftKey.replace('shift', 'Shift '),
               shiftKey,
               rowIndex,
-              operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
-              checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
+              operatorName: shiftEntry?.operatorName || '-',
+              checkedBy: shiftEntry?.checkedBy || '-',
               // spread last: param carries the parameter row's own _id/createdAt/createdBy
               ...param
             });
+          });
+        } else if (shiftEntry?.operatorName || shiftEntry?.checkedBy) {
+          // Primary data saved for this shift but no parameter row submitted yet —
+          // still surface it instead of letting it vanish from the report.
+          rows.push({
+            reportId: report._id,
+            date: report.date,
+            machine: report.machine,
+            shift: shiftKey.replace('shift', 'Shift '),
+            shiftKey,
+            operatorName: shiftEntry.operatorName || '-',
+            checkedBy: shiftEntry.checkedBy || '-',
+            hasParameterRow: false
           });
         }
       });
@@ -259,6 +273,18 @@ const DmmSettingParametersReport = () => {
         // Only show data for the selected shift
         if (appliedShift && appliedShift !== shiftKey.replace('shift','Shift ')) return;
         const arr = report.parameters[shiftKey];
+        const rawShiftEntry = report.shifts?.[shiftKey];
+        // Operator Name/Operated By live on the DmmMachineShift row, a
+        // separate id space from the parameter row below — EntryActions
+        // for that pair needs this shift-scoped _id/createdAt/createdBy,
+        // not the parameter row's own (which `...param` supplies below).
+        const shiftEntry = {
+          _id: rawShiftEntry?._id,
+          createdAt: rawShiftEntry?.createdAt,
+          createdBy: rawShiftEntry?.createdBy,
+          operatorName: rawShiftEntry?.operatorName || '',
+          checkedBy: rawShiftEntry?.checkedBy || ''
+        };
         if (Array.isArray(arr) && arr.length > 0) {
           arr.forEach((param, rowIndex) => {
             rows.push({
@@ -268,22 +294,27 @@ const DmmSettingParametersReport = () => {
               shift: shiftKey.replace('shift','Shift '),
               shiftKey,
               rowIndex,
-              operatorName: report.shifts?.[shiftKey]?.operatorName || '-',
-              checkedBy: report.shifts?.[shiftKey]?.checkedBy || '-',
-              // Operator Name/Operated By live on the DmmMachineShift row, a
-              // separate id space from the parameter row below — EntryActions
-              // for that pair needs this shift-scoped _id/createdAt/createdBy,
-              // not the parameter row's own (which `...param` supplies below).
-              shiftEntry: {
-                _id: report.shifts?.[shiftKey]?._id,
-                createdAt: report.shifts?.[shiftKey]?.createdAt,
-                createdBy: report.shifts?.[shiftKey]?.createdBy,
-                operatorName: report.shifts?.[shiftKey]?.operatorName || '',
-                checkedBy: report.shifts?.[shiftKey]?.checkedBy || ''
-              },
+              operatorName: rawShiftEntry?.operatorName || '-',
+              checkedBy: rawShiftEntry?.checkedBy || '-',
+              shiftEntry,
               // spread last: param carries the parameter row's own _id/createdAt/createdBy
               ...param
             });
+          });
+        } else if (rawShiftEntry?.operatorName || rawShiftEntry?.checkedBy) {
+          // Primary data saved for this shift but no parameter row submitted
+          // yet — still show it instead of letting a genuinely-saved record
+          // disappear from the report entirely.
+          rows.push({
+            reportId: report._id,
+            date: report.date,
+            machine: report.machine,
+            shift: shiftKey.replace('shift','Shift '),
+            shiftKey,
+            operatorName: rawShiftEntry.operatorName || '-',
+            checkedBy: rawShiftEntry.checkedBy || '-',
+            shiftEntry,
+            hasParameterRow: false
           });
         }
       });
@@ -467,7 +498,7 @@ const DmmSettingParametersReport = () => {
                     const groupId = `${row.date}-${row.machine}-${row.shift}`.replace(/[^a-zA-Z0-9]/g, '-');
                     
                     return (
-                      <tr key={row._id + '-' + idx} 
+                      <tr key={`${row.reportId}-${row.shiftKey}-${idx}`}
                           className={`group-row group-${groupId}`}
                           style={{ 
                             transition: 'background-color 0.2s ease',
@@ -557,37 +588,50 @@ const DmmSettingParametersReport = () => {
                           </td>
                         ) : null}
                         
-                        <td style={{ 
-                          padding: '12px 18px', 
-                          textAlign: 'center',
-                          borderTop: isFirstInGroup && idx > 0 ? '2px solid #e2e8f0' : 'none',
-                          borderBottom: isLastInGroup ? '2px solid #e2e8f0' : 'none',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.closest('tr').style.backgroundColor = '#e0f2fe';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.closest('tr').style.backgroundColor = '';
-                        }} className={devClass('operatorName', row.operatorName)}>{row.operatorName}</td>
-                        <td style={{ 
-                          padding: '12px 18px', 
-                          textAlign: 'center',
-                          borderTop: isFirstInGroup && idx > 0 ? '2px solid #e2e8f0' : 'none',
-                          borderBottom: isLastInGroup ? '2px solid #e2e8f0' : 'none',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.closest('tr').style.backgroundColor = '#e0f2fe';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.closest('tr').style.backgroundColor = '';
-                        }} className={devClass('checkedBy', row.checkedBy)}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {isFirstInGroup ? (
+                          <td rowSpan={groupSize} style={{
+                            padding: '12px 18px',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            borderTop: idx > 0 ? '2px solid #e2e8f0' : 'none',
+                            borderBottom: '2px solid #e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className={`grouped-cell group-${groupId}-cell ${devClass('operatorName', row.operatorName)}`}
+                          onMouseEnter={() => {
+                            const groupRows = document.querySelectorAll(`.group-${groupId}`);
+                            groupRows.forEach(row => row.style.backgroundColor = '#e0f2fe');
+                          }}
+                          onMouseLeave={() => {
+                            const groupRows = document.querySelectorAll(`.group-${groupId}`);
+                            groupRows.forEach(row => row.style.backgroundColor = '');
+                          }}>
+                            {row.operatorName}
+                          </td>
+                        ) : null}
+                        {isFirstInGroup ? (
+                          <td rowSpan={groupSize} style={{
+                            padding: '12px 18px',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            borderTop: idx > 0 ? '2px solid #e2e8f0' : 'none',
+                            borderBottom: '2px solid #e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className={`grouped-cell group-${groupId}-cell ${devClass('checkedBy', row.checkedBy)}`}
+                          onMouseEnter={() => {
+                            const groupRows = document.querySelectorAll(`.group-${groupId}`);
+                            groupRows.forEach(row => row.style.backgroundColor = '#e0f2fe');
+                          }}
+                          onMouseLeave={() => {
+                            const groupRows = document.querySelectorAll(`.group-${groupId}`);
+                            groupRows.forEach(row => row.style.backgroundColor = '');
+                          }}>
                             {row.checkedBy}
-                            <EntryActions entry={row.shiftEntry} editConfig={dmmOperatorEditConfig} onChanged={fetchReports} />
-                          </span>
-                        </td>
+                          </td>
+                        ) : null}
                         <td style={{ 
                           padding: '12px 18px', 
                           textAlign: 'center',
@@ -866,7 +910,11 @@ const DmmSettingParametersReport = () => {
                           borderTop: isFirstInGroup && idx > 0 ? '2px solid #e2e8f0' : 'none',
                           borderBottom: isLastInGroup ? '2px solid #e2e8f0' : 'none'
                         }}>
-                          <EntryActions entry={row} editConfig={dmmEditConfig} onChanged={fetchReports} />
+                          {row.hasParameterRow === false ? (
+                            <EntryActions entry={row.shiftEntry} editConfig={dmmOperatorEditConfig} onChanged={fetchReports} />
+                          ) : (
+                            <EntryActions entry={row} editConfig={dmmEditConfig} onChanged={fetchReports} />
+                          )}
                         </td>
                       </tr>
                     );

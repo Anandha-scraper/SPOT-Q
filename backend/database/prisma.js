@@ -2,11 +2,10 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const buildClient = () => {
     const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-
     return new PrismaClient({
         adapter,
         omit: { user: { passwordHash: true } },
-        log: process.env.PRISMA_LOG === 'true' ? ['query', 'warn', 'error'] : ['warn', 'error'],
+        log: ['warn', 'error'],
     });
 };
 const globalForPrisma = globalThis;

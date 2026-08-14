@@ -43,6 +43,18 @@ function deleteEntry(id) {
     return prisma.tensileEntry.delete({ where: { id } });
 }
 
+// Mirrors microStructureRepository.js#findDistinctFieldValues — single-model
+// department, so no `model` param needed, just the field name.
+async function findDistinctFieldValues(field, cutoffDate) {
+    const rows = await prisma.tensileEntry.findMany({
+        where: { [field]: { notIn: ['', '-'] }, tensile: { date: { gte: cutoffDate } } },
+        distinct: [field],
+        select: { [field]: true },
+        orderBy: { [field]: 'asc' },
+    });
+    return rows.map((row) => row[field]);
+}
+
 module.exports = {
     ensureDateRow,
     createEntry,
@@ -50,4 +62,5 @@ module.exports = {
     findEntryAuthInfo,
     updateEntry,
     deleteEntry,
+    findDistinctFieldValues,
 };

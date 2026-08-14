@@ -8,7 +8,9 @@ const {
     savePrimaryData,
     repairShiftSplit,
     updateReport,
-    deleteReport
+    deleteReport,
+    getComponentNames,
+    getPatternTempItems
 } = require('../controllers/Moulding-DismaticProductReportDISA');
 const { checkAdminAccess } = require('../middleware/access');
 const { authorizeEntry } = require('../middleware/entryAccess');
@@ -19,6 +21,8 @@ const { loadReportForAuth } = require('../services/disaReportService');
 router.get('/by-date', getDismaticReportByDate);
 router.get('/range', getDismaticReportsByDateRange);
 router.get('/primary', getPrimaryDataByDateShift);
+router.get('/component-names/:table', getComponentNames);
+router.get('/pattern-temp-items', getPatternTempItems);
 router.post('/', createDismaticReport);
 router.post('/primary', savePrimaryData);
 

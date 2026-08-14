@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Save, Plus, X } from "lucide-react";
 import CustomDatePicker from "../../Components/CustomDatePicker";
 import { CustomTimeInput, Time, PlusButton, MinusButton, SubmitButton, ShiftDropdown, LockPrimaryButton } from "../../Components/Buttons";
@@ -74,9 +75,56 @@ const formatTimeToString = (timeObj) => {
 
 // Rules live in src/deviations/ with every other department's; re-exported here
 // so existing importers of this module keep resolving.
-import { validationRanges } from '../../deviations/DdisamaticProduct';
+import {
+  validationRanges,
+  productionFieldMapping,
+  nextShiftPlanFieldMapping,
+  delaysFieldMapping,
+  mouldHardnessFieldMapping,
+  patternTempFieldMapping,
+} from '../../deviations/DdisamaticProduct';
+import { runValidation, MESSAGE_REQUIRED } from '../../utils/formValidation';
 
 export { validationRanges };
+
+// Shown instead of "Fill required fields" when a table's Save is clicked with
+// every row completely untouched — flagging every field on a row the user
+// never started as "required" reads as a validation error when it's really
+// just nothing to submit yet.
+const MESSAGE_NOTHING_TO_SAVE = 'Nothing to save';
+
+// One row at a time (DdisamaticProduct.js's fieldMapping is split per table
+// section, not one flat map — see its header comment), following the same
+// runValidation engine Process.jsx drives from Dprocess.js. Returns per-row
+// field errors in the same { [rowIndex]: { [fieldKey]: true } } shape the
+// existing *Errors state/rendering already expects. `fieldPrefix` matches
+// each section's own `data-field="${index}-<prefix>-<field>"` naming (blank
+// for Production, which has no prefix) so focus-on-error still resolves.
+const validateSectionRows = (fieldMapping, rows, hasRowData, fieldPrefix = '') => {
+  const dataField = (index, key) => `${index}-${fieldPrefix ? `${fieldPrefix}-` : ''}${key}`;
+  const errors = {};
+  let hasAnyData = false;
+  let firstErrorField = null;
+  let message = '';
+
+  rows.forEach((row, index) => {
+    if (!hasRowData(row)) return;
+    hasAnyData = true;
+    const result = runValidation({ validationRanges, fieldMapping, formData: row, inputRefs: null });
+    if (!result.ok) {
+      const rowErrors = {};
+      Object.entries(result.fieldStates).forEach(([key, state]) => { if (state === false) rowErrors[key] = true; });
+      errors[index] = rowErrors;
+      if (!firstErrorField) { firstErrorField = dataField(index, result.firstErrorField); message = result.message; }
+    }
+  });
+
+  if (!hasAnyData) {
+    return { errors: {}, hasErrors: false, firstErrorField: null, message: '', nothingToSave: true };
+  }
+
+  return { errors, hasErrors: Object.keys(errors).length > 0, firstErrorField, message, nothingToSave: false };
+};
 
 const DisamaticProduct = () => {
   const { isOpen: isInfoOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useInfoModal();
@@ -84,6 +132,10 @@ const DisamaticProduct = () => {
 
   const [formData, setFormData] = useState(initialFormData);
   const [isPrimaryDataSaved, setIsPrimaryDataSaved] = useState(false);
+  // Snapshot of incharge/ppOperator/members as of the last successful fetch/save,
+  // so the Update Primary button can tell "saved before" from "actually changed
+  // since then" instead of staying permanently clickable once anything is saved.
+  const [savedPrimarySnapshot, setSavedPrimarySnapshot] = useState({ incharge: '', ppOperator: '', members: [] });
   const [lockedFields, setLockedFields] = useState({
     incharge: false,
     ppOperator: false
@@ -100,6 +152,16 @@ const DisamaticProduct = () => {
   const [mouldHardnessErrors, setMouldHardnessErrors] = useState({});
   const [patternTempErrors, setPatternTempErrors] = useState({});
   const [focusedField, setFocusedField] = useState(null);
+  // Component Name autocomplete (last 90 days) — Process.jsx's Part Name
+  // pattern, adapted for multi-row tables: one fetched-once-on-mount list per
+  // table, with the "open dropdown" tracked per row instead of one global flag.
+  // Rendered via a portal (dropdownAnchor) rather than position:absolute,
+  // since every table sits inside an overflowX:auto wrapper that would
+  // otherwise clip it — same reasoning as EntryActions.jsx's tooltip.
+  const [componentSuggestions, setComponentSuggestions] = useState({ production: [], nextShiftPlan: [], mouldHardness: [], patternTemp: [] });
+  const [openComponentDropdown, setOpenComponentDropdown] = useState(null); // { table, index } | null
+  const [filteredComponentSuggestions, setFilteredComponentSuggestions] = useState([]);
+  const [dropdownAnchor, setDropdownAnchor] = useState(null); // { left, top, width } in viewport coordinates
   const [nextSNo, setNextSNo] = useState(1);
   const [nextShiftPlanSNo, setNextShiftPlanSNo] = useState(1);
   const [delaysSNo, setDelaysSNo] = useState(1);
@@ -215,9 +277,12 @@ const DisamaticProduct = () => {
     return primarySaveButtonRef;
   };
 
-  // Get next available field after ppOperator
+  // Get next available field after ppOperator — the first enabled member
+  // input, so the user can start typing a member name right away; falls back
+  // to Save if no member input is currently enabled.
   const getNextAfterPpOperator = () => {
-    return primarySaveButtonRef;
+    const firstMemberInput = document.querySelector('.disamatic-members-container .disamatic-member-input:not(:disabled)');
+    return { current: firstMemberInput || primarySaveButtonRef.current };
   };
 
   // On mount, fetch today's entries and auto-select the last entered shift
@@ -243,6 +308,71 @@ const DisamaticProduct = () => {
     };
     fetchLastShift();
   }, []);
+
+  // Component Name suggestions — fetched on mount per table (not
+  // per-keystroke), matching Process.jsx's Part Name pattern, and re-fetched
+  // after each successful save so a value entered this session shows up as a
+  // suggestion immediately instead of only after a page reload.
+  const fetchComponentNames = (table) => {
+    // Pattern Temp's suggestion source is a different column ('item', not
+    // componentName), so it has its own single-field endpoint.
+    const url = table === 'patternTemp'
+      ? `${API_ENDPOINTS.mouldingDisa}/pattern-temp-items`
+      : `${API_ENDPOINTS.mouldingDisa}/component-names/${table}`;
+    fetch(url, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => { if (data.success) setComponentSuggestions(prev => ({ ...prev, [table]: data.data })); })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    ['production', 'nextShiftPlan', 'mouldHardness', 'patternTemp'].forEach(fetchComponentNames);
+  }, []);
+
+  // Click-outside closes whichever row's dropdown is open — same intent as
+  // Process.jsx's partNameDropdownRef effect, but class-based since the
+  // dropdown is now portaled to <body> (outside any row's own wrapper) and
+  // shared across many rows/tables rather than anchored to one field.
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (event.target.closest('.disamatic-component-suggestions') || event.target.closest('.disamatic-component-input')) return;
+      setOpenComponentDropdown(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // The dropdown is portaled and position:fixed, computed once when it opens
+  // — without this, scrolling the page (or the table's own overflowX
+  // container) leaves it visually detached from the input it belongs to.
+  // Re-locate the open row's input via the same data-field lookup used
+  // elsewhere in this file and recompute the anchor on every scroll/resize.
+  useEffect(() => {
+    if (!openComponentDropdown) return undefined;
+    const fieldSelector = {
+      production: (i) => `${i}-componentName`,
+      nextShiftPlan: (i) => `${i}-nextShiftPlan-componentName`,
+      mouldHardness: (i) => `${i}-mouldHardness-componentName`,
+      patternTemp: (i) => `${i}-patternTemp-item`,
+    }[openComponentDropdown.table]?.(openComponentDropdown.index);
+
+    const updatePosition = () => {
+      const el = fieldSelector && document.querySelector(`[data-field="${fieldSelector}"]`);
+      if (!el) { setOpenComponentDropdown(null); return; }
+      const rect = el.getBoundingClientRect();
+      setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+    };
+
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [openComponentDropdown]);
+
+  const filterComponentSuggestions = (table, value) =>
+    componentSuggestions[table].filter(n => n.toUpperCase().includes(value.toUpperCase())).slice(0, 5);
 
   // Fetch primary data when date or shift changes
   useEffect(() => {
@@ -336,7 +466,8 @@ const DisamaticProduct = () => {
         // Check if any primary data exists
         const hasAnyData = incharge || ppOperator || savedMembersCount > 0;
         setIsPrimaryDataSaved(hasAnyData);
-        
+        setSavedPrimarySnapshot({ incharge: incharge || '', ppOperator: ppOperator || '', members: currentMembers.filter(m => m && m.trim() !== '') });
+
         // Lock individual events fields based on what has data
         setLockedEventsFields({
           significantEvent: !!(significantEvent && significantEvent.trim()),
@@ -384,6 +515,7 @@ const DisamaticProduct = () => {
         });
         setLockedMembersCount(0);
         setIsPrimaryDataSaved(false);
+        setSavedPrimarySnapshot({ incharge: '', ppOperator: '', members: [] });
         setIsEventsSaved(false);
         setLockedEventsFields({
           significantEvent: false,
@@ -431,6 +563,7 @@ const DisamaticProduct = () => {
         date: value
       });
       setIsPrimaryDataSaved(false);
+      setSavedPrimarySnapshot({ incharge: '', ppOperator: '', members: [] });
       setLockedFields({
         incharge: false,
         ppOperator: false
@@ -549,9 +682,21 @@ const DisamaticProduct = () => {
 
   // Handle Enter key to move to next input
   const handleProductionKeyDown = (e, currentRowIndex, currentField) => {
+    if (currentField === 'componentName') {
+      if (e.key === 'Escape') {
+        setOpenComponentDropdown(null);
+        return;
+      }
+      if (e.key === 'Enter' && openComponentDropdown?.table === 'production' && openComponentDropdown?.index === currentRowIndex && filteredComponentSuggestions.length > 0) {
+        e.preventDefault();
+        handleProductionChange(currentRowIndex, 'componentName', filteredComponentSuggestions[0]);
+        setOpenComponentDropdown(null);
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       // Navigation fields
       const fields = ['counterNo', 'componentName', 'produced', 'poured', 'cycleTime', 'mouldsPerHour', 'remarks'];
       const currentFieldIndex = fields.indexOf(currentField);
@@ -600,64 +745,19 @@ const DisamaticProduct = () => {
 
   // Submit Production Data
   const handleSubmitProduction = async () => {
-    // Validate all fields in production table
-    const errors = {};
-    let hasCompleteRow = false;
-    let hasAnyData = false;
-    let firstErrorField = null;
-    
-    formData.productionTable.forEach((row, index) => {
-      const rowErrors = {};
-      
-      // Check if row has any data
-      const hasRowData = row.counterNo || row.componentName || row.produced || row.poured || row.cycleTime || row.mouldsPerHour || row.remarks;
-      
-      if (hasRowData) {
-        hasAnyData = true;
-        // If row has some data, all fields must be filled
-        if (!row.counterNo) { rowErrors.counterNo = true; if (!firstErrorField) firstErrorField = `${index}-counterNo`; }
-        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-componentName`; }
-        if (!row.produced) { rowErrors.produced = true; if (!firstErrorField) firstErrorField = `${index}-produced`; }
-        if (!row.poured) { rowErrors.poured = true; if (!firstErrorField) firstErrorField = `${index}-poured`; }
-        if (!row.cycleTime) { rowErrors.cycleTime = true; if (!firstErrorField) firstErrorField = `${index}-cycleTime`; }
-        if (!row.mouldsPerHour) { rowErrors.mouldsPerHour = true; if (!firstErrorField) firstErrorField = `${index}-mouldsPerHour`; }
-        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-remarks`; }
-        
-        if (Object.keys(rowErrors).length === 0) {
-          hasCompleteRow = true;
-        } else {
-          errors[index] = rowErrors;
-        }
-      }
-    });
+    const hasRowData = (row) => row.counterNo || row.componentName || row.produced || row.poured || row.cycleTime || row.mouldsPerHour || row.remarks;
+    const { errors, hasErrors, firstErrorField, message, nothingToSave } = validateSectionRows(productionFieldMapping, formData.productionTable, hasRowData);
 
-    // If no data at all in any row, show errors on all rows
-    if (!hasAnyData) {
-      formData.productionTable.forEach((row, index) => {
-        errors[index] = {
-          counterNo: true,
-          componentName: true,
-          produced: true,
-          poured: true,
-          cycleTime: true,
-          mouldsPerHour: true,
-          remarks: true
-        };
-      });
-      if (!firstErrorField) firstErrorField = '0-counterNo';
-      setProductionErrors(errors);
-      setProductionSubmitError('Enter data in correct format');
-      if (firstErrorField) {
-        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
-        if (el) el.focus();
-      }
+    if (nothingToSave) {
+      setProductionErrors({});
+      setProductionSubmitError(MESSAGE_NOTHING_TO_SAVE);
+      setTimeout(() => setProductionSubmitError(''), 3000);
       return;
     }
 
-    // If validation errors exist, set them and return
-    if (Object.keys(errors).length > 0) {
+    if (hasErrors) {
       setProductionErrors(errors);
-      setProductionSubmitError('Enter data in correct format');
+      setProductionSubmitError(message);
       if (firstErrorField) {
         const el = document.querySelector(`[data-field="${firstErrorField}"]`);
         if (el) el.focus();
@@ -716,6 +816,7 @@ const DisamaticProduct = () => {
         // Show success alert
         setProductionSuccess(true);
         setTimeout(() => setProductionSuccess(false), 3000);
+        fetchComponentNames('production');
       } else {
         setProductionSubmitError(result.message || 'Failed to save production data.');
       }
@@ -777,9 +878,21 @@ const DisamaticProduct = () => {
 
   // Handle Enter key navigation for Next Shift Plan
   const handleNextShiftPlanKeyDown = (e, currentRowIndex, currentField) => {
+    if (currentField === 'componentName') {
+      if (e.key === 'Escape') {
+        setOpenComponentDropdown(null);
+        return;
+      }
+      if (e.key === 'Enter' && openComponentDropdown?.table === 'nextShiftPlan' && openComponentDropdown?.index === currentRowIndex && filteredComponentSuggestions.length > 0) {
+        e.preventDefault();
+        handleNextShiftPlanChange(currentRowIndex, 'componentName', filteredComponentSuggestions[0]);
+        setOpenComponentDropdown(null);
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       const fields = ['componentName', 'plannedMoulds', 'remarks'];
       const currentFieldIndex = fields.indexOf(currentField);
       
@@ -812,56 +925,19 @@ const DisamaticProduct = () => {
 
   // Submit Next Shift Plan Data
   const handleSubmitNextShiftPlan = async () => {
-    // Validate all fields
-    const errors = {};
-    let hasCompleteRow = false;
-    let hasAnyData = false;
-    let firstErrorField = null;
-    
-    formData.nextShiftPlanTable.forEach((row, index) => {
-      const rowErrors = {};
-      
-      // Check if row has any data
-      const hasRowData = row.componentName || row.plannedMoulds || row.remarks;
-      
-      if (hasRowData) {
-        hasAnyData = true;
-        // If row has some data, all fields must be filled
-        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-componentName`; }
-        if (!row.plannedMoulds) { rowErrors.plannedMoulds = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-plannedMoulds`; }
-        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-nextShiftPlan-remarks`; }
-        
-        if (Object.keys(rowErrors).length === 0) {
-          hasCompleteRow = true;
-        } else {
-          errors[index] = rowErrors;
-        }
-      }
-    });
+    const hasRowData = (row) => row.componentName || row.plannedMoulds || row.remarks;
+    const { errors, hasErrors, firstErrorField, message, nothingToSave } = validateSectionRows(nextShiftPlanFieldMapping, formData.nextShiftPlanTable, hasRowData, 'nextShiftPlan');
 
-    // If no data at all, show errors on all rows
-    if (!hasAnyData) {
-      formData.nextShiftPlanTable.forEach((row, index) => {
-        errors[index] = {
-          componentName: true,
-          plannedMoulds: true,
-          remarks: true
-        };
-      });
-      if (!firstErrorField) firstErrorField = '0-nextShiftPlan-componentName';
-      setNextShiftPlanErrors(errors);
-      setNextShiftPlanSubmitError('Enter data in correct format');
-      if (firstErrorField) {
-        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
-        if (el) el.focus();
-      }
+    if (nothingToSave) {
+      setNextShiftPlanErrors({});
+      setNextShiftPlanSubmitError(MESSAGE_NOTHING_TO_SAVE);
+      setTimeout(() => setNextShiftPlanSubmitError(''), 3000);
       return;
     }
 
-    // If validation errors exist, set them and return
-    if (Object.keys(errors).length > 0) {
+    if (hasErrors) {
       setNextShiftPlanErrors(errors);
-      setNextShiftPlanSubmitError('Enter data in correct format');
+      setNextShiftPlanSubmitError(message);
       if (firstErrorField) {
         const el = document.querySelector(`[data-field="${firstErrorField}"]`);
         if (el) el.focus();
@@ -920,6 +996,7 @@ const DisamaticProduct = () => {
         // Show success alert
         setNextShiftPlanSuccess(true);
         setTimeout(() => setNextShiftPlanSuccess(false), 3000);
+        fetchComponentNames('nextShiftPlan');
       } else {
         setNextShiftPlanSubmitError(result.message || 'Failed to save next shift plan.');
       }
@@ -1158,95 +1235,74 @@ const DisamaticProduct = () => {
   // Submit Delays Data
   const handleSubmitDelays = async () => {
     const errors = {};
-    let hasCompleteRow = false;
     let hasAnyData = false;
     let firstErrorField = null;
-    
+    let submitMessage = '';
+
     formData.delaysTable.forEach((row, index) => {
-      const rowErrors = {};
-      
-      // Check if row has any data
       const hasRowData = row.delays || row.durationMinutes.some(m => m) || row.fromTime.some(t => t) || row.toTime.some(t => t);
-      
-      if (hasRowData) {
-        hasAnyData = true;
-        
-        // Validate delays field
-        if (!row.delays) { rowErrors.delays = true; if (!firstErrorField) firstErrorField = `${index}-delays-delays`; }
-        
-        // Validate each duration entry
-        rowErrors.durationMinutes = {};
-        rowErrors.fromTime = {};
-        rowErrors.toTime = {};
-        let hasEntryError = false;
-        
-        row.durationMinutes.forEach((minutes, idx) => {
-          const hasEntryData = minutes || row.fromTime[idx] || row.toTime[idx];
-          if (hasEntryData) {
-            if (!minutes) {
-              rowErrors.durationMinutes[idx] = true;
-              hasEntryError = true;
-              if (!firstErrorField) firstErrorField = `${index}-delays-durationMinutes-${idx}`;
-            } else if (parseInt(minutes) > 30) {
-              rowErrors.durationMinutes[idx] = 'Duration cannot exceed 30 minutes';
-              hasEntryError = true;
-              if (!firstErrorField) firstErrorField = `${index}-delays-durationMinutes-${idx}`;
-            }
-            if (!row.fromTime[idx]) {
-              rowErrors.fromTime[idx] = true;
-              hasEntryError = true;
-              if (!firstErrorField) firstErrorField = `${index}-delays-fromTime-${idx}`;
-            }
-            if (!row.toTime[idx]) {
-              rowErrors.toTime[idx] = true;
-              hasEntryError = true;
-              if (!firstErrorField) firstErrorField = `${index}-delays-toTime-${idx}`;
-            }
-          }
-        });
-        
-        if (Object.keys(rowErrors.durationMinutes).length === 0) delete rowErrors.durationMinutes;
-        if (Object.keys(rowErrors.fromTime).length === 0) delete rowErrors.fromTime;
-        if (Object.keys(rowErrors.toTime).length === 0) delete rowErrors.toTime;
-        
-        if (Object.keys(rowErrors).length === 0) {
-          hasCompleteRow = true;
-        } else {
-          errors[index] = rowErrors;
+      if (!hasRowData) return;
+      hasAnyData = true;
+
+      const rowErrors = {};
+
+      // Delay Reason required-ness, driven by DdisamaticProduct.js via the shared engine.
+      const result = runValidation({ validationRanges, fieldMapping: delaysFieldMapping, formData: row, inputRefs: null });
+      if (result.fieldStates.delays === false) {
+        rowErrors.delays = true;
+        if (!firstErrorField) { firstErrorField = `${index}-delays-delays`; submitMessage = result.message; }
+      }
+
+      // From/To Time pairing is per-index across parallel arrays, not
+      // expressible via a fieldMapping key — stays bespoke (Process keeps its
+      // Time fields bespoke for the same reason). Duration (Minutes)'s 30-min
+      // cap is now an admin-only QC hint (see DisamaticProductReport.jsx's
+      // deviation flag), not a submit-blocker, so this only checks blankness.
+      const durationErrors = {};
+      const fromTimeErrors = {};
+      const toTimeErrors = {};
+      row.durationMinutes.forEach((minutes, idx) => {
+        const hasEntryData = minutes || row.fromTime[idx] || row.toTime[idx];
+        if (!hasEntryData) return;
+        if (!minutes) {
+          durationErrors[idx] = true;
+          if (!firstErrorField) firstErrorField = `${index}-delays-durationMinutes-${idx}`;
         }
-      }
-    });
-    
-    // If no data, show errors
-    if (!hasAnyData) {
-      formData.delaysTable.forEach((row, index) => {
-        errors[index] = {
-          delays: true,
-          durationMinutes: { 0: true },
-          fromTime: { 0: true },
-          toTime: { 0: true }
-        };
+        if (!row.fromTime[idx]) {
+          fromTimeErrors[idx] = true;
+          if (!firstErrorField) firstErrorField = `${index}-delays-fromTime-${idx}`;
+        }
+        if (!row.toTime[idx]) {
+          toTimeErrors[idx] = true;
+          if (!firstErrorField) firstErrorField = `${index}-delays-toTime-${idx}`;
+        }
       });
-      if (!firstErrorField) firstErrorField = '0-delays-delays';
-      setDelaysErrors(errors);
-      setDelaysSubmitError('Enter data in correct format');
-      if (firstErrorField) {
-        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
-        if (el) el.focus();
-      }
+      if (Object.keys(durationErrors).length) rowErrors.durationMinutes = durationErrors;
+      if (Object.keys(fromTimeErrors).length) rowErrors.fromTime = fromTimeErrors;
+      if (Object.keys(toTimeErrors).length) rowErrors.toTime = toTimeErrors;
+
+      if (Object.keys(rowErrors).length) errors[index] = rowErrors;
+    });
+
+    // Nothing entered at all — a friendly nudge, not a wall of required-field
+    // errors on rows the user never touched.
+    if (!hasAnyData) {
+      setDelaysErrors({});
+      setDelaysSubmitError(MESSAGE_NOTHING_TO_SAVE);
+      setTimeout(() => setDelaysSubmitError(''), 3000);
       return;
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setDelaysErrors(errors);
-      setDelaysSubmitError('Enter data in correct format');
+      setDelaysSubmitError(submitMessage || MESSAGE_REQUIRED);
       if (firstErrorField) {
         const el = document.querySelector(`[data-field="${firstErrorField}"]`);
         if (el) el.focus();
       }
       return;
     }
-    
+
     // Clear submit error if validation passes
     setDelaysSubmitError('');
     
@@ -1473,9 +1529,21 @@ const DisamaticProduct = () => {
 
   // Handle Enter key navigation for Mould Hardness table
   const handleMouldHardnessKeyDown = (e, currentRowIndex, currentField, pairIdx = null) => {
+    if (currentField === 'componentName') {
+      if (e.key === 'Escape') {
+        setOpenComponentDropdown(null);
+        return;
+      }
+      if (e.key === 'Enter' && openComponentDropdown?.table === 'mouldHardness' && openComponentDropdown?.index === currentRowIndex && filteredComponentSuggestions.length > 0) {
+        e.preventDefault();
+        handleMouldHardnessChange(currentRowIndex, 'componentName', filteredComponentSuggestions[0]);
+        setOpenComponentDropdown(null);
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       if (pairIdx !== null && ['mpPP', 'mpSP', 'bsPP', 'bsSP'].includes(currentField)) {
         const currentValue = formData.mouldHardnessTable[currentRowIndex][currentField][pairIdx];
         if (currentValue) {
@@ -1567,10 +1635,13 @@ const DisamaticProduct = () => {
       
       if (hasRowData) {
         hasAnyData = true;
-        // If row has some data, validate all required fields
-        if (!row.componentName) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-componentName`; }
-        if (!row.remarks) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-remarks`; }
-        
+        // Component Name / Remarks required-ness, driven by DdisamaticProduct.js
+        // via the shared engine (Remarks is required: false there — this also
+        // fixes the previous hand-rolled check, which wrongly required it).
+        const result = runValidation({ validationRanges, fieldMapping: mouldHardnessFieldMapping, formData: row, inputRefs: null });
+        if (result.fieldStates.componentName === false) { rowErrors.componentName = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-componentName`; }
+        if (result.fieldStates.remarks === false) { rowErrors.remarks = true; if (!firstErrorField) firstErrorField = `${index}-mouldHardness-remarks`; }
+
         ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
           const kindErrors = {};
           row[kind].forEach((value, pairIdx) => {
@@ -1592,22 +1663,12 @@ const DisamaticProduct = () => {
       }
     });
 
-    // If no data at all in any row, show errors on all rows
+    // Nothing entered at all — a friendly nudge, not a wall of required-field
+    // errors on rows the user never touched.
     if (!hasAnyData) {
-      formData.mouldHardnessTable.forEach((row, index) => {
-        const rowErrors = { componentName: true, remarks: true };
-        ['mpPP', 'mpSP', 'bsPP', 'bsSP'].forEach((kind) => {
-          rowErrors[kind] = Object.fromEntries(row[kind].map((_, pairIdx) => [pairIdx, true]));
-        });
-        errors[index] = rowErrors;
-      });
-      if (!firstErrorField) firstErrorField = '0-mouldHardness-componentName';
-      setMouldHardnessErrors(errors);
-      setMouldHardnessSubmitError('Enter data in correct format');
-      if (firstErrorField) {
-        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
-        if (el) el.focus();
-      }
+      setMouldHardnessErrors({});
+      setMouldHardnessSubmitError(MESSAGE_NOTHING_TO_SAVE);
+      setTimeout(() => setMouldHardnessSubmitError(''), 3000);
       return;
     }
 
@@ -1681,6 +1742,7 @@ const DisamaticProduct = () => {
         // Show success alert
         setMouldHardnessSuccess(true);
         setTimeout(() => setMouldHardnessSuccess(false), 3000);
+        fetchComponentNames('mouldHardness');
       } else {
         setMouldHardnessSubmitError(result.message || 'Failed to save mould hardness.');
       }
@@ -1757,9 +1819,21 @@ const DisamaticProduct = () => {
 
   // Handle Enter key navigation for Pattern Temperature table
   const handlePatternTempKeyDown = (e, currentRowIndex, currentField) => {
+    if (currentField === 'item') {
+      if (e.key === 'Escape') {
+        setOpenComponentDropdown(null);
+        return;
+      }
+      if (e.key === 'Enter' && openComponentDropdown?.table === 'patternTemp' && openComponentDropdown?.index === currentRowIndex && filteredComponentSuggestions.length > 0) {
+        e.preventDefault();
+        handlePatternTempChange(currentRowIndex, 'item', filteredComponentSuggestions[0]);
+        setOpenComponentDropdown(null);
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       // Auto-format to decimal if it's a PP/SP field
       if (['pp', 'sp'].includes(currentField)) {
         const currentValue = formData.patternTempTable[currentRowIndex][currentField];
@@ -1812,11 +1886,12 @@ const DisamaticProduct = () => {
       
       if (hasRowData) {
         hasAnyData = true;
-        // If row has some data, all fields must be filled
-        if (!row.item) { rowErrors.item = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-item`; }
-        if (!row.pp) { rowErrors.pp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-pp`; }
-        if (!row.sp) { rowErrors.sp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-sp`; }
-        
+        // All three required, driven by DdisamaticProduct.js via the shared engine.
+        const result = runValidation({ validationRanges, fieldMapping: patternTempFieldMapping, formData: row, inputRefs: null });
+        if (result.fieldStates.item === false) { rowErrors.item = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-item`; }
+        if (result.fieldStates.pp === false) { rowErrors.pp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-pp`; }
+        if (result.fieldStates.sp === false) { rowErrors.sp = true; if (!firstErrorField) firstErrorField = `${index}-patternTemp-sp`; }
+
         if (Object.keys(rowErrors).length === 0) {
           hasCompleteRow = true;
         } else {
@@ -1825,22 +1900,12 @@ const DisamaticProduct = () => {
       }
     });
 
-    // If no data at all in any row, show errors on all rows
+    // Nothing entered at all — a friendly nudge, not a wall of required-field
+    // errors on rows the user never touched.
     if (!hasAnyData) {
-      formData.patternTempTable.forEach((row, index) => {
-        errors[index] = {
-          item: true,
-          pp: true,
-          sp: true
-        };
-      });
-      if (!firstErrorField) firstErrorField = '0-patternTemp-item';
-      setPatternTempErrors(errors);
-      setPatternTempSubmitError('Enter data in correct format');
-      if (firstErrorField) {
-        const el = document.querySelector(`[data-field="${firstErrorField}"]`);
-        if (el) el.focus();
-      }
+      setPatternTempErrors({});
+      setPatternTempSubmitError(MESSAGE_NOTHING_TO_SAVE);
+      setTimeout(() => setPatternTempSubmitError(''), 3000);
       return;
     }
 
@@ -1911,6 +1976,7 @@ const DisamaticProduct = () => {
         // Show success alert
         setPatternTempSuccess(true);
         setTimeout(() => setPatternTempSuccess(false), 3000);
+        fetchComponentNames('patternTemp');
       } else {
         throw new Error(result.message || 'Failed to save pattern temperature data');
       }
@@ -1956,15 +2022,11 @@ const DisamaticProduct = () => {
 
     try {
       setIsLoading(true);
+      setSavingSection('primary');
 
       // Prepare data to send - filter out empty members
       const filteredMembers = formData.members.filter(m => m && m.trim() !== '');
-      
-      // Validate max 4 members
-      if (filteredMembers.length > 4) {
-        return;
-      }
-      
+
       const dataToSend = {
         date: formData.date,
         shift: formData.shift,
@@ -2011,6 +2073,7 @@ const DisamaticProduct = () => {
         }
 
         setIsPrimaryDataSaved(true);
+        setSavedPrimarySnapshot({ incharge: formData.incharge, ppOperator: formData.ppOperator, members: filteredMembers });
 
         setShowCombinationAdded(true);
         setTimeout(() => setShowCombinationAdded(false), 1500);
@@ -2095,6 +2158,16 @@ const DisamaticProduct = () => {
       setSavingSection(null);
     }
   };
+
+  // Has incharge/ppOperator/members actually changed since the last save?
+  // Drives whether the primary save button is clickable once something has
+  // already been saved (see savedPrimarySnapshot).
+  const currentFilteredMembers = formData.members.filter(m => m && m.trim() !== '');
+  const isPrimaryDirty =
+    formData.incharge !== savedPrimarySnapshot.incharge ||
+    formData.ppOperator !== savedPrimarySnapshot.ppOperator ||
+    currentFilteredMembers.length !== savedPrimarySnapshot.members.length ||
+    currentFilteredMembers.some((m, i) => m !== savedPrimarySnapshot.members[i]);
 
   return (
     <div className="page-wrapper moulding-page-wrapper" ref={gridRef} onKeyDown={handleArrowKeyDown}>
@@ -2309,7 +2382,7 @@ const DisamaticProduct = () => {
                     className="disamatic-remove-member-btn"
                     title="Remove member"
                     tabIndex={-1}
-                    disabled={!formData.date || !formData.shift || !isPrimaryDataSaved}
+                    disabled={!formData.date || !formData.shift}
                   >
                     <X size={16} />
                   </button>
@@ -2323,7 +2396,7 @@ const DisamaticProduct = () => {
                 className="disamatic-add-member-btn"
                 title="Add another member"
                 tabIndex={-1}
-                disabled={!formData.date || !formData.shift || !isPrimaryDataSaved}
+                disabled={!formData.date || !formData.shift}
               >
                 <Plus size={16} />
                 Add Member
@@ -2336,16 +2409,16 @@ const DisamaticProduct = () => {
           <LockPrimaryButton
             ref={primarySaveButtonRef}
             onClick={handleSavePrimary}
-            disabled={!formData.date || !formData.shift}
+            disabled={!formData.date || !formData.shift || (isPrimaryDataSaved && !isPrimaryDirty)}
             label={isPrimaryDataSaved ? 'Update Primary Data' : 'Save Primary'}
             statusMessage={
               savePrimaryLoading ? 'Fetching Date, Shift'
                 : showCombinationFound ? 'Combination found'
-                : isLoading ? 'Saving...'
+                : savingSection === 'primary' ? 'Saving...'
                 : showCombinationAdded ? 'Combination Added'
                 : null
             }
-            statusVariant={savePrimaryLoading || isLoading ? 'primary' : 'success'}
+            statusVariant={savePrimaryLoading || savingSection === 'primary' ? 'primary' : 'success'}
           />
         </div>
       </div>
@@ -2438,23 +2511,72 @@ const DisamaticProduct = () => {
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
                       type="text"
+                      className="disamatic-component-input"
                       value={row.componentName}
-                      onChange={e => handleProductionChange(index, 'componentName', e.target.value)}
+                      onChange={e => {
+                        handleProductionChange(index, 'componentName', e.target.value);
+                        const filtered = filterComponentSuggestions('production', e.target.value);
+                        const rect = e.target.getBoundingClientRect();
+                        setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                        setFilteredComponentSuggestions(filtered);
+                        setOpenComponentDropdown(filtered.length && e.target.value ? { table: 'production', index } : null);
+                      }}
                       onKeyDown={e => handleProductionKeyDown(e, index, 'componentName')}
                       data-field={`${index}-componentName`}
                       placeholder="Component Name"
-                      style={{ 
-                        width: '100%', 
-                        padding: '0.5rem', 
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
                         borderRadius: '4px',
                         border: `2px solid ${getBorderColor(index, 'componentName')}`,
                         outline: 'none',
                         transition: 'border-color 0.2s'
                       }}
-                      onFocus={() => setFocusedField(`${index}-componentName`)}
+                      onFocus={e => {
+                        setFocusedField(`${index}-componentName`);
+                        if (row.componentName) {
+                          const filtered = filterComponentSuggestions('production', row.componentName);
+                          const rect = e.target.getBoundingClientRect();
+                          setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                          setFilteredComponentSuggestions(filtered);
+                          setOpenComponentDropdown(filtered.length ? { table: 'production', index } : null);
+                        }
+                      }}
                       onBlur={() => setFocusedField(null)}
                       disabled={!isPrimaryDataSaved}
                     />
+                    {openComponentDropdown?.table === 'production' && openComponentDropdown?.index === index && filteredComponentSuggestions.length > 0 && dropdownAnchor && createPortal(
+                      <div
+                        className="disamatic-component-suggestions"
+                        style={{
+                          position: 'fixed', left: dropdownAnchor.left, top: dropdownAnchor.top, width: dropdownAnchor.width,
+                          backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                          maxHeight: '150px', overflowY: 'auto', zIndex: 10000,
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {filteredComponentSuggestions.map((name, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              handleProductionChange(index, 'componentName', name);
+                              setOpenComponentDropdown(null);
+                            }}
+                            style={{
+                              padding: '8px 12px', cursor: 'pointer',
+                              borderBottom: idx < filteredComponentSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                              backgroundColor: 'white'
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                            onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
@@ -2570,9 +2692,9 @@ const DisamaticProduct = () => {
         
         <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', borderTop: '1px solid #e2e8f0' }}>
           {productionSubmitError && (
-            <InlineLoader 
+            <InlineLoader
               message={productionSubmitError}
-              variant="danger"
+              variant={productionSubmitError === MESSAGE_NOTHING_TO_SAVE ? 'primary' : 'danger'}
               size="medium"
             />
           )}
@@ -2638,23 +2760,72 @@ const DisamaticProduct = () => {
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
                       type="text"
+                      className="disamatic-component-input"
                       value={row.componentName}
-                      onChange={e => handleNextShiftPlanChange(index, 'componentName', e.target.value)}
+                      onChange={e => {
+                        handleNextShiftPlanChange(index, 'componentName', e.target.value);
+                        const filtered = filterComponentSuggestions('nextShiftPlan', e.target.value);
+                        const rect = e.target.getBoundingClientRect();
+                        setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                        setFilteredComponentSuggestions(filtered);
+                        setOpenComponentDropdown(filtered.length && e.target.value ? { table: 'nextShiftPlan', index } : null);
+                      }}
                       onKeyDown={e => handleNextShiftPlanKeyDown(e, index, 'componentName')}
                       data-field={`${index}-nextShiftPlan-componentName`}
                       placeholder="Component Name"
-                      style={{ 
-                        width: '100%', 
-                        padding: '0.5rem', 
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
                         borderRadius: '4px',
                         border: `2px solid ${getBorderColorNextShiftPlan(index, 'componentName')}`,
                         outline: 'none',
                         transition: 'border-color 0.2s'
                       }}
-                      onFocus={() => setFocusedField(`${index}-nextShiftPlan-componentName`)}
+                      onFocus={e => {
+                        setFocusedField(`${index}-nextShiftPlan-componentName`);
+                        if (row.componentName) {
+                          const filtered = filterComponentSuggestions('nextShiftPlan', row.componentName);
+                          const rect = e.target.getBoundingClientRect();
+                          setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                          setFilteredComponentSuggestions(filtered);
+                          setOpenComponentDropdown(filtered.length ? { table: 'nextShiftPlan', index } : null);
+                        }
+                      }}
                       onBlur={() => setFocusedField(null)}
                       disabled={!isPrimaryDataSaved}
                     />
+                    {openComponentDropdown?.table === 'nextShiftPlan' && openComponentDropdown?.index === index && filteredComponentSuggestions.length > 0 && dropdownAnchor && createPortal(
+                      <div
+                        className="disamatic-component-suggestions"
+                        style={{
+                          position: 'fixed', left: dropdownAnchor.left, top: dropdownAnchor.top, width: dropdownAnchor.width,
+                          backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                          maxHeight: '150px', overflowY: 'auto', zIndex: 10000,
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {filteredComponentSuggestions.map((name, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              handleNextShiftPlanChange(index, 'componentName', name);
+                              setOpenComponentDropdown(null);
+                            }}
+                            style={{
+                              padding: '8px 12px', cursor: 'pointer',
+                              borderBottom: idx < filteredComponentSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                              backgroundColor: 'white'
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                            onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
@@ -2709,9 +2880,9 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {nextShiftPlanSubmitError && (
-            <InlineLoader 
+            <InlineLoader
               message={nextShiftPlanSubmitError}
-              variant="danger"
+              variant={nextShiftPlanSubmitError === MESSAGE_NOTHING_TO_SAVE ? 'primary' : 'danger'}
               size="medium"
             />
           )}
@@ -2891,9 +3062,9 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {delaysSubmitError && (
-            <InlineLoader 
+            <InlineLoader
               message={delaysSubmitError}
-              variant="danger"
+              variant={delaysSubmitError === MESSAGE_NOTHING_TO_SAVE ? 'primary' : 'danger'}
               size="medium"
             />
           )}
@@ -2982,23 +3153,72 @@ const DisamaticProduct = () => {
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <input
                       type="text"
+                      className="disamatic-component-input"
                       value={row.componentName}
-                      onChange={e => handleMouldHardnessChange(index, 'componentName', e.target.value)}
+                      onChange={e => {
+                        handleMouldHardnessChange(index, 'componentName', e.target.value);
+                        const filtered = filterComponentSuggestions('mouldHardness', e.target.value);
+                        const rect = e.target.getBoundingClientRect();
+                        setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                        setFilteredComponentSuggestions(filtered);
+                        setOpenComponentDropdown(filtered.length && e.target.value ? { table: 'mouldHardness', index } : null);
+                      }}
                       onKeyDown={e => handleMouldHardnessKeyDown(e, index, 'componentName')}
                       data-field={`${index}-mouldHardness-componentName`}
                       placeholder="Component Name"
-                      style={{ 
-                        width: '100%', 
-                        padding: '0.5rem', 
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
                         borderRadius: '4px',
                         border: `2px solid ${getBorderColorMouldHardness(index, 'componentName')}`,
                         outline: 'none',
                         transition: 'border-color 0.2s'
                       }}
-                      onFocus={() => setFocusedField(`${index}-mouldHardness-componentName`)}
+                      onFocus={e => {
+                        setFocusedField(`${index}-mouldHardness-componentName`);
+                        if (row.componentName) {
+                          const filtered = filterComponentSuggestions('mouldHardness', row.componentName);
+                          const rect = e.target.getBoundingClientRect();
+                          setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                          setFilteredComponentSuggestions(filtered);
+                          setOpenComponentDropdown(filtered.length ? { table: 'mouldHardness', index } : null);
+                        }
+                      }}
                       onBlur={() => setFocusedField(null)}
                       disabled={!isPrimaryDataSaved}
                     />
+                    {openComponentDropdown?.table === 'mouldHardness' && openComponentDropdown?.index === index && filteredComponentSuggestions.length > 0 && dropdownAnchor && createPortal(
+                      <div
+                        className="disamatic-component-suggestions"
+                        style={{
+                          position: 'fixed', left: dropdownAnchor.left, top: dropdownAnchor.top, width: dropdownAnchor.width,
+                          backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                          maxHeight: '150px', overflowY: 'auto', zIndex: 10000,
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {filteredComponentSuggestions.map((name, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              handleMouldHardnessChange(index, 'componentName', name);
+                              setOpenComponentDropdown(null);
+                            }}
+                            style={{
+                              padding: '8px 12px', cursor: 'pointer',
+                              borderBottom: idx < filteredComponentSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                              backgroundColor: 'white'
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                            onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -3165,9 +3385,9 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {mouldHardnessSubmitError && (
-            <InlineLoader 
+            <InlineLoader
               message={mouldHardnessSubmitError}
-              variant="danger"
+              variant={mouldHardnessSubmitError === MESSAGE_NOTHING_TO_SAVE ? 'primary' : 'danger'}
               size="medium"
             />
           )}
@@ -3233,23 +3453,72 @@ const DisamaticProduct = () => {
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
                       type="text"
+                      className="disamatic-component-input"
                       value={row.item}
-                      onChange={e => handlePatternTempChange(index, 'item', e.target.value)}
+                      onChange={e => {
+                        handlePatternTempChange(index, 'item', e.target.value);
+                        const filtered = filterComponentSuggestions('patternTemp', e.target.value);
+                        const rect = e.target.getBoundingClientRect();
+                        setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                        setFilteredComponentSuggestions(filtered);
+                        setOpenComponentDropdown(filtered.length && e.target.value ? { table: 'patternTemp', index } : null);
+                      }}
                       onKeyDown={e => handlePatternTempKeyDown(e, index, 'item')}
                       data-field={`${index}-patternTemp-item`}
                       placeholder="Item"
-                      style={{ 
-                        width: '100%', 
-                        padding: '0.5rem', 
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
                         borderRadius: '4px',
                         border: `2px solid ${getBorderColorPatternTemp(index, 'item')}`,
                         outline: 'none',
                         transition: 'border-color 0.2s'
                       }}
-                      onFocus={() => setFocusedField(`${index}-patternTemp-item`)}
+                      onFocus={e => {
+                        setFocusedField(`${index}-patternTemp-item`);
+                        if (row.item) {
+                          const filtered = filterComponentSuggestions('patternTemp', row.item);
+                          const rect = e.target.getBoundingClientRect();
+                          setDropdownAnchor({ left: rect.left, top: rect.bottom, width: rect.width });
+                          setFilteredComponentSuggestions(filtered);
+                          setOpenComponentDropdown(filtered.length ? { table: 'patternTemp', index } : null);
+                        }
+                      }}
                       onBlur={() => setFocusedField(null)}
                       disabled={!isPrimaryDataSaved}
                     />
+                    {openComponentDropdown?.table === 'patternTemp' && openComponentDropdown?.index === index && filteredComponentSuggestions.length > 0 && dropdownAnchor && createPortal(
+                      <div
+                        className="disamatic-component-suggestions"
+                        style={{
+                          position: 'fixed', left: dropdownAnchor.left, top: dropdownAnchor.top, width: dropdownAnchor.width,
+                          backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+                          maxHeight: '150px', overflowY: 'auto', zIndex: 10000,
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                      >
+                        {filteredComponentSuggestions.map((name, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              handlePatternTempChange(index, 'item', name);
+                              setOpenComponentDropdown(null);
+                            }}
+                            style={{
+                              padding: '8px 12px', cursor: 'pointer',
+                              borderBottom: idx < filteredComponentSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                              backgroundColor: 'white'
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                            onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </td>
                   <td style={{ padding: '0.75rem', border: '1px solid #e2e8f0' }}>
                     <input
@@ -3319,9 +3588,9 @@ const DisamaticProduct = () => {
         
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
           {patternTempSubmitError && (
-            <InlineLoader 
+            <InlineLoader
               message={patternTempSubmitError}
-              variant="danger"
+              variant={patternTempSubmitError === MESSAGE_NOTHING_TO_SAVE ? 'primary' : 'danger'}
               size="medium"
             />
           )}

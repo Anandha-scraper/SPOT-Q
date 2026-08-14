@@ -14,6 +14,12 @@ exports.createDMMSettings = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, message: result.message });
 });
 
+// `data` must be an array of plain strings — mirrors Disamatic's getComponentNames.
+exports.getCustomerNames = asyncHandler(async (req, res) => {
+    const names = await dmmLogService.listCustomerNames();
+    res.status(200).json({ success: true, count: names.length, data: names });
+});
+
 exports.getAllDMMSettings = asyncHandler(async (req, res) => {
     const data = await dmmLogService.getAllSettings();
 

@@ -74,7 +74,18 @@ async function saveParameterRow(date, machine, sectionShift, shiftData, userId) 
     const machineShiftId = await dmmLogRepository.ensureMachineShiftId(dmmLog.id, trimmedMachine, shiftNumber);
     const nextSNo = (await dmmLogRepository.countParameters(machineShiftId)) + 1;
 
-    const { data } = buildColumns(shiftData, { raw: STRING_FIELDS, numbers: NUMBER_FIELDS });
+    const { data, invalid } = buildColumns(shiftData, { raw: STRING_FIELDS, numbers: NUMBER_FIELDS });
+    if (invalid.length) throw invalidInput(invalid);
+
+    // Numeric columns are Float @default(0) NOT NULL; a blank field is now
+    // legitimately optional per DdmmSettingParameters.js (frontend no longer
+    // forces every shift field non-blank), and buildColumns maps blank to
+    // null — default it to 0 instead of letting Prisma reject it, same fix
+    // already applied to Disamatic's numeric fields (backend.md).
+    NUMBER_FIELDS.forEach((field) => {
+        if (data[field] === null) data[field] = 0;
+    });
+
     await dmmLogRepository.createParameterEntry(machineShiftId, { ...data, sNo: nextSNo, createdBy: userId ?? null });
 }
 
@@ -160,6 +171,15 @@ function loadEntryForAuth(id) {
     return dmmLogRepository.findEntryAuthInfo(id);
 }
 
+// Mirrors disaReportService.js's Component Name suggestion window.
+const CUSTOMER_SUGGESTION_WINDOW_DAYS = 90;
+
+function listCustomerNames() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - CUSTOMER_SUGGESTION_WINDOW_DAYS);
+    return dmmLogRepository.findDistinctFieldValues('dmmParameterEntry', 'customer', cutoff.toISOString().split('T')[0]);
+}
+
 module.exports = {
     getSettingsByDate,
     createSettings,
@@ -169,4 +189,5 @@ module.exports = {
     loadEntryForAuth,
     updateMachineShift,
     loadMachineShiftForAuth,
+    listCustomerNames,
 };

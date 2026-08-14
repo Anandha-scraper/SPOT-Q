@@ -6,18 +6,13 @@ import { CustomTimeInput, Time, MachineDropdown } from '../../Components/Buttons
 import { API_ENDPOINTS } from '../../config/api';
 import { InlineLoader } from '../../Components/InlineLoader';
 import { InfoIcon, InfoCard, useInfoModal } from '../../Components/Info';
-import { buildSubmitError, checkNumber, buildNumericGuardMap } from '../../utils/formValidation';
+import { buildSubmitError, buildNumericGuardMap, runValidation, getRequiredFields, RequiredMark } from '../../utils/formValidation';
 import { useArrowNavigation } from '../../utils/arrowNavigation';
-import { validationRanges, fieldMapping } from '../../deviations/DdmmSettingParameters';
+import { validationRanges, shiftFieldMapping } from '../../deviations/DdmmSettingParameters';
 import '../../styles/PageStyles/Moulding/DmmSettingParameters.css';
 
-const numericGuards = buildNumericGuardMap(validationRanges, fieldMapping);
-const ruleByField = Object.fromEntries(validationRanges.map((r) => [r.field, r]));
-const shiftRuleByKey = Object.fromEntries(
-  Object.entries(fieldMapping)
-    .filter(([label]) => ruleByField[label])
-    .map(([label, key]) => [key, ruleByField[label]])
-);
+const numericGuards = buildNumericGuardMap(validationRanges, shiftFieldMapping);
+const requiredFields = getRequiredFields(validationRanges, shiftFieldMapping);
 
 const initialRow = {
   customer: "",
@@ -365,11 +360,72 @@ const DmmSettingParameters = () => {
     }
   };
   const [shiftValidationErrors, setShiftValidationErrors] = useState({});
-  
+
+  // Customer autocomplete (last 90 days) — same pattern as Process.jsx's Part
+  // Name suggestions: fetched once on mount, filtered client-side as the user
+  // types. Customer is a single field (not a per-row table cell like
+  // Disamatic's Component Name), so no portal/per-row tracking is needed —
+  // plain position:absolute is fine here.
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [filteredCustomerNames, setFilteredCustomerNames] = useState([]);
+  const customerDropdownRef = useRef(null);
+
+  // Extracted (not just inline in the mount effect) so a successful save can
+  // re-fetch too — otherwise a customer typed this session wouldn't appear as
+  // a suggestion again until a full page reload.
+  const fetchCustomerNames = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.mouldingDmm}/customer-names`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) setCustomerSuggestions(data.data);
+    } catch (error) {
+      // Suggestion list is a nice-to-have — an empty list just shows no suggestions.
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomerNames();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filterCustomerNames = (value) =>
+    customerSuggestions.filter((n) => n.toUpperCase().includes(value.toUpperCase())).slice(0, 5);
+
+  const handleCustomerSelect = (name) => {
+    setCurrentRow((prev) => ({ ...prev, customer: name }));
+    setShowCustomerDropdown(false);
+  };
+
+  const handleCustomerFocus = () => {
+    if (currentRow.customer) {
+      const filtered = filterCustomerNames(currentRow.customer);
+      setFilteredCustomerNames(filtered);
+      setShowCustomerDropdown(filtered.length > 0);
+    } else {
+      setFilteredCustomerNames([]);
+      setShowCustomerDropdown(false);
+    }
+  };
+
   // Refs for submit button and first input
   const shiftSubmitRef = useRef(null);
   const shiftFirstInputRef = useRef(null);
   const ppThicknessRef = useRef(null);
+
+  const mark = (fieldName) => (requiredFields.has(fieldName) ? <RequiredMark /> : null);
 
   const getInputClassName = (fieldName) => {
     if (shiftValidationErrors[fieldName] === false) return 'invalid-input';
@@ -439,34 +495,6 @@ const DmmSettingParameters = () => {
     }
   };
 
-  // Real-time validation for shift parameter fields — returns the specific
-  // message from checkNumber() (utils/formValidation.js) for numeric fields
-  // instead of a generic fallback, per formrule.md section 6.
-  const validateShiftField = (fieldName, value) => {
-    const requiredFields = [
-      'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight',
-      'spThickness', 'spHeight', 'coreMaskThickness', 'coreMaskHeightOutside',
-      'coreMaskHeightInside', 'sandShotPressureBar', 'correctionShotTime',
-      'squeezePressure', 'ppStrippingAcceleration', 'ppStrippingDistance',
-      'spStrippingAcceleration', 'spStrippingDistance', 'mouldThicknessPlus10',
-      'closeUpForceMouldCloseUpPressure', 'remarks'
-    ];
-
-    if (!requiredFields.includes(fieldName)) return { isValid: true, message: '' };
-
-    const rule = shiftRuleByKey[fieldName];
-    const label = rule?.field || fieldName;
-    const isEmpty = value === undefined || value === null || String(value).trim() === '';
-    if (isEmpty) return { isValid: false, message: `${label} is required` };
-
-    if (rule && (rule.type === 'Number' || rule.type === 'Integer')) {
-      const result = checkNumber(rule, value, label);
-      if (!result.isValid) return result;
-    }
-
-    return { isValid: true, message: '' };
-  };
-
   const handleInputChange = (field, value) => {
     setCurrentRow((prev) => ({ ...prev, [field]: value }));
     
@@ -478,16 +506,14 @@ const DmmSettingParameters = () => {
     });
   };
 
-  // Helper function to check if Shift parameters have at least one field with data
-  const hasShiftParameterData = () => {
-    return (currentRow.customer && currentRow.customer.trim() !== '') ||
-           (currentRow.itemDescription && currentRow.itemDescription.trim() !== '') ||
-           (currentRow.time && currentRow.time.trim() !== '') ||
-           (currentRow.ppThickness && currentRow.ppThickness.toString().trim() !== '') ||
-           (currentRow.ppHeight && currentRow.ppHeight.toString().trim() !== '') ||
-           (currentRow.spThickness && currentRow.spThickness.toString().trim() !== '') ||
-           (currentRow.spHeight && currentRow.spHeight.toString().trim() !== '');
-  };
+  // Any field with data — checked against every field in initialRow (not a
+  // hardcoded subset), since every shift field is independently optional now
+  // that DdmmSettingParameters.js drives required-ness (see validateShiftRowBeforeSave).
+  const hasShiftParameterData = () =>
+    Object.keys(initialRow).some((key) => {
+      const value = currentRow[key];
+      return value !== undefined && value !== null && String(value).trim() !== '';
+    });
 
   // Handle Enter key navigation for shift parameter inputs
   const handleShiftKeyDown = (e, fieldName = '') => {
@@ -524,52 +550,30 @@ const DmmSettingParameters = () => {
     }
   };
 
-  // Validate entire shift parameter row before saving. Returns the first
-  // field-specific message (e.g. "PP Thickness must be a valid number")
-  // instead of a generic fallback, per formrule.md section 6.
+  // Validate the shift parameter row before saving — routed through the same
+  // runValidation engine (required + format, config-driven off
+  // DdmmSettingParameters.js) every sibling department uses, matching
+  // DisamaticProduct.jsx's validateSectionRows pattern.
   const validateShiftRowBeforeSave = () => {
+    const result = runValidation({ validationRanges, fieldMapping: shiftFieldMapping, formData: currentRow, inputRefs: null });
+
     const errors = {};
-    let hasErrors = false;
-    let firstErrorField = null;
-    let firstErrorMessage = null;
-
-    const requiredFields = [
-      'customer', 'itemDescription', 'time', 'ppThickness', 'ppHeight',
-      'spThickness', 'spHeight', 'coreMaskThickness', 'coreMaskHeightOutside',
-      'coreMaskHeightInside', 'sandShotPressureBar', 'correctionShotTime',
-      'squeezePressure', 'ppStrippingAcceleration', 'ppStrippingDistance',
-      'spStrippingAcceleration', 'spStrippingDistance', 'mouldThicknessPlus10',
-      'closeUpForceMouldCloseUpPressure', 'remarks'
-    ];
-
-    requiredFields.forEach(field => {
-      const result = validateShiftField(field, currentRow[field]);
-      if (!result.isValid) {
-        errors[field] = false;
-        hasErrors = true;
-        if (!firstErrorField) {
-          firstErrorField = field;
-          firstErrorMessage = result.message;
-        }
-      }
+    Object.entries(result.fieldStates).forEach(([key, state]) => {
+      if (state === false) errors[key] = false;
     });
-
     setShiftValidationErrors(errors);
 
-    if (hasErrors) {
-        if (firstErrorField) {
-        const shiftSection = document.querySelector('.dmm-shift-form-grid');
-        if (shiftSection) {
-          setTimeout(() => {
-            const errorInput = shiftSection.querySelector('.invalid-input');
-            if (errorInput) errorInput.focus();
-          }, 50);
-        }
+    if (!result.ok) {
+      const shiftSection = document.querySelector('.dmm-shift-form-grid');
+      if (shiftSection) {
+        setTimeout(() => {
+          const errorInput = shiftSection.querySelector('.invalid-input');
+          if (errorInput) errorInput.focus();
+        }, 50);
       }
-    } else {
-      }
+    }
 
-    return { ok: !hasErrors, message: firstErrorMessage };
+    return { ok: result.ok, message: result.ok ? null : result.message };
   };
 
   // Handle Enter key on submit button
@@ -665,8 +669,9 @@ const DmmSettingParameters = () => {
           body: JSON.stringify(paramsPayload)
         });
         const paramsRes = await paramsResp.json();
-        
+
         if (!paramsRes.success) throw new Error(paramsRes.message || 'Failed to save parameters');
+        fetchCustomerNames();
       }
       
       // Ensure minimum loader display time
@@ -678,7 +683,11 @@ const DmmSettingParameters = () => {
       setShiftValidationErrors({});
 
       // Show success message via InlineLoader
-      showSubmitMessage('Entry saved successfully', 'success', 3000);
+      showSubmitMessage(
+        hasShiftParameterData() ? 'Entry saved successfully' : 'Operator info saved (no parameter data entered)',
+        'success',
+        3000
+      );
 
       // Re-fetch combination to update locked fields & parameters count
       await fetchPrimaryData(primaryData.date, primaryData.machine, primaryData.shift);
@@ -707,21 +716,69 @@ const DmmSettingParameters = () => {
 
     return (
     <div className="dmm-form-grid dmm-shift-form-grid">
-      <div className="dmm-form-group full-width">
-        <label>Customer</label>
+      <div className="dmm-form-group full-width" ref={customerDropdownRef} style={{ position: 'relative' }}>
+        <label>Customer {mark('customer')}</label>
         <input
           type="text"
           ref={shiftFirstInputRef}
           value={currentRow.customer}
-          onChange={(e) => handleInputChange("customer", e.target.value)}
-          onKeyDown={handleShiftKeyDown}
+          onChange={(e) => {
+            handleInputChange("customer", e.target.value);
+            const value = e.target.value;
+            if (value) {
+              const filtered = filterCustomerNames(value);
+              setFilteredCustomerNames(filtered);
+              setShowCustomerDropdown(filtered.length > 0);
+            } else {
+              setFilteredCustomerNames([]);
+              setShowCustomerDropdown(false);
+            }
+          }}
+          onFocus={handleCustomerFocus}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setShowCustomerDropdown(false);
+              return;
+            }
+            if (e.key === 'Enter' && showCustomerDropdown && filteredCustomerNames.length > 0) {
+              e.preventDefault();
+              handleCustomerSelect(filteredCustomerNames[0]);
+              return;
+            }
+            handleShiftKeyDown(e);
+          }}
           placeholder="e.g., ABC Industries"
           disabled={fieldsDisabled}
           className={getInputClassName('customer')}
+          autoComplete="off"
         />
+        {showCustomerDropdown && filteredCustomerNames.length > 0 && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+            maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}>
+            {filteredCustomerNames.map((name, idx) => (
+              <div
+                key={idx}
+                onClick={() => handleCustomerSelect(name)}
+                style={{
+                  padding: '8px 12px', cursor: 'pointer',
+                  borderBottom: idx < filteredCustomerNames.length - 1 ? '1px solid #eee' : 'none',
+                  backgroundColor: 'white'
+                }}
+                onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+              >
+                {name}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="dmm-form-group">
-        <label>Item Description</label>
+        <label>Item Description {mark('itemDescription')}</label>
         <input
           type="text"
           value={currentRow.itemDescription}
@@ -733,7 +790,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Time</label>
+        <label>Time {mark('time')}</label>
         <CustomTimeInput
           value={createTimeFromString(currentRow.time)}
           onChange={(timeObj) => handleInputChange("time", formatTimeToString(timeObj))}
@@ -751,7 +808,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>PP Thickness (mm)</label>
+        <label>PP Thickness (mm) {mark('ppThickness')}</label>
         <input
           type="number"
           ref={ppThicknessRef}
@@ -766,7 +823,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>PP Height (mm)</label>
+        <label>PP Height (mm) {mark('ppHeight')}</label>
         <input
           type="number"
           value={currentRow.ppHeight}
@@ -780,7 +837,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>SP Thickness (mm)</label>
+        <label>SP Thickness (mm) {mark('spThickness')}</label>
         <input
           type="number"
           value={currentRow.spThickness}
@@ -794,7 +851,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>SP Height (mm)</label>
+        <label>SP Height (mm) {mark('spHeight')}</label>
         <input
           type="number"
           value={currentRow.spHeight}
@@ -808,7 +865,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Core Mask Thickness (mm)</label>
+        <label>Core Mask Thickness (mm) {mark('coreMaskThickness')}</label>
         <input
           type="number"
           value={currentRow.coreMaskThickness}
@@ -822,7 +879,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Core Mask Height Outside (mm)</label>
+        <label>Core Mask Height Outside (mm) {mark('coreMaskHeightOutside')}</label>
         <input
           type="number"
           value={currentRow.coreMaskHeightOutside}
@@ -836,7 +893,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Core Mask Height Inside (mm)</label>
+        <label>Core Mask Height Inside (mm) {mark('coreMaskHeightInside')}</label>
         <input
           type="number"
           value={currentRow.coreMaskHeightInside}
@@ -850,7 +907,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Sand Shot Pressure (Bar)</label>
+        <label>Sand Shot Pressure (Bar) {mark('sandShotPressureBar')}</label>
         <input
           type="number"
           value={currentRow.sandShotPressureBar}
@@ -864,7 +921,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Correction Shot Time (s)</label>
+        <label>Correction Shot Time (s) {mark('correctionShotTime')}</label>
         <input
           type="number"
           value={currentRow.correctionShotTime}
@@ -878,7 +935,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Squeeze Pressure (Kg/cm²)</label>
+        <label>Squeeze Pressure (Kg/cm²) {mark('squeezePressure')}</label>
         <input
           type="number"
           value={currentRow.squeezePressure}
@@ -892,7 +949,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>PP Stripping Acceleration</label>
+        <label>PP Stripping Acceleration {mark('ppStrippingAcceleration')}</label>
         <input
           type="number"
           value={currentRow.ppStrippingAcceleration}
@@ -906,7 +963,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>PP Stripping Distance</label>
+        <label>PP Stripping Distance {mark('ppStrippingDistance')}</label>
         <input
           type="number"
           value={currentRow.ppStrippingDistance}
@@ -920,7 +977,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>SP Stripping Acceleration</label>
+        <label>SP Stripping Acceleration {mark('spStrippingAcceleration')}</label>
         <input
           type="number"
           value={currentRow.spStrippingAcceleration}
@@ -934,7 +991,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>SP Stripping Distance</label>
+        <label>SP Stripping Distance {mark('spStrippingDistance')}</label>
         <input
           type="number"
           value={currentRow.spStrippingDistance}
@@ -948,7 +1005,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Mould Thickness ±10mm</label>
+        <label>Mould Thickness ±10mm {mark('mouldThicknessPlus10')}</label>
         <input
           type="number"
           value={currentRow.mouldThicknessPlus10}
@@ -963,7 +1020,7 @@ const DmmSettingParameters = () => {
       </div>
       <div className="dmm-form-group">
         <label>
-          <span>Close-Up Force / Pressure</span>
+          <span>Close-Up Force / Pressure {mark('closeUpForceMouldCloseUpPressure')}</span>
         </label>
         <input
           type="text"
@@ -976,7 +1033,7 @@ const DmmSettingParameters = () => {
         />
       </div>
       <div className="dmm-form-group">
-        <label>Remarks</label>
+        <label>Remarks {mark('remarks')}</label>
         <input
           type="text"
           value={currentRow.remarks}
@@ -1133,7 +1190,7 @@ const DmmSettingParameters = () => {
                       }
                     }
                   }}
-                  disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || fetchingPrimary}
+                  disabled={!primaryData.date || !primaryData.machine || !primaryData.shift || lockedFields.operatorName || fetchingPrimary}
                   placeholder="Enter name"
                 />
               </div>

@@ -246,7 +246,7 @@ const QcProductionDetailsReport = () => {
   const tableColumns = [
     { key: 'date', label: 'Date', width: '130px', xlsWidth: 16, align: 'center', render: (item) => formatDateDisplay(item.date) },
     { key: 'partName', label: 'Part Name', width: '180px', xlsWidth: 22, align: 'center' },
-    { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', xlsWidth: 14, align: 'center' },
+    { key: 'noOfMoulds', label: 'No.Of Moulds', width: '130px', xlsWidth: 14, align: 'center', render: (item) => (item.noOfMoulds ?? '-') },
     { key: 'cPercent', label: 'C %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.cPercentFrom, item.cPercentTo) },
     { key: 'siPercent', label: 'Si %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.siPercentFrom, item.siPercentTo) },
     { key: 'mnPercent', label: 'Mn %', width: '130px', xlsWidth: 12, align: 'center', render: (item) => formatFromTo(item.mnPercentFrom, item.mnPercentTo) },

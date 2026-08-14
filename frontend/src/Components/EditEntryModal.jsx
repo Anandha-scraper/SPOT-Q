@@ -203,35 +203,65 @@ const EditEntryModal = ({ open, config, entry, onClose, onSaved }) => {
 
         setSaving(true);
         try {
-            // Build payload, expanding dotted names into nested objects.
-            const payload = {};
+            // Most configs are single-endpoint: every field targets
+            // `${config.endpoint}/${entry._id}`. A field tagged `entity: 'primary'`
+            // targets `config.primary` instead (a different id space entirely,
+            // e.g. DMM's shift/operator row vs. its parameter row) — group fields
+            // by target so each endpoint only gets the fields it owns.
+            const targetFor = (f) =>
+                f.entity === 'primary' && config.primary
+                    ? config.primary
+                    : { endpoint: config.endpoint, idPath: '_id' };
+
+            const groups = new Map();
             fieldsToSend.forEach(f => {
-                let value = form[f.name];
-                if (isListField(f)) {
-                    value = serializeList(f, value || []);
-                } else if (f.type === 'number') {
-                    value = value === '' ? '' : Number(value);
+                const target = targetFor(f);
+                const key = `${target.endpoint}::${target.idPath}`;
+                if (!groups.has(key)) groups.set(key, { ...target, fields: [] });
+                groups.get(key).fields.push(f);
+            });
+
+            const results = await Promise.all(Array.from(groups.values()).map(async (group) => {
+                const id = getByPath(entry, group.idPath);
+                if (!id) return { ok: false, message: `Nothing to update — no id for ${group.endpoint}.` };
+
+                // Build payload, expanding dotted names into nested objects.
+                const payload = {};
+                group.fields.forEach(f => {
+                    let value = form[f.name];
+                    if (isListField(f)) {
+                        value = serializeList(f, value || []);
+                    } else if (f.type === 'number') {
+                        value = value === '' ? '' : Number(value);
+                    }
+                    setByPath(payload, f.name, value);
+                });
+
+                try {
+                    const response = await fetch(`${group.endpoint}/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    return { ok: response.ok && data.success, message: data.message };
+                } catch {
+                    return { ok: false, message: 'Network error while updating.' };
                 }
-                setByPath(payload, f.name, value);
-            });
+            }));
 
-            const response = await fetch(`${config.endpoint}/${entry._id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (response.ok && data.success) {
-                toast.success(data.message || 'Entry updated successfully.');
+            if (results.every(r => r.ok)) {
+                toast.success(results[0]?.message || 'Entry updated successfully.');
                 onSaved && onSaved();
                 onClose && onClose();
             } else {
-                toast.error(data.message || 'Failed to update entry.');
+                const failures = results.filter(r => !r.ok);
+                toast.error(failures.map(r => r.message || 'Failed to update entry.').join(' '));
+                // A partial success still changed real data — refresh the report
+                // even though the modal stays open for the user to retry the rest.
+                if (results.some(r => r.ok)) onSaved && onSaved();
             }
-        } catch (err) {
-            toast.error('Network error while updating. Please try again.');
         } finally {
             setSaving(false);
         }

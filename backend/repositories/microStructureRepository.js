@@ -89,6 +89,18 @@ async function findLatestSavedDisa() {
     return row ? row.disa : '';
 }
 
+// Mirrors disaReportRepository.js#findDistinctFieldValues — single-model
+// department, so no `model` param needed, just the field name.
+async function findDistinctFieldValues(field, cutoffDate) {
+    const rows = await prisma.microStructureEntry.findMany({
+        where: { [field]: { notIn: ['', '-'] }, microStructure: { date: { gte: cutoffDate } } },
+        distinct: [field],
+        select: { [field]: true },
+        orderBy: { [field]: 'asc' },
+    });
+    return rows.map((row) => row[field]);
+}
+
 module.exports = {
     ensureDateRow,
     findDateRow,
@@ -103,4 +115,5 @@ module.exports = {
     isDisaSaved,
     saveDisa,
     findLatestSavedDisa,
+    findDistinctFieldValues,
 };

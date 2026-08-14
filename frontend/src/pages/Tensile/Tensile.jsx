@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Save } from 'lucide-react';
 import { SubmitButton } from '../../Components/Buttons';
 import CustomDatePicker from '../../Components/CustomDatePicker';
@@ -49,6 +49,64 @@ const Tensile = () => {
   const submitButtonRef = useRef(null);
   const { containerRef: gridRef, handleArrowKeyDown } = useArrowNavigation();
 
+  // Item autocomplete (last 90 days) — copies MicroStructure.jsx's Part Name
+  // pattern directly (single field, not a per-row table cell, so no portal/
+  // per-row tracking needed).
+  const [itemSuggestions, setItemSuggestions] = useState([]);
+  const [showItemDropdown, setShowItemDropdown] = useState(false);
+  const [filteredItemNames, setFilteredItemNames] = useState([]);
+  const itemDropdownRef = useRef(null);
+
+  // Extracted (not inline in the mount effect) so a successful save can
+  // re-fetch too — otherwise an Item typed this session wouldn't appear as a
+  // suggestion again until a full page reload.
+  const fetchItemNames = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.tensile}/item-names`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success) setItemSuggestions(data.data);
+    } catch (error) {
+      // Suggestion list is a nice-to-have — an empty list just shows no suggestions.
+    }
+  };
+
+  useEffect(() => {
+    fetchItemNames();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (itemDropdownRef.current && !itemDropdownRef.current.contains(event.target)) {
+        setShowItemDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filterItemNames = (value) =>
+    itemSuggestions.filter((n) => n.toUpperCase().includes(value.toUpperCase())).slice(0, 5);
+
+  const handleItemSelect = (name) => {
+    setFormData(prev => ({ ...prev, item: name }));
+    setValidation('item', null);
+    setShowItemDropdown(false);
+  };
+
+  const handleItemFocus = () => {
+    if (formData.item) {
+      const filtered = filterItemNames(formData.item);
+      setFilteredItemNames(filtered);
+      setShowItemDropdown(filtered.length > 0);
+    } else {
+      setFilteredItemNames([]);
+      setShowItemDropdown(false);
+    }
+  };
+
   const getInputClassName = (validationState) => {
     if (validationState === false) return 'invalid-input';
     return '';
@@ -75,6 +133,18 @@ const Tensile = () => {
   };
 
   const handleKeyDown = (e, fieldName) => {
+    if (fieldName === 'item') {
+      if (e.key === 'Escape') {
+        setShowItemDropdown(false);
+        return;
+      }
+      if (e.key === 'Enter' && showItemDropdown && filteredItemNames.length > 0) {
+        e.preventDefault();
+        handleItemSelect(filteredItemNames[0]);
+        return;
+      }
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       const idx = fieldOrder.indexOf(fieldName);
@@ -199,6 +269,7 @@ const Tensile = () => {
         setFormData(prev => ({ ...prev, dateOfInspection: getCurrentDate() }));
 
         setSubmitErrorMessage('');
+        fetchItemNames();
 
         setTimeout(() => {
           inputRefs.current.dateOfInspection?.focus();
@@ -254,20 +325,56 @@ const Tensile = () => {
           />
         </div>
 
-        <div className="tensile-form-group">
+        <div className="tensile-form-group" ref={itemDropdownRef} style={{ position: 'relative' }}>
           <label>Item{mark('item')}</label>
           <input
             ref={(el) => inputRefs.current.item = el}
             type="text"
             name="item"
             value={formData.item}
-            onChange={handleChange}
+            onChange={e => {
+              handleChange(e);
+              const value = e.target.value;
+              if (value) {
+                const filtered = filterItemNames(value);
+                setFilteredItemNames(filtered);
+                setShowItemDropdown(filtered.length > 0);
+              } else {
+                setFilteredItemNames([]);
+                setShowItemDropdown(false);
+              }
+            }}
+            onFocus={handleItemFocus}
             onKeyDown={e => handleKeyDown(e, 'item')}
             placeholder="e.g: Steel Rod"
             autoComplete="off"
             disabled={!isDateSelected}
             className={getInputClassName(validationStates.item)}
           />
+          {showItemDropdown && filteredItemNames.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0,
+              backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '4px',
+              maxHeight: '150px', overflowY: 'auto', zIndex: 1000,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>
+              {filteredItemNames.map((name, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => handleItemSelect(name)}
+                  style={{
+                    padding: '8px 12px', cursor: 'pointer',
+                    borderBottom: idx < filteredItemNames.length - 1 ? '1px solid #eee' : 'none',
+                    backgroundColor: 'white'
+                  }}
+                  onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                  onMouseLeave={e => e.target.style.backgroundColor = 'white'}
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="tensile-form-group">

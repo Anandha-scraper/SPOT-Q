@@ -38,6 +38,14 @@ function filterEntries({ startDate, endDate }) {
     return tensileRepository.findEntries({ from: startDate, to: endDate || startDate });
 }
 
+const ITEM_NAME_WINDOW_DAYS = 90;
+
+function listItemNames() {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ITEM_NAME_WINDOW_DAYS);
+    return tensileRepository.findDistinctFieldValues('item', cutoff.toISOString().split('T')[0]);
+}
+
 async function createEntry(body, userId) {
     const source = body ?? {};
 
@@ -75,6 +83,7 @@ function loadEntryForAuth(id) {
 module.exports = {
     listEntries,
     filterEntries,
+    listItemNames,
     createEntry,
     updateEntry,
     deleteEntry,

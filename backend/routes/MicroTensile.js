@@ -7,7 +7,8 @@ const {
     savePrimary,
     createEntry,
     updateEntry,
-    deleteEntry
+    deleteEntry,
+    getItemNames
 } = require('../controllers/MicroTensile');
 const { authorizeEntry } = require('../middleware/entryAccess');
 const { loadEntryForAuth } = require('../services/microTensileService');
@@ -21,6 +22,9 @@ router.route('/')
 
 router.route('/filter')
     .get(filterEntries);
+
+router.route('/item-names')
+    .get(getItemNames);
 
 router.route('/check')
     .get(checkDateDisaEntries);

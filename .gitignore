@@ -11,7 +11,5 @@ package-lock.json
 
 # markdown
 .claude/
-CLAUDE.md
 command.md
-backend.md
-frontend.md
+CLAUDE.md

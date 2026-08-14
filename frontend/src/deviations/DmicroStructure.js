@@ -37,14 +37,12 @@ export const validationRanges = [
   {
     field: 'Heat Code',
     key: 'heatCode',
-    required: false,
     type: 'Number',
     pattern: 'e.g., 20'
   },
   {
     field: 'Nodularity %',
     key: 'nodularity',
-    required: false,
     type: 'Number',
     min: 0,
     max: 100,
@@ -53,14 +51,12 @@ export const validationRanges = [
   {
     field: 'Graphite Type',
     key: 'graphiteType',
-    required: false,
     type: 'Text'
   },
   // Range fields - combined min/max pairs
   {
     field: 'Count Range',
     key: ['countMin', 'countMax'],
-    required: false,
     type: 'NumberRange',
     requireMinForMax: true,
     min: 0,
@@ -69,7 +65,6 @@ export const validationRanges = [
   {
     field: 'Size Range',
     key: ['sizeMin', 'sizeMax'],
-    required: false,
     type: 'NumberRange',
     requireMinForMax: true,
     min: 0,
@@ -78,7 +73,6 @@ export const validationRanges = [
   {
     field: 'Ferrite Range %',
     key: ['ferriteMin', 'ferriteMax'],
-    required: false,
     type: 'NumberRange',
     requireMinForMax: true,
     min: 0,
@@ -88,7 +82,6 @@ export const validationRanges = [
   {
     field: 'Pearlite Range %',
     key: ['pearliteMin', 'pearliteMax'],
-    required: false,
     type: 'NumberRange',
     requireMinForMax: true,
     min: 0,
@@ -98,7 +91,6 @@ export const validationRanges = [
   {
     field: 'Carbide Range %',
     key: ['carbideMin', 'carbideMax'],
-    required: false,
     type: 'NumberRange',
     requireMinForMax: true,
     min: 0,
@@ -108,7 +100,6 @@ export const validationRanges = [
   {
     field: 'Remarks',
     key: 'remarks',
-    required: false,
     type: 'Text'
   }
 ];

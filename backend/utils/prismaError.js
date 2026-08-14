@@ -1,8 +1,6 @@
 const { Prisma } = require('@prisma/client');
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.';
 // Names copied from the generated migration SQL, not guessed from the model.
-// The primary-update services pre-check for a collision and throw a readable
-// 409 first; these entries only cover the race that slips past that check.
 const INDEX_TO_FIELDS = {
     users_employeeId_key: ['employeeId'],
     melting_log_primaries_meltingLogId_shift_furnaceNo_panel_key: ['shift', 'furnaceNo', 'panel'],

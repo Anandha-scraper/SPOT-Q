@@ -153,8 +153,12 @@ async function updateProductionEntry(id, body) {
         raw: ['counterNo', 'componentName', 'cycleTime', 'remarks'],
         integers: ['produced', 'poured', 'mouldsPerHour'],
     });
-    const blanked = ['produced', 'poured', 'mouldsPerHour'].filter((f) => data[f] === null);
-    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    if (invalid.length) throw invalidInput(invalid);
+    // produced/poured/mouldsPerHour are Int @default(0), not nullable — a
+    // cleared field substitutes the column's own default rather than being
+    // rejected (same fix as the Micro Tensile/Micro Structure NO_VALUE
+    // substitution, see backend.md).
+    ['produced', 'poured', 'mouldsPerHour'].forEach((f) => { if (data[f] === null) data[f] = 0; });
     requireEditableFields(data);
     return disaReportRepository.updateProductionEntry(id, data);
 }
@@ -164,8 +168,8 @@ async function updateNextShiftPlanEntry(id, body) {
         raw: ['componentName', 'remarks'],
         integers: ['plannedMoulds'],
     });
-    const blanked = ['plannedMoulds'].filter((f) => data[f] === null);
-    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    if (invalid.length) throw invalidInput(invalid);
+    if (data.plannedMoulds === null) data.plannedMoulds = 0;
     requireEditableFields(data);
     return disaReportRepository.updateNextShiftPlanEntry(id, data);
 }
@@ -173,15 +177,36 @@ async function updateNextShiftPlanEntry(id, body) {
 async function updateDelayEntry(id, body) {
     const { data, invalid } = buildColumns(body, { raw: ['delays'] });
     if (invalid.length) throw invalidInput(invalid);
-    requireEditableFields(data);
-    return disaReportRepository.updateDelayEntry(id, data);
+
+    // durationMinutes/fromTime/toTime are an inherently coupled triple per
+    // index — buildColumns only extracts 'delays' above, but body itself
+    // still carries the raw arrays, so they're read directly here.
+    const hasIntervalEdit = body.durationMinutes !== undefined || body.fromTime !== undefined || body.toTime !== undefined;
+    if (!Object.keys(data).length && !hasIntervalEdit) throw new AppError(400, 'No editable fields were provided.');
+
+    const ops = [];
+    if (Object.keys(data).length) ops.push(disaReportRepository.updateDelayEntry(id, data));
+    if (hasIntervalEdit) ops.push(disaReportRepository.replaceDelayIntervals(id, zipParallelArrays(body.durationMinutes, body.fromTime, body.toTime)));
+    return Promise.all(ops);
 }
 
 async function updateMouldHardnessEntry(id, body) {
     const { data, invalid } = buildColumns(body, { raw: ['componentName', 'remarks'] });
     if (invalid.length) throw invalidInput(invalid);
-    requireEditableFields(data);
-    return disaReportRepository.updateMouldHardnessEntry(id, data);
+
+    // mpPP/mpSP/bsPP/bsSP are independent of each other — only replace the
+    // kind(s) actually present in body, never all 4, or editing one kind
+    // would silently wipe the other 3's saved readings.
+    const editedKinds = ['mpPP', 'mpSP', 'bsPP', 'bsSP'].filter((k) => body[k] !== undefined);
+    if (!Object.keys(data).length && !editedKinds.length) throw new AppError(400, 'No editable fields were provided.');
+
+    const ops = [];
+    if (Object.keys(data).length) ops.push(disaReportRepository.updateMouldHardnessEntry(id, data));
+    editedKinds.forEach((kind) => {
+        const values = (Array.isArray(body[kind]) ? body[kind] : []).map((v) => (Array.isArray(v) ? v[0] : v));
+        ops.push(disaReportRepository.replaceMouldHardnessReadingsForKind(id, kind, values));
+    });
+    return Promise.all(ops);
 }
 
 async function updatePatternTempEntry(id, body) {
@@ -189,8 +214,8 @@ async function updatePatternTempEntry(id, body) {
         raw: ['item'],
         integers: ['pp', 'sp'],
     });
-    const blanked = ['pp', 'sp'].filter((f) => data[f] === null);
-    if (invalid.length || blanked.length) throw invalidInput([...invalid, ...blanked]);
+    if (invalid.length) throw invalidInput(invalid);
+    ['pp', 'sp'].forEach((f) => { if (data[f] === null) data[f] = 0; });
     requireEditableFields(data);
     return disaReportRepository.updatePatternTempEntry(id, data);
 }
@@ -208,6 +233,15 @@ const SECTION_UPDATERS = {
     patternTempEdits: updatePatternTempEntry,
 };
 
+// Same section-name strings createDismaticReport's switch already uses.
+const SECTION_MODEL_BY_KEY = {
+    production: 'disaProductionEntry',
+    nextShiftPlan: 'disaNextShiftPlanEntry',
+    delays: 'disaDelayEntry',
+    mouldHardness: 'disaMouldHardnessEntry',
+    patternTemp: 'disaPatternTempEntry',
+};
+
 async function updateReportEntries(reportId, body) {
     const ops = [];
     for (const [key, updater] of Object.entries(SECTION_UPDATERS)) {
@@ -216,7 +250,36 @@ async function updateReportEntries(reportId, body) {
             ops.push(updater(edit.id, edit.data ?? {}));
         }
     }
+
+    // Primary fields (Incharge/PP Operator/Members Present) and Events fields
+    // (Significant Event/Maintenance/Supervisor Name) live on the report row
+    // itself, not a child table — same allowlisted patch shape savePrimary/
+    // saveEvents already use, so the report page's inline edit can correct
+    // them too.
+    const patch = {};
+    if (body?.incharge !== undefined) patch.incharge = String(body.incharge ?? '').trim() || null;
+    if (body?.ppOperator !== undefined) patch.ppOperator = String(body.ppOperator ?? '').trim() || null;
+    if (body?.significantEvent !== undefined) patch.significantEvent = String(body.significantEvent ?? '').trim() || null;
+    if (body?.maintenance !== undefined) patch.maintenance = String(body.maintenance ?? '').trim() || null;
+    if (body?.supervisorName !== undefined) patch.supervisorName = String(body.supervisorName ?? '').trim() || null;
+    if (Object.keys(patch).length) ops.push(disaReportRepository.updateReportFields(reportId, patch));
+
+    if (body?.members !== undefined) {
+        const filtered = Array.isArray(body.members) ? body.members.filter((m) => m && m.trim() !== '') : [];
+        if (filtered.length > MAX_MEMBERS) throw new AppError(400, 'Maximum 4 members allowed.');
+        ops.push(disaReportRepository.replaceMembers(reportId, filtered));
+    }
+
     await Promise.all(ops);
+
+    // Deletes remaining siblings' sNo, so it must fully complete before the
+    // refetch below rather than racing inside Promise.all(ops) above.
+    if (body?.deleteRow) {
+        const model = SECTION_MODEL_BY_KEY[body.deleteRow.table];
+        if (!model) throw new AppError(400, 'Unknown table for row deletion.');
+        const deleted = await disaReportRepository.deleteRowAndRenumber(model, body.deleteRow.id, reportId);
+        if (!deleted) throw new AppError(404, 'Row not found.');
+    }
 
     const full = await disaReportRepository.findReportWithEverything(reportId);
     return toWireReport(full);
@@ -224,6 +287,31 @@ async function updateReportEntries(reportId, body) {
 
 function deleteReport(reportId) {
     return disaReportRepository.deleteReport(reportId);
+}
+
+// Only the 3 tables with a componentName column — Delays/PatternTemp use
+// different fields ('delays'/'item') and aren't relevant here.
+const COMPONENT_NAME_MODEL_BY_KEY = {
+    production: 'disaProductionEntry',
+    nextShiftPlan: 'disaNextShiftPlanEntry',
+    mouldHardness: 'disaMouldHardnessEntry',
+};
+const SUGGESTION_WINDOW_DAYS = 90;
+
+const suggestionCutoffDate = () => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - SUGGESTION_WINDOW_DAYS);
+    return cutoff.toISOString().split('T')[0];
+};
+
+function listComponentNames(table) {
+    const model = COMPONENT_NAME_MODEL_BY_KEY[table];
+    if (!model) throw new AppError(400, 'Unknown table for component name suggestions.');
+    return disaReportRepository.findDistinctFieldValues(model, 'componentName', suggestionCutoffDate());
+}
+
+function listPatternTempItems() {
+    return disaReportRepository.findDistinctFieldValues('disaPatternTempEntry', 'item', suggestionCutoffDate());
 }
 
 function loadReportForAuth(id) {
@@ -275,10 +363,10 @@ async function getPrimaryByDateShift(date, shift) {
     };
 }
 
-async function savePrimary({ date, shift, incharge, ppOperator, members }) {
+async function savePrimary({ date, shift, incharge, ppOperator, members, userId }) {
     if (!date || !shift) throw new AppError(400, 'Date and shift are required.');
 
-    const report = await ensureReport(date, shift);
+    const report = await ensureReport(date, shift, userId);
     const patch = {};
     if (incharge !== undefined && incharge !== null) patch.incharge = incharge.trim() || null;
     if (ppOperator !== undefined && ppOperator !== null) patch.ppOperator = ppOperator.trim() || null;
@@ -420,4 +508,6 @@ module.exports = {
     updateReportEntries,
     deleteReport,
     loadReportForAuth,
+    listComponentNames,
+    listPatternTempItems,
 };

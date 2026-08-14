@@ -174,17 +174,17 @@ const TensileReport = () => {
     },
     { key: 'item', label: 'Item', width: '200px', xlsWidth: 24, align: 'center' },
     { key: 'dateCode', label: 'Date Code', width: '120px', xlsWidth: 14, align: 'center' },
-    { key: 'heatCode', label: 'Heat Code', width: '120px', xlsWidth: 14, align: 'center' },
-    { key: 'dia', label: 'Dia (mm)', width: '100px', xlsWidth: 12, align: 'center' },
-    { key: 'lo', label: 'Lo (mm)', width: '100px', xlsWidth: 12, align: 'center' },
-    { key: 'li', label: 'Li (mm)', width: '100px', xlsWidth: 12, align: 'center' },
-    { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '160px', xlsWidth: 18, align: 'center' },
-    { key: 'yieldLoad', label: 'Yield Load (kN)', width: '140px', xlsWidth: 16, align: 'center' },
-    { key: 'uts', label: 'UTS (N/mm²)', width: '120px', xlsWidth: 14, align: 'center' },
-    { key: 'ys', label: 'YS (N/mm²)', width: '120px', xlsWidth: 14, align: 'center' },
-    { key: 'elongation', label: 'Elongation (%)', width: '140px', xlsWidth: 16, align: 'center' },
-    { key: 'testedBy', label: 'Tested By', width: '140px', xlsWidth: 16, align: 'center' },
-    { key: 'remarks', label: 'Remarks', width: '200px', xlsWidth: 24, align: 'center' }
+    { key: 'heatCode', label: 'Heat Code', width: '120px', xlsWidth: 14, align: 'center', render: (item) => item.heatCode || '-' },
+    { key: 'dia', label: 'Dia (mm)', width: '100px', xlsWidth: 12, align: 'center', render: (item) => item.dia || '-' },
+    { key: 'lo', label: 'Lo (mm)', width: '100px', xlsWidth: 12, align: 'center', render: (item) => item.lo || '-' },
+    { key: 'li', label: 'Li (mm)', width: '100px', xlsWidth: 12, align: 'center', render: (item) => item.li || '-' },
+    { key: 'breakingLoad', label: 'Breaking Load (kN)', width: '160px', xlsWidth: 18, align: 'center', render: (item) => item.breakingLoad || '-' },
+    { key: 'yieldLoad', label: 'Yield Load (kN)', width: '140px', xlsWidth: 16, align: 'center', render: (item) => item.yieldLoad || '-' },
+    { key: 'uts', label: 'UTS (N/mm²)', width: '120px', xlsWidth: 14, align: 'center', render: (item) => item.uts || '-' },
+    { key: 'ys', label: 'YS (N/mm²)', width: '120px', xlsWidth: 14, align: 'center', render: (item) => item.ys || '-' },
+    { key: 'elongation', label: 'Elongation (%)', width: '140px', xlsWidth: 16, align: 'center', render: (item) => item.elongation || '-' },
+    { key: 'testedBy', label: 'Tested By', width: '140px', xlsWidth: 16, align: 'center', render: (item) => item.testedBy || '-' },
+    { key: 'remarks', label: 'Remarks', width: '200px', xlsWidth: 24, align: 'center', render: (item) => item.remarks || '-' }
   ];
 
   // Actions column is display-only (not part of the Excel export columns).

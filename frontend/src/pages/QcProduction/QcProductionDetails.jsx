@@ -224,21 +224,24 @@ const QcProductionDetails = () => {
   };
 
 
-  useEffect(() => {
-    const fetchPartNames = async () => {
-      try {
-        const response = await fetch(`${API_ENDPOINTS.qcReports}/part-names`, {
-          method: 'GET',
-          credentials: 'include'
-        });
-        const data = await response.json();
-        if (data.success && data.partNames) {
-          setPartNames(data.partNames);
-        }
-      } catch (error) {
+  // Extracted (not inline in the mount effect) so a successful save can
+  // re-fetch too — otherwise a Part Name typed this session wouldn't appear
+  // as a suggestion again until a full page reload.
+  const fetchPartNames = async () => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.qcReports}/part-names`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.success && data.partNames) {
+        setPartNames(data.partNames);
       }
-    };
+    } catch (error) {
+    }
+  };
 
+  useEffect(() => {
     fetchPartNames();
   }, []);
 
@@ -626,6 +629,7 @@ const QcProductionDetails = () => {
         resetFormData();
         // Re-default the date to today after the reset (still changeable).
         setFormData(prev => ({ ...prev, date: getCurrentDate() }));
+        fetchPartNames();
 
         setTimeout(() => {
           inputRefs.current.date?.focus();

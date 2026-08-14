@@ -15,7 +15,6 @@ async function main() {
     const employeeId = (process.env.PROD_SPOT_Q_ADMIN_ID || '').trim().toUpperCase();
     const name = (process.env.PROD_SPOT_Q_ADMIN_NAME || 'Administrator').trim();
     const password = process.env.PROD_SPOT_Q_ADMIN_PASSWORD;
-    const allowReset = process.env.PROD_SPOT_Q_ADMIN_RESET_PASSWORD === 'true';
     if (!employeeId || !password) {
         console.error('Missing required env vars: PROD_SPOT_Q_ADMIN_ID, PROD_SPOT_Q_ADMIN_PASSWORD');
         process.exit(1);
@@ -26,46 +25,23 @@ async function main() {
     }
     const existing = await prisma.user.findUnique({ where: { employeeId } });
 
-    // Only one admin account is allowed. If an admin already exists under a different
-    // employeeId, refuse rather than silently creating a second one.
-    if (!existing) {
-        const otherAdmin = await prisma.user.findFirst({ where: { role: ROLES.ADMIN } });
-        if (otherAdmin) {
-            console.error(`An admin already exists: ${otherAdmin.employeeId}. Only one admin is allowed.`);
-            console.error(`Set PROD_SPOT_Q_ADMIN_ID=${otherAdmin.employeeId} to manage that account instead.`);
-            process.exit(1);
-        }
-    }
-
-    if (existing && !allowReset) {
+    if (existing) {
         describe('Admin already exists — no changes made.', existing);
-        console.log('  (set PROD_SPOT_Q_ADMIN_RESET_PASSWORD=true to overwrite the password)');
         return;
     }
     const passwordHash = await hashPassword(password);
-    const user = existing
-        ? await prisma.user.update({
-              where: { employeeId },
-              data: {
-                  passwordHash,
-                  name,
-                  role: ROLES.ADMIN,
-                  department: ADMIN_DEPARTMENT,
-                  isActive: true,
-              },
-          })
-        : await prisma.user.create({
-              data: {
-                  employeeId,
-                  name,
-                  passwordHash,
-                  role: ROLES.ADMIN,
-                  department: ADMIN_DEPARTMENT,
-                  isActive: true,
-              },
-          });
+    const user = await prisma.user.create({
+        data: {
+            employeeId,
+            name,
+            passwordHash,
+            role: ROLES.ADMIN,
+            department: ADMIN_DEPARTMENT,
+            isActive: true,
+        },
+    });
 
-    describe(existing ? 'Admin password reset.' : 'Admin created successfully.', user);
+    describe('Admin created successfully.', user);
 }
 
 main()
